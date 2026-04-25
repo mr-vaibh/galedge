@@ -12,6 +12,7 @@ import {
   Grid3X3,
   Briefcase,
   Brain,
+  Settings,
 } from "lucide-react";
 import {
   Sidebar,
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { title: "Correlation", href: "/correlation", icon: Grid3X3 },
   { title: "AI Predict", href: "/predict", icon: Brain },
   { title: "Portfolio", href: "/portfolio", icon: Briefcase },
+  { title: "Settings", href: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {

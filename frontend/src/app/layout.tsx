@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
+import { CurrencyProvider } from "@/lib/currency";
 
 const geistSans = Geist({
   variable: "--font-sans",
@@ -139,6 +140,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full">
+        <CurrencyProvider>
         <TooltipProvider>
           <SidebarProvider>
             <AppSidebar />
@@ -158,6 +160,7 @@ export default function RootLayout({
             </SidebarInset>
           </SidebarProvider>
         </TooltipProvider>
+        </CurrencyProvider>
       </body>
     </html>
   );

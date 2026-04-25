@@ -1,143 +1,143 @@
 {
   "timeframe": 20,
-  "trained_at": "2026-04-25T21:04:09.569818",
+  "trained_at": "2026-04-25T21:22:42.478794",
   "symbols_count": 51,
   "total_samples": 21726,
   "train_samples": 16294,
   "test_samples": 2716,
   "classifier": {
-    "accuracy": 0.5795,
-    "precision": 0.5077,
-    "recall": 0.2287,
-    "f1": 0.3153,
+    "accuracy": 0.5851,
+    "precision": 0.5214,
+    "recall": 0.2435,
+    "f1": 0.332,
     "pos_rate_train": 0.5005,
     "pos_rate_test": 0.4234
   },
   "regressor": {
-    "rmse": 0.122958,
-    "mae": 0.086387,
-    "directional_accuracy": 0.5655
+    "rmse": 0.123321,
+    "mae": 0.086827,
+    "directional_accuracy": 0.5689
   },
   "feature_importances": [
     {
       "name": "month_cos",
-      "importance": 0.04352
+      "importance": 0.04406
     },
     {
       "name": "month_sin",
-      "importance": 0.03407
+      "importance": 0.03215
     },
     {
       "name": "revenue_growth",
-      "importance": 0.03054
-    },
-    {
-      "name": "beta",
-      "importance": 0.027
+      "importance": 0.02889
     },
     {
       "name": "atr_14",
-      "importance": 0.02679
+      "importance": 0.02655
+    },
+    {
+      "name": "beta",
+      "importance": 0.02624
     },
     {
       "name": "quarter_end_proximity",
-      "importance": 0.02627
+      "importance": 0.02602
     },
     {
       "name": "dividend_yield",
-      "importance": 0.02458
-    },
-    {
-      "name": "analyst_score",
-      "importance": 0.02374
+      "importance": 0.02547
     },
     {
       "name": "gross_margin",
-      "importance": 0.02281
+      "importance": 0.02311
     },
     {
-      "name": "insider_net_shares",
-      "importance": 0.02259
+      "name": "analyst_score",
+      "importance": 0.02234
     },
     {
       "name": "analyst_momentum",
-      "importance": 0.02248
+      "importance": 0.02206
     },
     {
       "name": "dist_from_low_52w",
-      "importance": 0.02104
-    },
-    {
-      "name": "roa",
-      "importance": 0.02097
-    },
-    {
-      "name": "pe_spread",
-      "importance": 0.02086
-    },
-    {
-      "name": "profit_margin",
-      "importance": 0.02039
+      "importance": 0.02098
     },
     {
       "name": "peg_ratio",
-      "importance": 0.02024
+      "importance": 0.02076
     },
     {
-      "name": "roe",
-      "importance": 0.01975
+      "name": "pe_spread",
+      "importance": 0.02069
     },
     {
       "name": "earnings_growth",
-      "importance": 0.01946
+      "importance": 0.0206
     },
     {
-      "name": "put_call_ratio",
-      "importance": 0.0194
+      "name": "insider_net_shares",
+      "importance": 0.02036
     },
     {
-      "name": "trailing_pe",
-      "importance": 0.01927
-    },
-    {
-      "name": "debt_to_equity",
-      "importance": 0.01901
-    },
-    {
-      "name": "vol_20d",
-      "importance": 0.0187
+      "name": "profit_margin",
+      "importance": 0.02031
     },
     {
       "name": "forward_pe",
-      "importance": 0.01828
+      "importance": 0.02019
+    },
+    {
+      "name": "roa",
+      "importance": 0.02013
     },
     {
       "name": "operating_margin",
-      "importance": 0.01813
+      "importance": 0.01998
     },
     {
-      "name": "plus_di",
-      "importance": 0.01803
+      "name": "vol_20d",
+      "importance": 0.01962
     },
     {
-      "name": "macd_signal",
-      "importance": 0.01771
+      "name": "roe",
+      "importance": 0.0192
+    },
+    {
+      "name": "debt_to_equity",
+      "importance": 0.01885
+    },
+    {
+      "name": "trailing_pe",
+      "importance": 0.01885
+    },
+    {
+      "name": "sma20_above_sma50",
+      "importance": 0.01881
     },
     {
       "name": "dist_from_high_52w",
-      "importance": 0.01735
+      "importance": 0.01875
+    },
+    {
+      "name": "put_call_ratio",
+      "importance": 0.0184
+    },
+    {
+      "name": "macd_signal",
+      "importance": 0.01723
+    },
+    {
+      "name": "plus_di",
+      "importance": 0.01705
     },
     {
       "name": "macd_histogram",
-      "importance": 0.01666
+      "importance": 0.01662
     },
     {
-      "name": "vol_10d",
-      "importance": 0.01666
-    },
-    {
-      "name": "return_10d",
-      "importance": 0.01623
+      "name": "macd",
+      "importance": 0.01626
     }
   ],
   "feature_columns": [

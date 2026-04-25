@@ -15,7 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Brain, TrendingUp, TrendingDown, Minus, AlertTriangle, Target, Shield, BarChart3 } from "lucide-react";
-import { formatPrice, formatNumber, formatPercent, changeColor } from "@/lib/format";
+import { formatPercent, changeColor } from "@/lib/format";
+import { useCurrency } from "@/lib/currency";
 
 function ScoreGauge({ label, score, color }: { label: string; score: number; color: string }) {
   const pct = Math.min(score, 100);
@@ -71,6 +72,8 @@ export default function PredictPage() {
   const [backtest, setBacktest] = useState<BacktestResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { formatCurrency, formatCurrencyCompact, symbol: curSymbol } = useCurrency();
+  const stockCur = symbol.endsWith(".NS") || symbol.endsWith(".BO") ? "INR" : "USD";
 
   async function analyze() {
     if (!symbol.trim()) return;
@@ -176,15 +179,15 @@ export default function PredictPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
                     <div className="text-xs text-muted-foreground mb-1">Entry Price</div>
-                    <div className="font-bold tabular-nums">{formatPrice(p.recommendation.entry_price)}</div>
+                    <div className="font-bold tabular-nums">{formatCurrency(p.recommendation.entry_price, stockCur)}</div>
                   </div>
                   <div>
                     <div className="text-xs text-muted-foreground mb-1">Stop Loss</div>
-                    <div className="font-bold text-red-400 tabular-nums">{formatPrice(p.recommendation.stop_loss)} ({p.recommendation.stop_loss_pct}%)</div>
+                    <div className="font-bold text-red-400 tabular-nums">{formatCurrency(p.recommendation.stop_loss, stockCur)} ({p.recommendation.stop_loss_pct}%)</div>
                   </div>
                   <div>
                     <div className="text-xs text-muted-foreground mb-1">Position Size</div>
-                    <div className="font-bold tabular-nums">{formatNumber(p.recommendation.position_size)} ({p.recommendation.position_pct}%)</div>
+                    <div className="font-bold tabular-nums">{formatCurrencyCompact(p.recommendation.position_size, stockCur)} ({p.recommendation.position_pct}%)</div>
                   </div>
                   <div>
                     <div className="text-xs text-muted-foreground mb-1">Risk/Reward</div>
@@ -196,7 +199,7 @@ export default function PredictPage() {
                   <div className="flex gap-6">
                     {p.recommendation.targets.map((t, i) => (
                       <div key={i}>
-                        <span className="text-emerald-400 font-bold tabular-nums">{formatPrice(t.price)}</span>
+                        <span className="text-emerald-400 font-bold tabular-nums">{formatCurrency(t.price, stockCur)}</span>
                         <span className="text-xs text-muted-foreground ml-1">({t.return_pct > 0 ? "+" : ""}{t.return_pct}%)</span>
                         <div className="text-[10px] text-muted-foreground">{(t.probability * 100).toFixed(0)}% probability</div>
                       </div>

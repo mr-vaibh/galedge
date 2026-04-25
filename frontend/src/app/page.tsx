@@ -3,11 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, QuoteSummary } from "@/lib/api";
+import { useCurrency } from "@/lib/currency";
 import {
-  formatPrice,
-  formatChange,
   formatPercent,
-  formatNumber,
+  formatChange,
   changeColor,
   changeBg,
 } from "@/lib/format";
@@ -23,6 +22,9 @@ const INDIAN_SYMBOLS = [
 
 function QuoteCard({ q }: { q: QuoteSummary }) {
   const router = useRouter();
+  const { formatCurrency, formatCurrencyCompact } = useCurrency();
+  // Detect currency from symbol suffix
+  const cur = q.symbol.endsWith(".NS") || q.symbol.endsWith(".BO") ? "INR" : "USD";
 
   return (
     <button
@@ -39,7 +41,7 @@ function QuoteCard({ q }: { q: QuoteSummary }) {
       </div>
       <div className="flex items-baseline justify-between">
         <span className="text-lg font-bold text-white tabular-nums">
-          {formatPrice(q.price)}
+          {formatCurrency(q.price, cur)}
         </span>
         <div className="text-right">
           <div className={`text-sm font-medium tabular-nums ${changeColor(q.change)}`}>
@@ -51,8 +53,8 @@ function QuoteCard({ q }: { q: QuoteSummary }) {
         </div>
       </div>
       <div className="mt-2 flex justify-between text-xs text-zinc-600">
-        <span>Vol {formatNumber(q.volume)}</span>
-        <span>MCap {formatNumber(q.marketCap)}</span>
+        <span>Vol {formatCurrencyCompact(q.volume, cur)}</span>
+        <span>MCap {formatCurrencyCompact(q.marketCap, cur)}</span>
       </div>
     </button>
   );

@@ -21,6 +21,14 @@ BOLD = "\033[1m"
 RESET = "\033[0m"
 
 
+def _currency_symbol(ticker: str) -> str:
+    """Return currency symbol based on ticker suffix."""
+    t = ticker.upper()
+    if t.endswith(".NS") or t.endswith(".BO"):
+        return "₹"
+    return "$"
+
+
 def _color_val(val: float, ref: float, fmt: str = ">10.2f") -> str:
     s = f"{val:{fmt}}"
     if val > ref:
@@ -135,11 +143,12 @@ def _cmd_show(args: argparse.Namespace) -> None:
     df["change_pct"] = (df["change"] / df["prev_close"]) * 100
 
     ticker = args.ticker.upper()
+    cs = _currency_symbol(ticker)
     header = (
-        f"{'DATE':<18} {'OPEN':>10} {'HIGH':>10} {'LOW':>10} "
-        f"{'CLOSE':>10} {'CHG':>10} {'CHG%':>9} {'VOLUME':>10}"
+        f"{'DATE':<18} {'OPEN':>11} {'HIGH':>11} {'LOW':>11} "
+        f"{'CLOSE':>11} {'CHG':>10} {'CHG%':>9} {'VOLUME':>10}"
     )
-    sep = "─" * 93
+    sep = "─" * 97
 
     _print_header(ticker, args.interval)
 
@@ -147,12 +156,12 @@ def _cmd_show(args: argparse.Namespace) -> None:
     for _, row in df.iterrows():
         dt = row["datetime"].strftime("%Y-%m-%d %H:%M")
         prev = row["prev_close"] if pd.notna(row["prev_close"]) else row["open"]
-        close_str = _color_val(row["close"], prev)
+        close_str = _color_val(row["close"], prev, ">10.2f")
         chg = row["change"] if pd.notna(row["change"]) else 0.0
         pct = row["change_pct"] if pd.notna(row["change_pct"]) else 0.0
 
         rows.append(
-            f"{dt:<18} {row['open']:>10.2f} {row['high']:>10.2f} {row['low']:>10.2f} "
+            f"{dt:<18} {cs}{row['open']:>10.2f} {cs}{row['high']:>10.2f} {cs}{row['low']:>10.2f} "
             f"{close_str} {_color_change(chg):>20} {_color_pct(pct):>19} {_fmt_volume(int(row['volume'])):>10}"
         )
 
