@@ -106,8 +106,8 @@ export default function PredictPage() {
       </div>
 
       {/* Input Form */}
-      <Card>
-        <CardContent className="pt-6">
+      <Card className="overflow-visible">
+        <CardContent className="pt-6 overflow-visible">
           <div className="flex flex-wrap gap-4 items-end">
             <div className="space-y-1.5">
               <Label className="text-xs">Symbol</Label>
