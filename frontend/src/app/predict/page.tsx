@@ -117,8 +117,11 @@ export default function PredictPage() {
               <SymbolInput value={symbol} onChange={setSymbol} className="w-[180px]" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Portfolio Value</Label>
-              <Input type="number" value={portfolioValue} onChange={(e) => setPortfolioValue(e.target.value)} className="w-[150px]" />
+              <Label className="text-xs">Portfolio Value ({curSymbol})</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{curSymbol}</span>
+                <Input type="number" value={portfolioValue} onChange={(e) => setPortfolioValue(e.target.value)} className="w-[170px] pl-7" />
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Risk Tolerance</Label>

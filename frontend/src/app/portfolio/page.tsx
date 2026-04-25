@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Trash2, Plus } from "lucide-react";
 import { SymbolInput } from "@/components/SymbolInput";
+import { useCurrency } from "@/lib/currency";
 import {
   formatPrice,
   formatChange,
@@ -27,6 +28,8 @@ interface HoldingWithQuote extends Holding {
 
 export default function PortfolioPage() {
   const router = useRouter();
+  const { symbol: curSymbol, formatCurrency, formatCurrencyCompact } = useCurrency();
+  const hCur = (h: HoldingWithQuote) => h.symbol.endsWith(".NS") || h.symbol.endsWith(".BO") ? "INR" : "USD";
   const [holdings, setHoldings] = useState<HoldingWithQuote[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -118,8 +121,11 @@ export default function PortfolioPage() {
               <Input type="number" placeholder="10" value={form.shares} onChange={(e) => setForm({ ...form, shares: e.target.value })} className="w-[100px]" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Buy Price</Label>
-              <Input type="number" placeholder="150.00" value={form.buyPrice} onChange={(e) => setForm({ ...form, buyPrice: e.target.value })} className="w-[120px]" step="0.01" />
+              <Label className="text-xs">Buy Price ({curSymbol})</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{curSymbol}</span>
+                <Input type="number" placeholder="150.00" value={form.buyPrice} onChange={(e) => setForm({ ...form, buyPrice: e.target.value })} className="w-[140px] pl-7" step="0.01" />
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Buy Date</Label>
@@ -135,15 +141,15 @@ export default function PortfolioPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="rounded-lg border bg-card p-4">
             <div className="text-xs text-muted-foreground">Total Invested</div>
-            <div className="text-lg font-bold tabular-nums">{formatNumber(totalInvested)}</div>
+            <div className="text-lg font-bold tabular-nums">{formatCurrencyCompact(totalInvested)}</div>
           </div>
           <div className="rounded-lg border bg-card p-4">
             <div className="text-xs text-muted-foreground">Current Value</div>
-            <div className="text-lg font-bold tabular-nums">{formatNumber(totalCurrent)}</div>
+            <div className="text-lg font-bold tabular-nums">{formatCurrencyCompact(totalCurrent)}</div>
           </div>
           <div className="rounded-lg border bg-card p-4">
             <div className="text-xs text-muted-foreground">Total P&L</div>
-            <div className={`text-lg font-bold tabular-nums ${changeColor(totalPnl)}`}>{formatChange(totalPnl)}</div>
+            <div className={`text-lg font-bold tabular-nums ${changeColor(totalPnl)}`}>{totalPnl >= 0 ? "+" : ""}{formatCurrency(totalPnl)}</div>
           </div>
           <div className="rounded-lg border bg-card p-4">
             <div className="text-xs text-muted-foreground">Return</div>
@@ -172,11 +178,11 @@ export default function PortfolioPage() {
                   <tr key={h.id} className="border-b last:border-0 hover:bg-muted/50">
                     <td className="p-3 font-medium cursor-pointer hover:underline" onClick={() => router.push(`/stock/${h.symbol}`)}>{h.symbol}</td>
                     <td className="p-3 text-right tabular-nums">{h.shares}</td>
-                    <td className="p-3 text-right tabular-nums">{formatPrice(h.buyPrice)}</td>
-                    <td className="p-3 text-right tabular-nums">{h.quote ? formatPrice(h.quote.price) : "—"}</td>
-                    <td className="p-3 text-right tabular-nums">{formatNumber(h.buyPrice * h.shares)}</td>
-                    <td className="p-3 text-right tabular-nums">{h.currentValue ? formatNumber(h.currentValue) : "—"}</td>
-                    <td className={`p-3 text-right tabular-nums ${changeColor(h.pnl)}`}>{h.pnl != null ? formatChange(h.pnl) : "—"}</td>
+                    <td className="p-3 text-right tabular-nums">{formatCurrency(h.buyPrice, hCur(h))}</td>
+                    <td className="p-3 text-right tabular-nums">{h.quote ? formatCurrency(h.quote.price, hCur(h)) : "—"}</td>
+                    <td className="p-3 text-right tabular-nums">{formatCurrencyCompact(h.buyPrice * h.shares, hCur(h))}</td>
+                    <td className="p-3 text-right tabular-nums">{h.currentValue ? formatCurrencyCompact(h.currentValue, hCur(h)) : "—"}</td>
+                    <td className={`p-3 text-right tabular-nums ${changeColor(h.pnl)}`}>{h.pnl != null ? `${h.pnl >= 0 ? "+" : ""}${formatCurrency(h.pnl, hCur(h))}` : "—"}</td>
                     <td className={`p-3 text-right tabular-nums ${changeColor(h.pnlPercent)}`}>{h.pnlPercent != null ? formatPercent(h.pnlPercent) : "—"}</td>
                     <td className="p-3 text-right">
                       <Button variant="ghost" size="sm" onClick={() => handleRemove(h.id)} className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive">
