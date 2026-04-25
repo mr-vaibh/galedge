@@ -33,8 +33,8 @@ jobs:
 
             # ── Frontend ──
             cd /opt/galedge/frontend
-            npm ci --silent
-            npm run build
+            npm install --prefer-offline --no-audit --no-fund
+            NODE_OPTIONS="--max-old-space-size=512" npm run build
             sudo systemctl restart galedge-frontend
 
             echo "✅ Deployed successfully"
