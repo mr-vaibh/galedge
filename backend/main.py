@@ -828,6 +828,68 @@ async def stock_screener(
     }
 
 
+# ── ML Predictions ────────────────────────────────────────────────────────────
+
+@app.get("/api/predict/{symbol}")
+async def get_prediction(
+    symbol: str,
+    portfolio_value: float = Query(100000),
+    risk_tolerance: str = Query("medium", enum=["low", "medium", "high"]),
+):
+    """Get ML-powered stock prediction with signals, risk, and recommendation."""
+    try:
+        from galedge_ml.predictor import predict
+        result = predict(symbol.upper(), portfolio_value, risk_tolerance)
+        # Remove internal keys
+        result.pop("_portfolio_value", None)
+        result.pop("_risk_tolerance", None)
+        return result
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/predict/batch")
+async def get_predictions_batch(
+    symbols: str = Query(..., description="Comma-separated symbols, max 10"),
+    portfolio_value: float = Query(100000),
+    risk_tolerance: str = Query("medium", enum=["low", "medium", "high"]),
+):
+    """Get predictions for multiple symbols."""
+    try:
+        from galedge_ml.predictor import predict_batch
+        symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()][:10]
+        results = predict_batch(symbol_list, portfolio_value, risk_tolerance)
+        # Clean internal keys
+        for r in results:
+            r.pop("_portfolio_value", None)
+            r.pop("_risk_tolerance", None)
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/predict/backtest/{symbol}")
+async def get_backtest(
+    symbol: str,
+    period: str = Query("1y"),
+    timeframe: int = Query(10),
+):
+    """Run a walk-forward backtest on a symbol."""
+    try:
+        from galedge_ml.backtest import backtest
+        return backtest(symbol.upper(), period, timeframe=timeframe)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ── Search ────────────────────────────────────────────────────────────────────
 
 @app.get("/api/search")

@@ -1,0 +1,19 @@
+[project]
+name = "galedge-ml"
+version = "0.1.0"
+description = "ML prediction engine for Galedge stock market platform"
+requires-python = ">=3.10"
+dependencies = [
+    "scikit-learn>=1.3",
+    "xgboost>=2.0",
+    "joblib>=1.3",
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "yfinance>=0.2.40",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[project.scripts]
+galedge-train = "scripts.train:main"

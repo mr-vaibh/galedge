@@ -188,6 +188,100 @@ export interface ScreenerResponse {
 
 // ── API calls ────────────────────────────────────────────────────────────────
 
+export interface SignalDetail {
+  name: string;
+  value: string | number;
+  signal: string;
+}
+
+export interface SignalGroup {
+  score: number;
+  details: SignalDetail[];
+}
+
+export interface PredictionTarget {
+  price: number;
+  probability: number;
+  return_pct: number;
+}
+
+export interface PredictionResponse {
+  symbol: string;
+  generated_at: string;
+  prediction: {
+    direction: string;
+    confidence: number;
+    composite_score: number;
+    expected_return_5d?: number;
+    expected_return_10d?: number;
+    expected_return_20d?: number;
+    timeframes: Record<string, { probability_up: number; expected_return: number }>;
+  };
+  signals: {
+    technical: SignalGroup;
+    momentum: SignalGroup;
+    fundamental: SignalGroup;
+    sentiment: SignalGroup;
+    composite: number;
+  };
+  recommendation: {
+    action: string;
+    entry_price: number;
+    stop_loss: number;
+    stop_loss_pct: number;
+    targets: PredictionTarget[];
+    position_size: number;
+    position_pct: number;
+    hold_duration_days: { min: number; max: number };
+    risk_reward_ratio: number;
+  };
+  risk: {
+    var_95_10d: number;
+    max_drawdown: number;
+    volatility_20d: number;
+    volatility_annualized: number;
+    beta: number;
+  };
+  model_info: {
+    features_used: number;
+    top_features: { name: string; importance: number }[];
+    training_metrics: Record<string, { accuracy: number | null; f1: number | null }>;
+  };
+}
+
+export interface BacktestMetrics {
+  total_return: number;
+  total_return_dollar: number;
+  total_trades: number;
+  winning_trades: number;
+  losing_trades: number;
+  win_rate: number;
+  avg_win: number;
+  avg_loss: number;
+  profit_factor: number;
+  sharpe_ratio: number;
+  max_drawdown: number;
+  initial_capital: number;
+  final_value: number;
+}
+
+export interface BacktestResponse {
+  symbol: string;
+  period: string;
+  timeframe: string;
+  metrics: BacktestMetrics;
+  equity_curve: { date: string; value: number }[];
+  trades: {
+    entry_date: string;
+    exit_date: string;
+    entry_price: number;
+    exit_price: number;
+    pnl: number;
+    pnl_pct: number;
+    holding_days: number;
+  }[];
+}
+
 export const api = {
   quote: (symbol: string) => fetchAPI<Quote>(`/api/quote/${symbol}`),
 
@@ -236,5 +330,15 @@ export const api = {
   screener: (filters: Record<string, string>) =>
     fetchAPI<ScreenerResponse>(
       `/api/screener?${new URLSearchParams(filters).toString()}`
+    ),
+
+  predict: (symbol: string, portfolioValue = 100000, riskTolerance = "medium") =>
+    fetchAPI<PredictionResponse>(
+      `/api/predict/${symbol}?portfolio_value=${portfolioValue}&risk_tolerance=${riskTolerance}`
+    ),
+
+  predictBacktest: (symbol: string, period = "1y", timeframe = 10) =>
+    fetchAPI<BacktestResponse>(
+      `/api/predict/backtest/${symbol}?period=${period}&timeframe=${timeframe}`
     ),
 };

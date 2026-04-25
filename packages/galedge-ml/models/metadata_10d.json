@@ -1,0 +1,207 @@
+{
+  "timeframe": 10,
+  "trained_at": "2026-04-25T21:04:08.497565",
+  "symbols_count": 51,
+  "total_samples": 21726,
+  "train_samples": 16294,
+  "test_samples": 2716,
+  "classifier": {
+    "accuracy": 0.5792,
+    "precision": 0.4974,
+    "recall": 0.3371,
+    "f1": 0.4019,
+    "pos_rate_train": 0.4708,
+    "pos_rate_test": 0.4194
+  },
+  "regressor": {
+    "rmse": 0.076012,
+    "mae": 0.056767,
+    "directional_accuracy": 0.5652
+  },
+  "feature_importances": [
+    {
+      "name": "month_cos",
+      "importance": 0.03578
+    },
+    {
+      "name": "month_sin",
+      "importance": 0.02868
+    },
+    {
+      "name": "beta",
+      "importance": 0.02719
+    },
+    {
+      "name": "revenue_growth",
+      "importance": 0.02636
+    },
+    {
+      "name": "quarter_end_proximity",
+      "importance": 0.02623
+    },
+    {
+      "name": "atr_14",
+      "importance": 0.02384
+    },
+    {
+      "name": "dividend_yield",
+      "importance": 0.02354
+    },
+    {
+      "name": "plus_di",
+      "importance": 0.023
+    },
+    {
+      "name": "analyst_momentum",
+      "importance": 0.02101
+    },
+    {
+      "name": "dist_from_sma20",
+      "importance": 0.02042
+    },
+    {
+      "name": "dist_from_low_52w",
+      "importance": 0.02009
+    },
+    {
+      "name": "macd_signal",
+      "importance": 0.01978
+    },
+    {
+      "name": "earnings_growth",
+      "importance": 0.01894
+    },
+    {
+      "name": "insider_net_shares",
+      "importance": 0.01881
+    },
+    {
+      "name": "peg_ratio",
+      "importance": 0.0188
+    },
+    {
+      "name": "operating_margin",
+      "importance": 0.01877
+    },
+    {
+      "name": "macd_histogram",
+      "importance": 0.01869
+    },
+    {
+      "name": "forward_pe",
+      "importance": 0.01849
+    },
+    {
+      "name": "roa",
+      "importance": 0.01807
+    },
+    {
+      "name": "sma20_above_sma50",
+      "importance": 0.01799
+    },
+    {
+      "name": "profit_margin",
+      "importance": 0.01788
+    },
+    {
+      "name": "gross_margin",
+      "importance": 0.01786
+    },
+    {
+      "name": "price_percentile_52w",
+      "importance": 0.01784
+    },
+    {
+      "name": "dist_from_high_52w",
+      "importance": 0.01727
+    },
+    {
+      "name": "trailing_pe",
+      "importance": 0.01727
+    },
+    {
+      "name": "analyst_score",
+      "importance": 0.01724
+    },
+    {
+      "name": "cci_20",
+      "importance": 0.01722
+    },
+    {
+      "name": "roe",
+      "importance": 0.01714
+    },
+    {
+      "name": "put_call_ratio",
+      "importance": 0.01658
+    },
+    {
+      "name": "vol_20d",
+      "importance": 0.01608
+    }
+  ],
+  "feature_columns": [
+    "return_1d",
+    "return_3d",
+    "return_5d",
+    "return_10d",
+    "return_20d",
+    "vol_5d",
+    "vol_10d",
+    "vol_20d",
+    "volume_ratio_20d",
+    "volume_trend_5d",
+    "dist_from_high_52w",
+    "dist_from_low_52w",
+    "dist_from_sma20",
+    "dist_from_sma50",
+    "price_percentile_52w",
+    "gap_pct",
+    "atr_14",
+    "range_ratio",
+    "rsi_14",
+    "rsi_oversold",
+    "rsi_overbought",
+    "macd",
+    "macd_signal",
+    "macd_histogram",
+    "macd_crossover",
+    "bb_position",
+    "bb_bandwidth",
+    "sma20_above_sma50",
+    "sma_crossover",
+    "adx_14",
+    "plus_di",
+    "minus_di",
+    "stoch_k",
+    "stoch_d",
+    "williams_r",
+    "cci_20",
+    "roc_10",
+    "roc_20",
+    "trailing_pe",
+    "forward_pe",
+    "peg_ratio",
+    "pe_spread",
+    "profit_margin",
+    "operating_margin",
+    "gross_margin",
+    "debt_to_equity",
+    "roe",
+    "roa",
+    "revenue_growth",
+    "earnings_growth",
+    "dividend_yield",
+    "beta",
+    "analyst_score",
+    "analyst_momentum",
+    "insider_buy_ratio",
+    "insider_net_shares",
+    "put_call_ratio",
+    "day_of_week_sin",
+    "day_of_week_cos",
+    "month_sin",
+    "month_cos",
+    "quarter_end_proximity"
+  ]
+}

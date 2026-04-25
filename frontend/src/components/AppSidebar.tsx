@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   Grid3X3,
   Briefcase,
+  Brain,
 } from "lucide-react";
 import {
   Sidebar,
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
   { title: "Compare", href: "/compare", icon: GitCompareArrows },
   { title: "Heatmap", href: "/heatmap", icon: LayoutGrid },
   { title: "Correlation", href: "/correlation", icon: Grid3X3 },
+  { title: "AI Predict", href: "/predict", icon: Brain },
   { title: "Portfolio", href: "/portfolio", icon: Briefcase },
 ];
 

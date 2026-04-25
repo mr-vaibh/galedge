@@ -31,6 +31,9 @@ data/
 .env.local
 .env.production
 
+# ML Models (large, but we DO commit them since they're ~12MB)
+# If models get too large, add *.joblib here and use Git LFS
+
 # Misc
 *.log
 .pytest_cache/

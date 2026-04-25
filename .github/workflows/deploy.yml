@@ -29,6 +29,7 @@ jobs:
             source /opt/galedge/.venv/bin/activate
             pip install -r requirements.txt -q
             pip install -e /opt/galedge/packages/galedge-core -q
+            pip install -e /opt/galedge/packages/galedge-ml -q
             sudo systemctl restart galedge-api
 
             # ── Frontend ──
