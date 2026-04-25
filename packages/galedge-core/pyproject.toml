@@ -1,0 +1,19 @@
+[project]
+name = "galedge"
+version = "0.1.0"
+description = "Stock market data pipeline and predictor"
+requires-python = ">=3.10"
+dependencies = [
+    "yfinance>=0.2.40",
+    "pandas>=2.0",
+    "pyarrow>=15.0",
+]
+
+[project.optional-dependencies]
+dev = ["ipython", "pytest"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[project.scripts]
+galedge = "galedge.cli:main"

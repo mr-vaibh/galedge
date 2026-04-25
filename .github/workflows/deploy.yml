@@ -1,0 +1,39 @@
+name: Deploy to Linode
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.LINODE_HOST }}
+          username: deploy
+          key: ${{ secrets.LINODE_SSH_KEY }}
+          script: |
+            set -e
+
+            cd /opt/galedge
+
+            # Pull latest code
+            git fetch origin main
+            git reset --hard origin/main
+
+            # ── Backend ──
+            cd /opt/galedge/backend
+            source /opt/galedge/.venv/bin/activate
+            pip install -r requirements.txt -q
+            pip install -e /opt/galedge/packages/galedge-core -q
+            sudo systemctl restart galedge-api
+
+            # ── Frontend ──
+            cd /opt/galedge/frontend
+            npm ci --silent
+            npm run build
+            sudo systemctl restart galedge-frontend
+
+            echo "✅ Deployed successfully"
