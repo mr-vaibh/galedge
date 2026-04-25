@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="96" fill="#09090b"/>
+  <rect x="16" y="16" width="480" height="480" rx="80" fill="#0a0a0a" stroke="#10b981" stroke-width="4"/>
+  <!-- Uptrend chart bars -->
+  <rect x="96" y="340" width="48" height="80" rx="8" fill="#10b981" opacity="0.5"/>
+  <rect x="168" y="290" width="48" height="130" rx="8" fill="#10b981" opacity="0.6"/>
+  <rect x="240" y="230" width="48" height="190" rx="8" fill="#10b981" opacity="0.7"/>
+  <rect x="312" y="200" width="48" height="220" rx="8" fill="#10b981" opacity="0.85"/>
+  <rect x="384" y="140" width="48" height="280" rx="8" fill="#10b981"/>
+  <!-- Trend line -->
+  <path d="M120 320 L192 270 L264 210 L336 175 L408 120" stroke="#10b981" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Arrow tip -->
+  <path d="M398 108 L420 112 L408 120 L414 130" stroke="#10b981" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- G letter -->
+  <text x="256" y="115" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="72" fill="white" opacity="0.9">GALEDGE</text>
+</svg>

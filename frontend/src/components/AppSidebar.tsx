@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -46,9 +47,13 @@ export function AppSidebar() {
               render={<Link href="/" />}
               tooltip="Galedge"
             >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-emerald-500 text-white font-bold text-sm">
-                G
-              </div>
+              <Image
+                src="/logo-icon.svg"
+                alt="Galedge"
+                width={32}
+                height={32}
+                className="rounded-lg"
+              />
               <div className="flex flex-col gap-0.5 leading-none">
                 <span className="font-bold">Galedge</span>
                 <span className="text-xs text-muted-foreground">
