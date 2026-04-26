@@ -17,3 +17,7 @@ passlib[bcrypt]>=1.7
 python-multipart>=0.0.9
 # Files
 aiofiles>=23.0
+# Optimization
+cvxpy>=1.4
+# Pin bcrypt for passlib compatibility
+bcrypt<5

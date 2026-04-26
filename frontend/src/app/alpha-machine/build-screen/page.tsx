@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,9 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Maximize2, CheckCircle2, Save } from "lucide-react";
+import { Search, Maximize2, CheckCircle2, Save, Loader2 } from "lucide-react";
 
-const METRICS = [
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+
+const FALLBACK_METRICS = [
   "200D SMA", "20D SMA", "50D SMA", "ADR", "ATR", "Beta", "Book Value",
   "CAGR 3Y", "CAGR 5Y", "Cash Flow", "Current Ratio", "Debt to Equity",
   "Dividend Yield", "EPS", "EPS Growth", "EBITDA", "EBITDA Margin",
@@ -28,6 +30,26 @@ const METRICS = [
   "Shares Outstanding", "Total Assets", "Total Debt", "Volume",
   "Volume 20D Avg", "Working Capital", "Yield",
 ];
+
+interface ScreenResult {
+  symbol?: string;
+  Symbol?: string;
+  name?: string;
+  Name?: string;
+  sector?: string;
+  Sector?: string;
+  industry?: string;
+  marketCap?: number;
+  market_cap?: number;
+  pe?: number;
+  pb?: number;
+  roe?: number;
+  dividendYield?: number;
+  dividend_yield?: number;
+  beta?: number;
+  price?: number;
+  weight?: number;
+}
 
 const EXAMPLES = [
   "MarketCap > 500 AND PE < 15 AND ROCE > 22",
@@ -48,7 +70,86 @@ export default function BuildScreenPage() {
   const [metricSearch, setMetricSearch] = useState("");
   const [metricTab, setMetricTab] = useState("library");
 
-  const filteredMetrics = METRICS.filter((m) =>
+  // API-driven state
+  const [metrics, setMetrics] = useState<string[]>(FALLBACK_METRICS);
+  const [results, setResults] = useState<ScreenResult[]>([]);
+  const [resultsTotal, setResultsTotal] = useState(0);
+  const [executing, setExecuting] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyStatus, setVerifyStatus] = useState<{ ok: boolean; message: string } | null>(null);
+  const [executeError, setExecuteError] = useState<string | null>(null);
+
+  // Fetch metrics list from API on mount
+  useEffect(() => {
+    fetch(`${API_BASE}/api/alpha/metrics`, { cache: "no-store" })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch metrics");
+        return res.json();
+      })
+      .then((data) => {
+        // Support both { metrics: [...] } and plain array responses
+        const list = Array.isArray(data) ? data : data.metrics ?? data.data;
+        if (Array.isArray(list) && list.length > 0) {
+          setMetrics(list.map((m: string | { name: string }) => (typeof m === "string" ? m : m.name)));
+        }
+      })
+      .catch(() => {
+        // keep fallback metrics on error
+      });
+  }, []);
+
+  // Verify Query (dry-run with limit=1)
+  const handleVerify = useCallback(async () => {
+    if (!screenerQuery.trim()) return;
+    setVerifying(true);
+    setVerifyStatus(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/alpha/screens/execute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: screenerQuery, weight: portfolioWeight || "mcap", limit: 1 }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || err.message || "Query validation failed");
+      }
+      setVerifyStatus({ ok: true, message: "Query syntax is valid" });
+    } catch (e: unknown) {
+      setVerifyStatus({ ok: false, message: e instanceof Error ? e.message : "Verification failed" });
+    } finally {
+      setVerifying(false);
+    }
+  }, [screenerQuery, portfolioWeight]);
+
+  // Compute & Save
+  const handleExecute = useCallback(async () => {
+    if (!screenerQuery.trim()) return;
+    setExecuting(true);
+    setExecuteError(null);
+    setResults([]);
+    setResultsTotal(0);
+    try {
+      const res = await fetch(`${API_BASE}/api/alpha/screens/execute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: screenerQuery, weight: portfolioWeight || "mcap", limit: 50 }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || err.message || "Execution failed");
+      }
+      const data = await res.json();
+      const rows: ScreenResult[] = Array.isArray(data) ? data : data.results ?? data.data ?? [];
+      setResults(rows);
+      setResultsTotal(data.total ?? rows.length);
+    } catch (e: unknown) {
+      setExecuteError(e instanceof Error ? e.message : "Execution failed");
+    } finally {
+      setExecuting(false);
+    }
+  }, [screenerQuery, portfolioWeight]);
+
+  const filteredMetrics = metrics.filter((m) =>
     m.toLowerCase().includes(metricSearch.toLowerCase())
   );
 
@@ -130,7 +231,7 @@ export default function BuildScreenPage() {
             <CardTitle className="text-xs">Screener Query</CardTitle>
             <div className="flex items-center gap-1">
               <span className="text-[9px] text-muted-foreground">Example</span>
-              <Select>
+              <Select onValueChange={(v) => { if (typeof v === "string") setScreenerQuery(v); }}>
                 <SelectTrigger className="h-6 w-[120px] text-[9px]"><SelectValue placeholder="Select example" /></SelectTrigger>
                 <SelectContent>
                   {EXAMPLES.map((e, i) => <SelectItem key={i} value={e}>{e.slice(0, 30)}...</SelectItem>)}
@@ -234,22 +335,102 @@ export default function BuildScreenPage() {
 
       {/* Action Buttons */}
       <div className="flex items-center gap-3">
-        <Button variant="outline" className="gap-1.5">
-          <CheckCircle2 className="h-3.5 w-3.5" /> Verify Query
+        <Button variant="outline" className="gap-1.5" onClick={handleVerify} disabled={verifying || !screenerQuery.trim()}>
+          {verifying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />} Verify Query
         </Button>
-        <Button className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
-          <Save className="h-3.5 w-3.5" /> Compute & Save
+        <Button className="gap-1.5 bg-emerald-600 hover:bg-emerald-700" onClick={handleExecute} disabled={executing || !screenerQuery.trim()}>
+          {executing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} {executing ? "Computing..." : "Compute & Save"}
         </Button>
+        {verifyStatus && (
+          <span className={`text-xs font-medium ${verifyStatus.ok ? "text-emerald-600" : "text-red-500"}`}>
+            {verifyStatus.ok ? "\u2713 " : ""}{verifyStatus.message}
+          </span>
+        )}
       </div>
 
       {/* Results Area */}
       <Card>
-        <CardContent className="py-12">
-          <div className="text-center text-muted-foreground">
-            <p className="text-sm">No records</p>
-            <p className="text-[10px] mt-1">Build and run a screen to see results here</p>
+        {executeError && (
+          <div className="px-4 pt-4">
+            <div className="text-xs text-red-500 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-md px-3 py-2">
+              {executeError}
+            </div>
           </div>
-        </CardContent>
+        )}
+        {results.length === 0 && !executing && !executeError ? (
+          <CardContent className="py-12">
+            <div className="text-center text-muted-foreground">
+              <p className="text-sm">No records</p>
+              <p className="text-[10px] mt-1">Build and run a screen to see results here</p>
+            </div>
+          </CardContent>
+        ) : executing ? (
+          <CardContent className="py-12">
+            <div className="text-center text-muted-foreground flex flex-col items-center gap-2">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <p className="text-sm">Executing screen...</p>
+            </div>
+          </CardContent>
+        ) : results.length > 0 ? (
+          <CardContent className="pt-4 pb-2">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-medium">{resultsTotal} result{resultsTotal !== 1 ? "s" : ""} found</span>
+              <Badge variant="outline" className="text-[10px]">Showing {results.length} of {resultsTotal}</Badge>
+            </div>
+            <div className="overflow-x-auto border border-border/40 rounded-md">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-muted/50 border-b border-border/40">
+                    <th className="text-left px-3 py-2 font-medium">#</th>
+                    <th className="text-left px-3 py-2 font-medium">Symbol</th>
+                    <th className="text-left px-3 py-2 font-medium">Name</th>
+                    <th className="text-left px-3 py-2 font-medium">Sector</th>
+                    <th className="text-right px-3 py-2 font-medium">Market Cap</th>
+                    <th className="text-right px-3 py-2 font-medium">P/E</th>
+                    <th className="text-right px-3 py-2 font-medium">ROE</th>
+                    <th className="text-right px-3 py-2 font-medium">Div Yield</th>
+                    <th className="text-right px-3 py-2 font-medium">Weight</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {results.map((row, i) => {
+                    /* eslint-disable @typescript-eslint/no-explicit-any */
+                    const r = row as any;
+                    const pe = r.pe ?? r.PE ?? r.pe_ratio ?? null;
+                    const roe = r.roe ?? r.ROE ?? null;
+                    const dy = r.dividend_yield ?? r.DividendYield ?? r.div_yield ?? null;
+                    const mcap = r.market_cap ?? r.MarketCap ?? r.marketCap ?? null;
+                    const w = r.weight ?? r.Weight ?? null;
+                    const numColor = (v: unknown, positiveIsGood = true) => {
+                      if (v == null) return "";
+                      const n = Number(v);
+                      if (isNaN(n)) return "";
+                      return (positiveIsGood ? n >= 0 : n <= 0) ? "text-emerald-600" : "text-red-500";
+                    };
+                    const fmt = (v: unknown, decimals = 2) => {
+                      if (v == null) return "-";
+                      const n = Number(v);
+                      return isNaN(n) ? String(v) : n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+                    };
+                    return (
+                      <tr key={r.symbol ?? i} className="border-b border-border/20 hover:bg-muted/30">
+                        <td className="px-3 py-1.5 text-muted-foreground">{i + 1}</td>
+                        <td className="px-3 py-1.5 font-medium">{String(r.symbol ?? r.Symbol ?? "-")}</td>
+                        <td className="px-3 py-1.5">{String(r.name ?? r.Name ?? "-")}</td>
+                        <td className="px-3 py-1.5">{String(r.sector ?? r.Sector ?? "-")}</td>
+                        <td className={`px-3 py-1.5 text-right ${numColor(mcap)}`}>{fmt(mcap, 0)}</td>
+                        <td className={`px-3 py-1.5 text-right ${numColor(pe, false)}`}>{fmt(pe)}</td>
+                        <td className={`px-3 py-1.5 text-right ${numColor(roe)}`}>{fmt(roe)}</td>
+                        <td className={`px-3 py-1.5 text-right ${numColor(dy)}`}>{fmt(dy)}</td>
+                        <td className="px-3 py-1.5 text-right">{fmt(w)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        ) : null}
       </Card>
     </div>
   );

@@ -16,8 +16,38 @@ from app.routers import auth_router, portfolio_router, strategy_router, screen_r
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize database on startup."""
+    """Initialize database on startup, seed data if empty."""
     init_db()
+
+    # Auto-seed: if price table is empty, run initial ingestion
+    import threading
+    from app.database import SessionLocal
+    from sqlalchemy import func
+    from app.models.market_data import StockPrice
+
+    def seed_data():
+        db = SessionLocal()
+        try:
+            count = db.query(func.count(StockPrice.id)).scalar()
+            if count == 0:
+                import logging
+                logger = logging.getLogger("galedge.seed")
+                logger.info("Empty database detected — running initial data ingestion...")
+                from app.services.data_ingestion import run_full_ingestion
+                run_full_ingestion(db, period="1y")
+                logger.info("Initial ingestion complete. Building factor model...")
+                from app.services.factor_engine import build_factor_model
+                build_factor_model(db, "INEC1")
+                logger.info("Factor model built. Platform ready.")
+        except Exception as e:
+            import logging
+            logging.getLogger("galedge.seed").warning("Auto-seed failed: %s", e)
+        finally:
+            db.close()
+
+    # Run in background thread so server starts immediately
+    threading.Thread(target=seed_data, daemon=True).start()
+
     yield
 
 
