@@ -114,11 +114,30 @@ FEATURE_GROUPS = {
         "analyst_score", "analyst_momentum",
         "insider_buy_ratio", "insider_net_shares",
         "put_call_ratio",
+        "news_sentiment_avg", "news_sentiment_pos_ratio",
+        "news_sentiment_neg_ratio", "news_count",
     ],
     "calendar": [
         "day_of_week_sin", "day_of_week_cos",
         "month_sin", "month_cos",
         "quarter_end_proximity",
+    ],
+    "regime": [
+        "regime", "regime_bull", "regime_bear", "regime_high_vol",
+    ],
+    "sector_momentum": [
+        "sector_return_5d", "sector_return_10d", "sector_return_20d",
+        "relative_strength_5d", "relative_strength_10d", "relative_strength_20d",
+        "sector_momentum",
+    ],
+    "interactions": [
+        "rsi_oversold_x_insider_buy",
+        "macd_bull_x_volume_surge",
+        "bb_squeeze_x_adx_strong",
+        "golden_cross_x_momentum",
+        "rsi_obought_x_neg_sentiment",
+        "high_vol_x_bear_regime",
+        "sector_strong_x_fund_quality",
     ],
 }
 

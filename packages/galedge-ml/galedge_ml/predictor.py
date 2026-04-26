@@ -19,6 +19,7 @@ from galedge_ml.config import (
 from galedge_ml.features import compute_features
 from galedge_ml.signals import compute_signals
 from galedge_ml.risk import compute_risk
+from galedge_ml.advanced_risk import compute_advanced_risk
 
 logger = logging.getLogger(__name__)
 
@@ -201,6 +202,10 @@ def predict(
             "risk_reward_ratio": risk_rec["risk_reward_ratio"],
         },
         "risk": risk_rec["risk"],
+        "advanced_risk": compute_advanced_risk(
+            close_prices, current_price,
+            holding_days=risk_rec["hold_duration_days"]["max"],
+        ),
         "model_info": {
             "features_used": len(ALL_FEATURES),
             "top_features": top_features,

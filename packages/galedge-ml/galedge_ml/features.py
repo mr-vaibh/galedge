@@ -17,11 +17,15 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 # ── Main Entry Point ──────────────────────────────────────────────────────────
 
-def compute_features(symbol: str, period: str = "2y") -> pd.DataFrame:
+def compute_features(symbol: str, period: str = "2y", use_finbert: bool = False) -> pd.DataFrame:
     """Compute all features for a symbol. Returns a DataFrame with feature columns.
 
     Each row is a trading day. All features use only past data (no look-ahead).
     """
+    from galedge_ml.sentiment import get_news_sentiment
+    from galedge_ml.regime import add_regime_features
+    from galedge_ml.sector import get_sector_features
+
     t = yf.Ticker(symbol)
 
     # Fetch OHLCV
@@ -32,7 +36,7 @@ def compute_features(symbol: str, period: str = "2y") -> pd.DataFrame:
     df.columns = [c.lower().replace(" ", "_") for c in df.columns]
     df = df[["open", "high", "low", "close", "volume"]].copy()
 
-    # Compute all feature groups
+    # Core feature groups
     _add_price_volume_features(df)
     _add_technical_features(df)
     _add_calendar_features(df)
@@ -42,10 +46,27 @@ def compute_features(symbol: str, period: str = "2y") -> pd.DataFrame:
     for k, v in fund_features.items():
         df[k] = v
 
-    # Sentiment features (static per symbol)
+    # Sentiment features (analyst + insider)
     sent_features = _get_sentiment_features(t)
     for k, v in sent_features.items():
         df[k] = v
+
+    # News sentiment (NLP)
+    news_features = get_news_sentiment(symbol, use_finbert=use_finbert)
+    for k, v in news_features.items():
+        df[k] = v
+
+    # Regime detection
+    add_regime_features(df, df["close"])
+
+    # Sector momentum
+    sector = fund_features.get("_sector", None)
+    sector_feats = get_sector_features(symbol, df["close"], sector)
+    for k, series in sector_feats.items():
+        df[k] = series.reindex(df.index).fillna(0)
+
+    # Feature interactions
+    _add_interaction_features(df)
 
     # Drop warmup rows (need ~50 for SMA-50, ADX, etc.)
     df = df.iloc[55:].copy()
@@ -272,6 +293,7 @@ def _get_fundamental_features(t: yf.Ticker) -> dict[str, float]:
         "earnings_growth": _safe("earningsGrowth"),
         "dividend_yield": _safe("dividendYield"),
         "beta": _safe("beta", 1.0),
+        "_sector": info.get("sector", ""),  # internal, used by sector momentum
     }
 
 
@@ -355,6 +377,47 @@ def _get_sentiment_features(t: yf.Ticker) -> dict[str, float]:
         pass
 
     return features
+
+
+# ── Feature Interactions ──────────────────────────────────────────────────────
+
+def _add_interaction_features(df: pd.DataFrame) -> None:
+    """Create combined features that capture signal confluence."""
+
+    # RSI oversold + insider buying = strong buy signal
+    rsi_os = df.get("rsi_oversold", pd.Series(0, index=df.index))
+    insider = df.get("insider_buy_ratio", pd.Series(0.5, index=df.index))
+    df["rsi_oversold_x_insider_buy"] = rsi_os * (insider > 0.6).astype(float)
+
+    # MACD bullish + volume surge = confirmed breakout
+    macd_h = df.get("macd_histogram", pd.Series(0, index=df.index))
+    vol_r = df.get("volume_ratio_20d", pd.Series(1, index=df.index))
+    df["macd_bull_x_volume_surge"] = (macd_h > 0).astype(float) * (vol_r > 1.5).astype(float)
+
+    # Bollinger squeeze (narrow bands) + strong ADX = imminent breakout
+    bb_bw = df.get("bb_bandwidth", pd.Series(0, index=df.index))
+    adx = df.get("adx_14", pd.Series(0, index=df.index))
+    df["bb_squeeze_x_adx_strong"] = (bb_bw < bb_bw.rolling(50, min_periods=10).quantile(0.2)).astype(float) * (adx > 25).astype(float)
+
+    # Golden cross + positive momentum = trend confirmation
+    gc = df.get("sma20_above_sma50", pd.Series(0, index=df.index))
+    ret10 = df.get("return_10d", pd.Series(0, index=df.index))
+    df["golden_cross_x_momentum"] = gc * (ret10 > 0).astype(float)
+
+    # RSI overbought + negative news sentiment = reversal risk
+    rsi_ob = df.get("rsi_overbought", pd.Series(0, index=df.index))
+    news_neg = df.get("news_sentiment_neg_ratio", pd.Series(0, index=df.index))
+    df["rsi_obought_x_neg_sentiment"] = rsi_ob * (news_neg > 0.5).astype(float)
+
+    # High volatility regime + bear regime = danger zone
+    high_vol = df.get("regime_high_vol", pd.Series(0, index=df.index))
+    bear = df.get("regime_bear", pd.Series(0, index=df.index))
+    df["high_vol_x_bear_regime"] = high_vol * bear
+
+    # Strong sector + good fundamentals = quality momentum
+    sector_str = df.get("relative_strength_10d", pd.Series(0, index=df.index))
+    margin = df.get("profit_margin", pd.Series(0, index=df.index))
+    df["sector_strong_x_fund_quality"] = (sector_str > 0.02).astype(float) * (margin > 0.1).astype(float)
 
 
 # ── Target Construction ───────────────────────────────────────────────────────

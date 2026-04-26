@@ -48,6 +48,86 @@ function ScoreGauge({ label, score, color }: { label: string; score: number; col
   );
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function AdvancedRiskSection({ data }: { data: Record<string, unknown> | undefined }) {
+  if (!data) return null;
+  const mc = data.monte_carlo as any;
+  const cv = data.cvar as any;
+  const stress = data.stress_test as Record<string, any> | undefined;
+  const dd = data.drawdown as any;
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {mc && !mc.error && (
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Monte Carlo ({mc.n_simulations} simulations, {mc.holding_days}d)</CardTitle></CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div><span className="text-xs text-muted-foreground">Expected Return</span><div className={`font-bold tabular-nums ${mc.expected_return >= 0 ? "text-emerald-500" : "text-red-500"}`}>{mc.expected_return >= 0 ? "+" : ""}{mc.expected_return}%</div></div>
+              <div><span className="text-xs text-muted-foreground">Prob of Loss</span><div className="font-bold text-red-400 tabular-nums">{mc.prob_loss}%</div></div>
+              <div><span className="text-xs text-muted-foreground">Worst Case (1%)</span><div className="font-bold text-red-400 tabular-nums">{mc.worst_case}%</div></div>
+              <div><span className="text-xs text-muted-foreground">Best Case (99%)</span><div className="font-bold text-emerald-400 tabular-nums">+{mc.best_case}%</div></div>
+            </div>
+            {mc.percentiles && (
+              <div className="mt-3 flex items-center gap-1 text-[10px]">
+                <span className="text-red-400">{mc.percentiles.p5}%</span>
+                <div className="flex-1 h-2 rounded-full overflow-hidden flex">
+                  <div className="bg-red-500/40 h-full" style={{width:"20%"}} />
+                  <div className="bg-amber-500/30 h-full" style={{width:"30%"}} />
+                  <div className="bg-emerald-500/30 h-full" style={{width:"30%"}} />
+                  <div className="bg-emerald-500/50 h-full" style={{width:"20%"}} />
+                </div>
+                <span className="text-emerald-400">+{mc.percentiles.p95}%</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+      {cv && (
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">CVaR / Expected Shortfall</CardTitle></CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div><span className="text-xs text-muted-foreground">VaR ({cv.confidence * 100}%, {cv.holding_days}d)</span><div className="font-bold text-red-400 tabular-nums">{cv.var}%</div></div>
+              <div><span className="text-xs text-muted-foreground">CVaR (avg worst {100 - cv.confidence * 100}%)</span><div className="font-bold text-red-400 tabular-nums">{cv.cvar}%</div></div>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2">In the worst {100 - cv.confidence * 100}% of scenarios, average loss is {cv.cvar}%</p>
+          </CardContent>
+        </Card>
+      )}
+      {stress && (
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Stress Test Scenarios</CardTitle></CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {Object.values(stress).map((s: any, i: number) => (
+                <div key={i} className="flex justify-between items-center text-sm">
+                  <span className="text-xs text-muted-foreground">{s.label}</span>
+                  <span className="font-bold text-red-400 tabular-nums">{s.estimated_return}%</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      {dd && (
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Drawdown Analysis</CardTitle></CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div><span className="text-xs text-muted-foreground">Max Drawdown</span><div className="font-bold text-red-400 tabular-nums">{dd.max_drawdown}%</div></div>
+              <div><span className="text-xs text-muted-foreground">Current Drawdown</span><div className={`font-bold tabular-nums ${dd.current_drawdown < -1 ? "text-red-400" : "text-zinc-400"}`}>{dd.current_drawdown}%</div></div>
+              <div><span className="text-xs text-muted-foreground">Max DD Duration</span><div className="font-bold tabular-nums">{dd.max_drawdown_duration_days} days</div></div>
+              <div><span className="text-xs text-muted-foreground">Avg Recovery</span><div className="font-bold tabular-nums">{dd.avg_recovery_days} days</div></div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 function ActionBadge({ action }: { action: string }) {
   const styles = {
     BUY: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
@@ -328,6 +408,9 @@ export default function PredictPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Advanced Risk */}
+          <AdvancedRiskSection data={(p as unknown as Record<string, unknown>).advanced_risk as Record<string, unknown> | undefined} />
 
           {/* Backtest */}
           {backtest && (

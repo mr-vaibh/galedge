@@ -12,7 +12,8 @@ import pandas as pd
 import joblib
 import yfinance as yf
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-from xgboost import XGBClassifier, XGBRegressor
+
+from galedge_ml.ensemble import StackedClassifier, StackedRegressor
 
 from galedge_ml.config import (
     ALL_FEATURES, TIMEFRAMES, TARGET_THRESHOLD,
@@ -97,13 +98,10 @@ def train_models(
         neg_count = len(y_train_cls) - pos_count
         scale = neg_count / max(pos_count, 1)
 
-        clf_params = {**XGB_CLASSIFIER_PARAMS, "scale_pos_weight": scale}
-        clf = XGBClassifier(**clf_params)
-        clf.fit(
-            X_train, y_train_cls,
-            eval_set=[(X_val, y_val_cls)],
-            verbose=False,
-        )
+        # Stacked Ensemble: XGBoost + Random Forest + Logistic Regression
+        logger.info("  Training stacked classifier ensemble...")
+        clf = StackedClassifier(scale_pos_weight=scale)
+        clf.fit(X_train, y_train_cls, X_val=X_val, y_val=y_val_cls)
 
         # Evaluate
         y_pred_cls = clf.predict(X_test)
@@ -128,12 +126,9 @@ def train_models(
         y_val_reg = val_df[f"target_ret_{tf}d"].values
         y_test_reg = test_df[f"target_ret_{tf}d"].values
 
-        reg = XGBRegressor(**XGB_REGRESSOR_PARAMS)
-        reg.fit(
-            X_train, y_train_reg,
-            eval_set=[(X_val, y_val_reg)],
-            verbose=False,
-        )
+        logger.info("  Training stacked regressor ensemble...")
+        reg = StackedRegressor()
+        reg.fit(X_train, y_train_reg, X_val=X_val, y_val=y_val_reg)
 
         y_pred_reg = reg.predict(X_test)
         reg_metrics = {

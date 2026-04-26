@@ -1,143 +1,143 @@
 {
   "timeframe": 5,
-  "trained_at": "2026-04-25T21:22:40.641127",
+  "trained_at": "2026-04-26T12:08:05.146325",
   "symbols_count": 51,
   "total_samples": 21726,
   "train_samples": 16294,
   "test_samples": 2716,
   "classifier": {
-    "accuracy": 0.5773,
-    "precision": 0.4456,
-    "recall": 0.3996,
-    "f1": 0.4214,
+    "accuracy": 0.6053,
+    "precision": 0.3523,
+    "recall": 0.0296,
+    "f1": 0.0547,
     "pos_rate_train": 0.4232,
     "pos_rate_test": 0.3851
   },
   "regressor": {
-    "rmse": 0.045258,
-    "mae": 0.03387,
-    "directional_accuracy": 0.5707
+    "rmse": 0.041653,
+    "mae": 0.03151,
+    "directional_accuracy": 0.4831
   },
   "feature_importances": [
     {
       "name": "month_cos",
-      "importance": 0.03424
+      "importance": 0.02704
     },
     {
       "name": "month_sin",
-      "importance": 0.02799
+      "importance": 0.02212
     },
     {
       "name": "quarter_end_proximity",
-      "importance": 0.0278
-    },
-    {
-      "name": "beta",
-      "importance": 0.02497
-    },
-    {
-      "name": "dividend_yield",
-      "importance": 0.02439
+      "importance": 0.02187
     },
     {
       "name": "revenue_growth",
-      "importance": 0.02432
+      "importance": 0.01963
     },
     {
-      "name": "macd",
-      "importance": 0.02407
+      "name": "dividend_yield",
+      "importance": 0.01881
     },
     {
       "name": "atr_14",
-      "importance": 0.02177
+      "importance": 0.01817
     },
     {
-      "name": "roa",
-      "importance": 0.01897
+      "name": "beta",
+      "importance": 0.01816
     },
     {
-      "name": "insider_buy_ratio",
-      "importance": 0.01801
+      "name": "sector_return_10d",
+      "importance": 0.01758
     },
     {
-      "name": "analyst_score",
-      "importance": 0.01797
+      "name": "sector_return_20d",
+      "importance": 0.01722
     },
     {
-      "name": "macd_histogram",
-      "importance": 0.01793
+      "name": "sector_return_5d",
+      "importance": 0.01662
+    },
+    {
+      "name": "macd",
+      "importance": 0.01612
+    },
+    {
+      "name": "roc_10",
+      "importance": 0.0161
+    },
+    {
+      "name": "sector_momentum",
+      "importance": 0.016
+    },
+    {
+      "name": "sma20_above_sma50",
+      "importance": 0.01538
+    },
+    {
+      "name": "put_call_ratio",
+      "importance": 0.01525
     },
     {
       "name": "gross_margin",
-      "importance": 0.01781
+      "importance": 0.01459
     },
     {
-      "name": "debt_to_equity",
-      "importance": 0.01781
+      "name": "regime_bull",
+      "importance": 0.01452
     },
     {
-      "name": "dist_from_high_52w",
-      "importance": 0.01771
+      "name": "macd_histogram",
+      "importance": 0.01436
     },
     {
-      "name": "dist_from_low_52w",
-      "importance": 0.01771
+      "name": "roe",
+      "importance": 0.01414
     },
     {
-      "name": "earnings_growth",
-      "importance": 0.01768
-    },
-    {
-      "name": "macd_signal",
-      "importance": 0.01753
-    },
-    {
-      "name": "analyst_momentum",
-      "importance": 0.01744
-    },
-    {
-      "name": "vol_10d",
-      "importance": 0.01733
-    },
-    {
-      "name": "adx_14",
-      "importance": 0.01723
-    },
-    {
-      "name": "operating_margin",
-      "importance": 0.01708
-    },
-    {
-      "name": "dist_from_sma50",
-      "importance": 0.01702
-    },
-    {
-      "name": "price_percentile_52w",
-      "importance": 0.01689
-    },
-    {
-      "name": "vol_20d",
-      "importance": 0.01676
-    },
-    {
-      "name": "profit_margin",
-      "importance": 0.0167
-    },
-    {
-      "name": "trailing_pe",
-      "importance": 0.01668
-    },
-    {
-      "name": "return_20d",
-      "importance": 0.01646
-    },
-    {
-      "name": "return_10d",
-      "importance": 0.0163
+      "name": "bb_bandwidth",
+      "importance": 0.01399
     },
     {
       "name": "forward_pe",
-      "importance": 0.01596
+      "importance": 0.01397
+    },
+    {
+      "name": "news_sentiment_neg_ratio",
+      "importance": 0.01387
+    },
+    {
+      "name": "dist_from_low_52w",
+      "importance": 0.01358
+    },
+    {
+      "name": "dist_from_high_52w",
+      "importance": 0.01357
+    },
+    {
+      "name": "return_20d",
+      "importance": 0.0135
+    },
+    {
+      "name": "williams_r",
+      "importance": 0.01348
+    },
+    {
+      "name": "news_sentiment_avg",
+      "importance": 0.01346
+    },
+    {
+      "name": "vol_10d",
+      "importance": 0.01341
+    },
+    {
+      "name": "news_sentiment_pos_ratio",
+      "importance": 0.01339
+    },
+    {
+      "name": "peg_ratio",
+      "importance": 0.01336
     }
   ],
   "feature_columns": [
@@ -198,10 +198,32 @@
     "insider_buy_ratio",
     "insider_net_shares",
     "put_call_ratio",
+    "news_sentiment_avg",
+    "news_sentiment_pos_ratio",
+    "news_sentiment_neg_ratio",
+    "news_count",
     "day_of_week_sin",
     "day_of_week_cos",
     "month_sin",
     "month_cos",
-    "quarter_end_proximity"
+    "quarter_end_proximity",
+    "regime",
+    "regime_bull",
+    "regime_bear",
+    "regime_high_vol",
+    "sector_return_5d",
+    "sector_return_10d",
+    "sector_return_20d",
+    "relative_strength_5d",
+    "relative_strength_10d",
+    "relative_strength_20d",
+    "sector_momentum",
+    "rsi_oversold_x_insider_buy",
+    "macd_bull_x_volume_surge",
+    "bb_squeeze_x_adx_strong",
+    "golden_cross_x_momentum",
+    "rsi_obought_x_neg_sentiment",
+    "high_vol_x_bear_regime",
+    "sector_strong_x_fund_quality"
   ]
 }
