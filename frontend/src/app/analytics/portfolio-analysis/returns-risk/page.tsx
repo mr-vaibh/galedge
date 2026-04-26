@@ -2,47 +2,54 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, Filter, Info, Maximize2 } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { BarChartPanel } from "@/components/charts/BarChartPanel";
+import { CardControls } from "@/components/CardControls";
 
-function CC() {
-  return (
-    <div className="flex items-center gap-1">
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Filter className="h-2.5 w-2.5" /></Button>
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Info className="h-2.5 w-2.5" /></Button>
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Maximize2 className="h-2.5 w-2.5" /></Button>
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Download className="h-2.5 w-2.5" /></Button>
-    </div>
-  );
-}
-
-function STable({ title, rows }: { title: string; rows: [string, string, string][] }) {
+function STable({ title, rows, viewMode = "active" }: { title: string; rows: [string, string, string][]; viewMode?: string }) {
   return (
     <Card>
       <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
         <CardTitle className="text-[11px]">{title}</CardTitle>
-        <CC />
+        <CardControls />
       </CardHeader>
       <CardContent className="p-0">
         <table className="w-full text-[10px]">
           <thead>
             <tr className="border-b border-border/50">
               <th className="px-2 py-1.5 text-left font-medium text-muted-foreground" />
-              <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Active</th>
-              <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Benchmark</th>
+              {(viewMode === "active" || viewMode === "excess") && (
+                <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Active</th>
+              )}
+              {(viewMode === "benchmark" || viewMode === "excess") && (
+                <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Benchmark</th>
+              )}
+              {viewMode === "excess" && (
+                <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Excess</th>
+              )}
             </tr>
           </thead>
           <tbody>
-            {rows.map(([label, active, benchmark], i) => (
-              <tr key={i} className="border-b border-border/30">
-                <td className="px-2 py-1 text-muted-foreground">{label}</td>
-                <td className="px-2 py-1 text-right tabular-nums">{active}</td>
-                <td className="px-2 py-1 text-right tabular-nums">{benchmark}</td>
-              </tr>
-            ))}
+            {rows.map(([label, active, benchmark], i) => {
+              const activeNum = parseFloat(active);
+              const benchmarkNum = parseFloat(benchmark);
+              const excess = !isNaN(activeNum) && !isNaN(benchmarkNum) ? `${(activeNum - benchmarkNum).toFixed(2)}%` : "--";
+              return (
+                <tr key={i} className="border-b border-border/30">
+                  <td className="px-2 py-1 text-muted-foreground">{label}</td>
+                  {(viewMode === "active" || viewMode === "excess") && (
+                    <td className="px-2 py-1 text-right tabular-nums">{active}</td>
+                  )}
+                  {(viewMode === "benchmark" || viewMode === "excess") && (
+                    <td className="px-2 py-1 text-right tabular-nums">{benchmark}</td>
+                  )}
+                  {viewMode === "excess" && (
+                    <td className={`px-2 py-1 text-right tabular-nums ${parseFloat(excess) >= 0 ? "text-emerald-400" : "text-red-400"}`}>{excess}</td>
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </CardContent>
@@ -158,11 +165,12 @@ const FACTOR_COLS = ["Factor Type", "Factor Name", "Factor Exposure", "Factor Re
 
 export default function ReturnsAndRiskPage() {
   const [contributorTab, setContributorTab] = useState("overall");
+  const [viewMode, setViewMode] = useState("active");
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Performance Summary</h1>
-        <Tabs defaultValue="active">
+        <Tabs value={viewMode} onValueChange={(v) => { if (typeof v === "string") setViewMode(v); }}>
           <TabsList className="h-7">
             <TabsTrigger value="active" className="text-[10px] h-6">Active</TabsTrigger>
             <TabsTrigger value="benchmark" className="text-[10px] h-6">Benchmark</TabsTrigger>
@@ -173,24 +181,24 @@ export default function ReturnsAndRiskPage() {
 
       {/* Summary Tables Row */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-        <STable title="Profit and Loss Summary" rows={[
+        <STable title="Profit and Loss Summary" viewMode={viewMode} rows={[
           ["Total Return (%)", "18.97%", "9.57%"],
           ["Factor Return (%)", "12.3%", "8.9%"],
           ["Idiosyncratic Return (%)", "6.67%", "0.67%"],
           ["CAGR (%)", "5.07%", "0.07%"],
           ["Sharpe Ratio", "0.52", "0.13"],
         ]} />
-        <STable title="Risk Summary" rows={[
+        <STable title="Risk Summary" viewMode={viewMode} rows={[
           ["Realized Risk (%)", "14.5%", "16.2%"],
           ["Total Predicted Risk (%)", "12.8%", "14.1%"],
           ["Factor Predicted Risk (%)", "8.2%", "12.5%"],
           ["Portfolio Concentration", "0.042", "0.018"],
         ]} />
-        <STable title="Valuation Summary" rows={[
+        <STable title="Valuation Summary" viewMode={viewMode} rows={[
           ["P/E Ratio", "22.5", "19.8"],
           ["Return on Equity (%)", "18.2%", "15.7%"],
         ]} />
-        <STable title="Brinson Decomposition Summary" rows={[
+        <STable title="Brinson Decomposition Summary" viewMode={viewMode} rows={[
           ["Allocation Effect (%)", "1.2%", "—"],
           ["Selection Effect (%)", "3.4%", "—"],
           ["Interaction Effect (%)", "0.8%", "—"],
@@ -202,7 +210,7 @@ export default function ReturnsAndRiskPage() {
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-[11px]">Return Decomposition (%)</CardTitle>
-            <CC />
+            <CardControls />
           </CardHeader>
           <CardContent>
             <TimeSeriesChart
@@ -219,7 +227,7 @@ export default function ReturnsAndRiskPage() {
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-[11px]">Predicted Risk (%)</CardTitle>
-            <CC />
+            <CardControls />
           </CardHeader>
           <CardContent>
             <TimeSeriesChart
@@ -236,7 +244,7 @@ export default function ReturnsAndRiskPage() {
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-[11px]">PE Ratio</CardTitle>
-            <CC />
+            <CardControls />
           </CardHeader>
           <CardContent>
             <TimeSeriesChart
@@ -253,7 +261,7 @@ export default function ReturnsAndRiskPage() {
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-[11px]">Market Cap</CardTitle>
-            <CC />
+            <CardControls />
           </CardHeader>
           <CardContent>
             <TimeSeriesChart
@@ -319,7 +327,7 @@ export default function ReturnsAndRiskPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Top Holdings (%)</CardTitle>
-              <CC />
+              <CardControls />
             </CardHeader>
             <CardContent>
               <BarChartPanel data={topHoldingsBarData} height={160} />

@@ -3,26 +3,15 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Filter, Info, Maximize2 } from "lucide-react";
 import { BarChartPanel } from "@/components/charts/BarChartPanel";
-
-function CC() {
-  return (
-    <div className="flex items-center gap-1">
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Filter className="h-2.5 w-2.5" /></Button>
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Info className="h-2.5 w-2.5" /></Button>
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Maximize2 className="h-2.5 w-2.5" /></Button>
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Download className="h-2.5 w-2.5" /></Button>
-    </div>
-  );
-}
+import { CardControls } from "@/components/CardControls";
 
 function STable({ title, rows, columns }: { title: string; rows: string[][]; columns: string[] }) {
   return (
     <Card>
       <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
         <CardTitle className="text-[11px]">{title}</CardTitle>
-        <CC />
+        <CardControls />
       </CardHeader>
       <CardContent className="p-0">
         <table className="w-full text-[10px]">
@@ -197,7 +186,7 @@ export default function PeriodAnalysisPage() {
       <Card>
         <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
           <CardTitle className="text-[11px]">Return Decomposition (%)</CardTitle>
-          <CC />
+          <CardControls />
         </CardHeader>
         <CardContent className="p-2">
           <BarChartPanel data={barData} height={220} />

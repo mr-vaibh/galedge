@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Upload, Download, Loader2, CheckCircle2 } from "lucide-react";
-import { useAuth } from "@/lib/auth";
+import { useRequireAuth } from "@/lib/useRequireAuth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
@@ -31,7 +31,7 @@ const SAMPLE_TEMPLATE = [
 
 export default function UploadPortfolioPage() {
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, loading: authLoading } = useRequireAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [fund, setFund] = useState("");
@@ -75,10 +75,6 @@ export default function UploadPortfolioPage() {
       setError("Please upload a CSV file");
       return;
     }
-    if (!token) {
-      setError("Please log in to upload a portfolio");
-      return;
-    }
 
     setLoading(true);
     setError("");
@@ -92,8 +88,8 @@ export default function UploadPortfolioPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          fund,
-          scheme,
+          fund_name: fund,
+          scheme_name: scheme,
           benchmark,
           date,
         }),
@@ -132,6 +128,14 @@ export default function UploadPortfolioPage() {
       setLoading(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-4">

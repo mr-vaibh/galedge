@@ -10,22 +10,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Download, Filter, Info, Maximize2, RefreshCw, Loader2 } from "lucide-react";
+import { RefreshCw, Loader2, Download } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { api, FactorSummaryRow } from "@/lib/api";
+import { CardControls } from "@/components/CardControls";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
-
-function CardControls() {
-  return (
-    <div className="flex items-center gap-1">
-      <Button variant="ghost" size="icon" className="h-6 w-6"><Filter className="h-3 w-3" /></Button>
-      <Button variant="ghost" size="icon" className="h-6 w-6"><Info className="h-3 w-3" /></Button>
-      <Button variant="ghost" size="icon" className="h-6 w-6"><Maximize2 className="h-3 w-3" /></Button>
-      <Button variant="ghost" size="icon" className="h-6 w-6"><Download className="h-3 w-3" /></Button>
-    </div>
-  );
-}
 
 function corrColor(val: number): string {
   if (val >= 0.5) return "rgba(16,185,129,0.7)";

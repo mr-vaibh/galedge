@@ -1,22 +1,17 @@
 "use client";
 
+import { useRouter, usePathname } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, Filter, Info, Maximize2 } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { BarChartPanel } from "@/components/charts/BarChartPanel";
+import { CardControls } from "@/components/CardControls";
 
-function CC() {
-  return (
-    <div className="flex items-center gap-1">
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Filter className="h-2.5 w-2.5" /></Button>
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Info className="h-2.5 w-2.5" /></Button>
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Maximize2 className="h-2.5 w-2.5" /></Button>
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Download className="h-2.5 w-2.5" /></Button>
-    </div>
-  );
-}
+const peerTabs = [
+  { label: "Peer Returns and Risks", href: "/analytics/peer-intelligence" },
+  { label: "Peer Breakdown", href: "/analytics/peer-intelligence/peer-breakdown" },
+];
 
 const peerData = Array.from({ length: 50 }, (_, i) => ({
   date: `2025-${String(Math.floor(i / 4) + 1).padStart(2, "0")}-01`,
@@ -32,23 +27,32 @@ const factorContrib = [
 ];
 
 export default function PeerIntelligencePage() {
+  const router = useRouter();
+  const pathname = usePathname();
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Peer Intelligence</h1>
-        <Tabs defaultValue="returns">
-          <TabsList className="h-7">
-            <TabsTrigger value="returns" className="text-[10px] h-6">Peer Returns and Risks</TabsTrigger>
-            <TabsTrigger value="breakdown" className="text-[10px] h-6">Peer Breakdown</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
+          {peerTabs.map((tab) => (
+            <Button
+              key={tab.href}
+              variant={pathname === tab.href ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => router.push(tab.href)}
+              className="h-7 text-[10px]"
+            >
+              {tab.label}
+            </Button>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-[11px]">Total Return (%)</CardTitle>
-            <CC />
+            <CardControls />
           </CardHeader>
           <CardContent className="p-2">
             <TimeSeriesChart
@@ -67,7 +71,7 @@ export default function PeerIntelligencePage() {
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-[11px]">Top Factor Contributors / Detractors</CardTitle>
-            <CC />
+            <CardControls />
           </CardHeader>
           <CardContent className="p-2">
             <BarChartPanel data={factorContrib} height={220} />
@@ -91,7 +95,7 @@ export default function PeerIntelligencePage() {
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-[11px]">Long Portfolio - Multi Factor:Small...</CardTitle>
-            <CC />
+            <CardControls />
           </CardHeader>
           <CardContent className="p-0">
             <table className="w-full text-[10px]">
@@ -118,7 +122,7 @@ export default function PeerIntelligencePage() {
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-[11px]">Long Portfolio - Multi Factor:Small...</CardTitle>
-            <CC />
+            <CardControls />
           </CardHeader>
           <CardContent className="p-0">
             <table className="w-full text-[10px]">

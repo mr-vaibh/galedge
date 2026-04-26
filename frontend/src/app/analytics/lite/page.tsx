@@ -3,20 +3,9 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Download, Filter, Info, Maximize2 } from "lucide-react";
+import { Download } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
-
-function CC() {
-  return (
-    <div className="flex items-center gap-1">
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Filter className="h-2.5 w-2.5" /></Button>
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Info className="h-2.5 w-2.5" /></Button>
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Maximize2 className="h-2.5 w-2.5" /></Button>
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Download className="h-2.5 w-2.5" /></Button>
-    </div>
-  );
-}
+import { CardControls } from "@/components/CardControls";
 
 const sampleData = Array.from({ length: 60 }, (_, i) => ({
   date: `2025-${String(Math.floor(i / 5) + 1).padStart(2, "0")}-${String((i % 5) * 6 + 1).padStart(2, "0")}`,
@@ -44,7 +33,7 @@ export default function LiteAnalyticsPage() {
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-[11px]">Profit and Loss Summary</CardTitle>
-            <CC />
+            <CardControls />
           </CardHeader>
           <CardContent className="p-0">
             <table className="w-full text-[10px]">
@@ -72,7 +61,7 @@ export default function LiteAnalyticsPage() {
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-[11px]">Risk Summary</CardTitle>
-            <CC />
+            <CardControls />
           </CardHeader>
           <CardContent className="p-0">
             <table className="w-full text-[10px]">
@@ -100,7 +89,7 @@ export default function LiteAnalyticsPage() {
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-[11px]">Factor Return Contribution</CardTitle>
-            <CC />
+            <CardControls />
           </CardHeader>
           <CardContent className="p-2">
             <div className="flex flex-wrap gap-1.5 mb-2">
@@ -130,7 +119,7 @@ export default function LiteAnalyticsPage() {
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-[11px]">Total Return (%)</CardTitle>
-            <CC />
+            <CardControls />
           </CardHeader>
           <CardContent className="p-2">
             <TimeSeriesChart
@@ -149,7 +138,7 @@ export default function LiteAnalyticsPage() {
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-[11px]">Total Predicted Risk (%)</CardTitle>
-            <CC />
+            <CardControls />
           </CardHeader>
           <CardContent className="p-2">
             <TimeSeriesChart
@@ -166,7 +155,7 @@ export default function LiteAnalyticsPage() {
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-[11px]">Factor P/L Time Series — CAPGOODS</CardTitle>
-            <CC />
+            <CardControls />
           </CardHeader>
           <CardContent className="p-2">
             <TimeSeriesChart

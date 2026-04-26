@@ -1,23 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, Filter, Info, Maximize2, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
+import { CardControls } from "@/components/CardControls";
 
-function CardControls() {
-  return (
-    <div className="flex items-center gap-1">
-      <Button variant="ghost" size="icon" className="h-6 w-6"><Filter className="h-3 w-3" /></Button>
-      <Button variant="ghost" size="icon" className="h-6 w-6"><Info className="h-3 w-3" /></Button>
-      <Button variant="ghost" size="icon" className="h-6 w-6"><Maximize2 className="h-3 w-3" /></Button>
-      <Button variant="ghost" size="icon" className="h-6 w-6"><Download className="h-3 w-3" /></Button>
-    </div>
-  );
-}
+const overviewTabs = [
+  { label: "Performance Summary", href: "/analytics/overview/performance" },
+  { label: "Peer Comparison", href: "/analytics/overview/peer-comparison" },
+  { label: "Holdings Summary", href: "/analytics/overview/holdings" },
+  { label: "Period Analysis", href: "/analytics/overview/period-analysis" },
+];
 
 function MetricRow({ label, active, benchmark, excess }: { label: string; active: string; benchmark: string; excess?: string }) {
   return (
@@ -105,6 +101,7 @@ function PeriodSelector() {
 
 export default function PerformanceSummaryPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const [metrics, setMetrics] = useState<Record<string, unknown> | null>(null);
   const [equityCurve, setEquityCurve] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,18 +137,19 @@ export default function PerformanceSummaryPage() {
       </div>
 
       {/* Analytics sub-nav tabs */}
-      <Tabs value="performance" onValueChange={(v) => {
-        if (typeof v === "string") {
-          if (v === "peer") router.push("/analytics/overview/peer-comparison");
-          else if (v === "holdings") router.push("/analytics/overview/holdings");
-        }
-      }}>
-        <TabsList className="h-8">
-          <TabsTrigger value="performance" className="text-xs h-7">Performance Summary</TabsTrigger>
-          <TabsTrigger value="peer" className="text-xs h-7">Peer Comparison</TabsTrigger>
-          <TabsTrigger value="holdings" className="text-xs h-7">Holdings Summary</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
+        {overviewTabs.map((tab) => (
+          <Button
+            key={tab.href}
+            variant={pathname === tab.href ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => router.push(tab.href)}
+            className="h-7 text-xs"
+          >
+            {tab.label}
+          </Button>
+        ))}
+      </div>
 
       {/* 6-Panel Grid (2 rows x 3 cols) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

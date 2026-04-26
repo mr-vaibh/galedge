@@ -2,22 +2,9 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Download, Filter, Info, Maximize2 } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { BarChartPanel } from "@/components/charts/BarChartPanel";
-
-function CardControls() {
-  return (
-    <div className="flex items-center gap-1">
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Filter className="h-2.5 w-2.5" /></Button>
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Info className="h-2.5 w-2.5" /></Button>
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Maximize2 className="h-2.5 w-2.5" /></Button>
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Download className="h-2.5 w-2.5" /></Button>
-    </div>
-  );
-}
+import { CardControls } from "@/components/CardControls";
 
 const EVENTS = [
   { name: "2019 election run-up", start: "01-Mar-2019", end: "23-May-2019", portfolioReturn: 4.1, benchmarkReturn: 3.8, excess: 0.3 },

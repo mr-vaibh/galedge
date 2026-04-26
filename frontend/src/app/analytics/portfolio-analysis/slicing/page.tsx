@@ -4,45 +4,21 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Download, Filter, Info, Maximize2 } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { BarChartPanel } from "@/components/charts/BarChartPanel";
+import { CardControls } from "@/components/CardControls";
 
 const DIMENSIONS = [
   "Market Cap", "Liquidity", "Total Risk", "Idiosyncratic Risk",
   "Sector", "Industry", "Earnings Window", "IPO", "Financial Type", "Position Age",
 ];
 
-function CardControls({ kpi = false }: { kpi?: boolean }) {
-  return (
-    <div className="flex items-center gap-1">
-      {kpi && (
-        <Select>
-          <SelectTrigger className="h-5 w-[60px] text-[9px] border-0"><SelectValue placeholder="KPI" /></SelectTrigger>
-          <SelectContent><SelectItem value="default">KPI</SelectItem></SelectContent>
-        </Select>
-      )}
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Filter className="h-2.5 w-2.5" /></Button>
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Info className="h-2.5 w-2.5" /></Button>
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Maximize2 className="h-2.5 w-2.5" /></Button>
-      <Button variant="ghost" size="icon" className="h-5 w-5"><Download className="h-2.5 w-2.5" /></Button>
-    </div>
-  );
-}
-
-function DataTable({ title, columns, rows, kpi = false }: { title: string; columns: string[]; rows: string[][]; kpi?: boolean }) {
+function DataTable({ title, columns, rows }: { title: string; columns: string[]; rows: string[][] }) {
   return (
     <Card>
       <CardHeader className="pb-1 flex-row items-center justify-between py-2 px-3">
         <CardTitle className="text-[11px]">{title}</CardTitle>
-        <CardControls kpi={kpi} />
+        <CardControls />
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
@@ -237,25 +213,21 @@ export default function SlicingAndDicingPage() {
           title="Return Decomposition"
           columns={decompositionCols}
           rows={decompositionRows}
-          kpi
         />
         <DataTable
           title="Realized Volatility (%)"
           columns={volCols}
           rows={volRows}
-          kpi
         />
         <DataTable
           title="Valuation Ratios"
           columns={["P/E Ratio", "ROE (%)"]}
           rows={[["22.5", "18.2%"], ["19.8", "15.7%"], ["24.1", "20.3%"], ["—", "—"]]}
-          kpi
         />
         <DataTable
           title="Brinson Decomposition Summary"
           columns={["Allocation (%)", "Selection (%)"]}
           rows={[["0.12%", "0.45%"], ["-0.08%", "1.23%"], ["0.34%", "-0.15%"], ["0%", "0%"]]}
-          kpi
         />
 
         {/* Row 2: Charts */}
@@ -288,7 +260,6 @@ export default function SlicingAndDicingPage() {
               ["FUSION", "2.78%", "15.49%", "0.4%", "1.14%"],
               ["SUBEXLTD", "2.73%", "24.29%", "0.35%", "11.58%"],
             ]}
-            kpi
           />
           <DataTable
             title="Bottom 10 - Holdings (%)"
@@ -299,7 +270,6 @@ export default function SlicingAndDicingPage() {
               ["PAYTM", "-1.41%", "9.54%", "-0.15%", "11.77%"],
               ["TRENT", "-1.28%", "-8.07%", "0.1%", "3.08%"],
             ]}
-            kpi
           />
           <ChartPanel title="Top Holdings (%)" />
         </div>

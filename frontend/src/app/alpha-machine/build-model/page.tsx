@@ -22,7 +22,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Cpu, Loader2, CheckCircle2, X } from "lucide-react";
-import { useAuth } from "@/lib/auth";
+import { useRequireAuth } from "@/lib/useRequireAuth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
@@ -35,7 +35,7 @@ const CONTROL_FACTOR_OPTIONS = ["MARKET", "SIZE", "BETA"];
 
 export default function BuildAlphaModelPage() {
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, loading: authLoading } = useRequireAuth();
   const [showDialog, setShowDialog] = useState(false);
   const [modelName, setModelName] = useState("");
   const [inputFactors, setInputFactors] = useState<string[]>([]);
@@ -58,8 +58,8 @@ export default function BuildAlphaModelPage() {
   }
 
   async function handleCompute() {
-    if (!modelName || !token) {
-      alert(token ? "Please enter a model name" : "Please login first");
+    if (!modelName) {
+      alert("Please enter a model name");
       return;
     }
     if (inputFactors.length === 0) {
@@ -105,6 +105,14 @@ export default function BuildAlphaModelPage() {
       setResult("Error: Could not connect to API");
     }
     setComputing(false);
+  }
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   return (

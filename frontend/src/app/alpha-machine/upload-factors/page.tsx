@@ -14,8 +14,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, Upload, Trash2, Loader2, Plus } from "lucide-react";
-import { useAuth } from "@/lib/auth";
+import { RefreshCw, Upload, Trash2, Loader2, Plus, Download } from "lucide-react";
+import { useRequireAuth } from "@/lib/useRequireAuth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
@@ -28,7 +28,7 @@ const SAMPLE_TEMPLATE = [
 ];
 
 export default function UploadFactorsPage() {
-  const { token } = useAuth();
+  const { token, loading: authLoading } = useRequireAuth();
   const [showUpload, setShowUpload] = useState(false);
   const [alphaName, setAlphaName] = useState("");
   const [alphaDesc, setAlphaDesc] = useState("");
@@ -52,6 +52,19 @@ export default function UploadFactorsPage() {
 
   useEffect(() => { fetchModels(); }, [token]);
 
+  function handleDownloadTemplate() {
+    const header = "date,symbol,alpha";
+    const rows = SAMPLE_TEMPLATE.map((r) => `${r.date},${r.symbol},${r.alpha}`);
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "alpha_template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function handleUpload() {
     if (!alphaName || !selectedFile || !token) return;
     setUploading(true);
@@ -61,11 +74,16 @@ export default function UploadFactorsPage() {
       formData.append("description", alphaDesc);
       formData.append("file", selectedFile);
 
-      await fetch(`${API_BASE}/api/alpha/upload-factor`, {
+      const res = await fetch(`${API_BASE}/api/alpha/upload-factor`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.detail || `Upload failed (${res.status})`);
+      }
 
       setShowUpload(false);
       setAlphaName("");
@@ -73,7 +91,7 @@ export default function UploadFactorsPage() {
       setSelectedFile(null);
       fetchModels();
     } catch (e) {
-      alert("Upload failed");
+      alert(e instanceof Error ? e.message : "Upload failed");
     }
     setUploading(false);
   }
@@ -85,6 +103,14 @@ export default function UploadFactorsPage() {
       headers: { Authorization: `Bearer ${token}` },
     });
     fetchModels();
+  }
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   return (
@@ -138,7 +164,12 @@ export default function UploadFactorsPage() {
                 </div>
 
                 <div>
-                  <span className="text-xs font-medium">Example Format</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium">Example Format</span>
+                    <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleDownloadTemplate}>
+                      <Download className="h-3 w-3" /> Download Template
+                    </Button>
+                  </div>
                   <table className="w-full mt-2 text-[11px]">
                     <thead><tr className="border-b border-border/50">
                       <th className="px-2 py-1.5 text-left text-muted-foreground">Date</th>

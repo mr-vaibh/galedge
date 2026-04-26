@@ -12,9 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Download, Filter, Info, Maximize2, X, Search, Loader2 } from "lucide-react";
+import { X, Search, Loader2, Download } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { api } from "@/lib/api";
+import { CardControls } from "@/components/CardControls";
 
 const DEFAULT_STOCKS = [
   { symbol: "RELIANCE.NS", name: "Reliance Industries", color: "#3b82f6" },
@@ -26,16 +27,6 @@ const DEFAULT_STOCKS = [
 
 const CHART_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#a855f7", "#ef4444", "#06b6d4"];
 
-function CardControls() {
-  return (
-    <div className="flex items-center gap-1">
-      <Button variant="ghost" size="icon" className="h-6 w-6"><Filter className="h-3 w-3" /></Button>
-      <Button variant="ghost" size="icon" className="h-6 w-6"><Info className="h-3 w-3" /></Button>
-      <Button variant="ghost" size="icon" className="h-6 w-6"><Maximize2 className="h-3 w-3" /></Button>
-      <Button variant="ghost" size="icon" className="h-6 w-6"><Download className="h-3 w-3" /></Button>
-    </div>
-  );
-}
 
 export default function StockSummaryPage() {
   const [universe, setUniverse] = useState("INEC1");
@@ -101,7 +92,11 @@ export default function StockSummaryPage() {
   }, [search]);
 
   useEffect(() => {
-    if (selected.length === 0) return;
+    if (selected.length === 0) {
+      setExposures({});
+      setFactorNames([]);
+      return;
+    }
     setLoading(true);
     api.stockExposures(selected.map(s => s.symbol), universe)
       .then((data) => {
@@ -205,39 +200,48 @@ export default function StockSummaryPage() {
             <CardControls />
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-[11px]">
-                <thead className="sticky top-0 bg-card z-10">
-                  <tr className="border-b border-border/50">
-                    <th className="px-2 py-2 text-left font-medium text-muted-foreground">Factor</th>
-                    {selected.slice(0, 5).map((s) => (
-                      <th key={s.symbol} className="px-2 py-2 text-right font-medium text-[10px]" style={{ color: s.color }}>
-                        {s.symbol.replace(".NS", "")}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {factorNames.length > 0 ? factorNames.map((f) => (
-                    <tr key={f} className="border-b border-border/30 hover:bg-muted/30">
-                      <td className="px-2 py-1.5 font-medium text-muted-foreground">{f}</td>
-                      {selected.slice(0, 5).map((s) => {
-                        const v = exposures[s.symbol]?.[f] ?? 0;
-                        return (
-                          <td key={s.symbol} className={`px-2 py-1.5 text-right tabular-nums ${v >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                            {v.toFixed(2)}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  )) : (
-                    <tr><td colSpan={6} className="px-2 py-8 text-center text-muted-foreground text-xs">
-                      {loading ? "Loading exposures..." : "No exposure data. Build factor model first."}
-                    </td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            {selected.length === 0 ? (
+              <div className="px-4 py-8 text-center text-muted-foreground text-xs">
+                No stocks selected. Use the search above to add stocks.
+              </div>
+            ) : (
+              <>
+                <p className="px-2 pt-2 text-[10px] text-muted-foreground">Note: Only Indian (NSE) stocks have factor exposure data.</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[11px]">
+                    <thead className="sticky top-0 bg-card z-10">
+                      <tr className="border-b border-border/50">
+                        <th className="px-2 py-2 text-left font-medium text-muted-foreground whitespace-nowrap">Factor</th>
+                        {selected.map((s) => (
+                          <th key={s.symbol} className="px-2 py-2 text-right font-medium text-[10px] whitespace-nowrap" style={{ color: s.color }}>
+                            {s.symbol.replace(".NS", "")}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {factorNames.length > 0 ? factorNames.map((f) => (
+                        <tr key={f} className="border-b border-border/30 hover:bg-muted/30">
+                          <td className="px-2 py-1.5 font-medium text-muted-foreground whitespace-nowrap">{f}</td>
+                          {selected.map((s) => {
+                            const v = exposures[s.symbol]?.[f] ?? 0;
+                            return (
+                              <td key={s.symbol} className={`px-2 py-1.5 text-right tabular-nums whitespace-nowrap ${v >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                                {v.toFixed(2)}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      )) : (
+                        <tr><td colSpan={selected.length + 1} className="px-2 py-8 text-center text-muted-foreground text-xs">
+                          {loading ? "Loading exposures..." : "No exposure data. Build factor model first."}
+                        </td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
