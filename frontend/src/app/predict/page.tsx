@@ -72,7 +72,7 @@ export default function PredictPage() {
   const [backtest, setBacktest] = useState<BacktestResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { formatCurrency, formatCurrencyCompact, symbol: curSymbol } = useCurrency();
+  const { formatCurrency, formatCurrencyCompact, symbol: curSymbol, currency, convert, rate } = useCurrency();
   const stockCur = symbol.endsWith(".NS") || symbol.endsWith(".BO") ? "INR" : "USD";
 
   async function analyze() {
@@ -82,8 +82,21 @@ export default function PredictPage() {
     setPrediction(null);
     setBacktest(null);
     try {
+      // Convert portfolio value from display currency to stock's native currency
+      const rawValue = parseFloat(portfolioValue) || 100000;
+      let nativeValue = rawValue;
+      if (currency !== stockCur) {
+        // User entered in display currency, convert to stock's native
+        // e.g., user enters ₹10,00,000 for AAPL (USD stock): convert INR→USD
+        if (currency === "INR" && stockCur === "USD") {
+          nativeValue = rawValue / rate; // INR to USD
+        } else if (currency === "USD" && stockCur === "INR") {
+          nativeValue = rawValue * rate; // USD to INR
+        }
+      }
+
       const [pred, bt] = await Promise.all([
-        api.predict(symbol.toUpperCase(), parseFloat(portfolioValue) || 100000, riskTolerance),
+        api.predict(symbol.toUpperCase(), nativeValue, riskTolerance),
         api.predictBacktest(symbol.toUpperCase(), "1y", 10).catch(() => null),
       ]);
       setPrediction(pred);
