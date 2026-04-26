@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import CORS_ORIGINS
 from app.database import init_db
-from app.routers import auth_router, portfolio_router, strategy_router, screen_router
+from app.routers import auth_router, portfolio_router, strategy_router, screen_router, data_router
 
 
 @asynccontextmanager
@@ -42,6 +42,7 @@ app.include_router(auth_router.router)
 app.include_router(portfolio_router.router)
 app.include_router(strategy_router.router)
 app.include_router(screen_router.router)
+app.include_router(data_router.router)
 
 # ── Import legacy route functions directly ────────────────────────────────────
 # Instead of mounting the old app, import the route handlers and re-register them

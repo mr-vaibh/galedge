@@ -37,3 +37,4 @@ data/
 # Misc
 *.log
 .pytest_cache/
+galedge_alpha.db
