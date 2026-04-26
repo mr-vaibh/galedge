@@ -18,6 +18,9 @@ import {
   LayoutGrid,
   Grid3X3,
   Briefcase,
+  LogIn,
+  LogOut,
+  User,
 } from "lucide-react";
 import {
   Sidebar,
@@ -39,6 +42,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
 
 interface NavItem {
   title: string;
@@ -191,6 +196,8 @@ function NavSection({ items, label }: { items: NavItem[]; label?: string }) {
 }
 
 export function AppSidebar() {
+  const { user, logout } = useAuth();
+
   return (
     <Sidebar collapsible="icon" variant="sidebar">
       <SidebarHeader>
@@ -226,8 +233,44 @@ export function AppSidebar() {
         <NavSection items={TOOLS_NAV} label="Tools" />
       </SidebarContent>
       <SidebarFooter>
-        <div className="px-3 py-2 text-[10px] text-muted-foreground group-data-[collapsible=icon]:hidden">
-          Galedge Alpha v1.0 — Not financial advice.
+        <div className="flex flex-col gap-2 px-3 py-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0">
+          {user ? (
+            <>
+              <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
+                <User className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate text-xs text-muted-foreground">
+                  {user.email}
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={logout}
+                className="w-full justify-start gap-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="group-data-[collapsible=icon]:hidden">
+                  Logout
+                </span>
+              </Button>
+            </>
+          ) : (
+            <Link href="/login">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start gap-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
+              >
+                <LogIn className="h-4 w-4" />
+                <span className="group-data-[collapsible=icon]:hidden">
+                  Login
+                </span>
+              </Button>
+            </Link>
+          )}
+          <div className="text-[10px] text-muted-foreground group-data-[collapsible=icon]:hidden">
+            Galedge Alpha v1.0 — Not financial advice.
+          </div>
         </div>
       </SidebarFooter>
     </Sidebar>
