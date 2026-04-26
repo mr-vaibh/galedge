@@ -18,6 +18,7 @@ import {
   LayoutGrid,
   Grid3X3,
   Briefcase,
+  Sliders,
   LogIn,
   LogOut,
   User,
@@ -86,6 +87,11 @@ const PLATFORM_NAV: NavItem[] = [
       { title: "Select Portfolio", href: "/portfolio-construction/select" },
       { title: "Upload Portfolio", href: "/portfolio-construction/upload" },
     ],
+  },
+  {
+    title: "Optimizer",
+    href: "/optimizer",
+    icon: Sliders,
   },
   {
     title: "Strategy Builder",
