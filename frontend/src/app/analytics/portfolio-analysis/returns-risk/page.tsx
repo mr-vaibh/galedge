@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -122,7 +123,41 @@ const topHoldingsBarData = [
   { name: "IDFCFIRSTB", value: -3.25 },
 ];
 
+const OVERALL_TOP = [
+  ["CANHLIFE", "3.39%", "17.26%", "0.48%", "1.78%"],
+  ["SENCO", "3.14%", "80.55%", "2%", "10.44%"],
+  ["FUSION", "2.78%", "15.49%", "0.4%", "1.14%"],
+];
+const OVERALL_BOTTOM = [
+  ["IDFCFIRSTB", "-3.25%", "-24.16%", "0.88%", "9.52%"],
+  ["PAYTM", "-1.41%", "9.54%", "-0.15%", "11.77%"],
+];
+const OVERALL_COLS = ["Symbol", "Holdings (%)", "Raw Return (%)", "Total Return (%)", "Risk Contrib (%)"];
+
+const IDIO_TOP = [
+  ["SENCO", "3.14%", "72.11%", "1.85%", "8.92%"],
+  ["CANHLIFE", "3.39%", "12.04%", "0.33%", "1.02%"],
+  ["FUSION", "2.78%", "10.21%", "0.26%", "0.78%"],
+];
+const IDIO_BOTTOM = [
+  ["IDFCFIRSTB", "-3.25%", "-18.92%", "0.69%", "7.14%"],
+  ["PAYTM", "-1.41%", "5.12%", "-0.08%", "9.41%"],
+];
+const IDIO_COLS = ["Symbol", "Holdings (%)", "Idio Raw Return (%)", "Idio Return (%)", "Idio Risk (%)"];
+
+const FACTOR_TOP = [
+  ["Market", "MARKET", "0.98", "6.91%", "8.2%"],
+  ["Style", "LTMOM", "0.72", "3.42%", "1.8%"],
+  ["Style", "SIZE", "1.45", "1.07%", "2.1%"],
+];
+const FACTOR_BOTTOM = [
+  ["Style", "FINLVG", "-0.18", "-0.52%", "0.9%"],
+  ["Style", "BETA", "-0.32", "1.26%", "1.5%"],
+];
+const FACTOR_COLS = ["Factor Type", "Factor Name", "Factor Exposure", "Factor Return (%)", "Factor Risk Contrib (%)"];
+
 export default function ReturnsAndRiskPage() {
+  const [contributorTab, setContributorTab] = useState("overall");
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
@@ -238,7 +273,7 @@ export default function ReturnsAndRiskPage() {
       <div>
         <div className="flex items-center gap-3 mb-3">
           <h2 className="text-sm font-semibold">Contributors and Detractors</h2>
-          <Tabs defaultValue="overall">
+          <Tabs value={contributorTab} onValueChange={(v) => { if (typeof v === "string") setContributorTab(v); }}>
             <TabsList className="h-7">
               <TabsTrigger value="overall" className="text-[10px] h-6">Overall</TabsTrigger>
               <TabsTrigger value="idio" className="text-[10px] h-6">Idio</TabsTrigger>
@@ -248,14 +283,16 @@ export default function ReturnsAndRiskPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
           <Card>
-            <CardHeader className="pb-1 py-2 px-3"><CardTitle className="text-[11px]">Top 10 - Holdings (%)</CardTitle></CardHeader>
+            <CardHeader className="pb-1 py-2 px-3"><CardTitle className="text-[11px]">
+              {contributorTab === "factor" ? "Top Factors" : "Top 10 - Holdings (%)"}
+            </CardTitle></CardHeader>
             <CardContent className="p-0">
               <table className="w-full text-[10px]">
                 <thead><tr className="border-b border-border/50">
-                  {["Symbol", "Holdings (%)", "Raw Return (%)", "Total Return (%)", "Risk Contrib (%)"].map(h => <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>)}
+                  {(contributorTab === "overall" ? OVERALL_COLS : contributorTab === "idio" ? IDIO_COLS : FACTOR_COLS).map(h => <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>)}
                 </tr></thead>
                 <tbody>
-                  {[["CANHLIFE","3.39%","17.26%","0.48%","1.78%"],["SENCO","3.14%","80.55%","2%","10.44%"],["FUSION","2.78%","15.49%","0.4%","1.14%"]].map((r,i)=>(
+                  {(contributorTab === "overall" ? OVERALL_TOP : contributorTab === "idio" ? IDIO_TOP : FACTOR_TOP).map((r,i)=>(
                     <tr key={i} className="border-b border-border/30">{r.map((c,j)=><td key={j} className="px-2 py-1 tabular-nums">{c}</td>)}</tr>
                   ))}
                 </tbody>
@@ -263,14 +300,16 @@ export default function ReturnsAndRiskPage() {
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-1 py-2 px-3"><CardTitle className="text-[11px]">Bottom 10 - Holdings (%)</CardTitle></CardHeader>
+            <CardHeader className="pb-1 py-2 px-3"><CardTitle className="text-[11px]">
+              {contributorTab === "factor" ? "Bottom Factors" : "Bottom 10 - Holdings (%)"}
+            </CardTitle></CardHeader>
             <CardContent className="p-0">
               <table className="w-full text-[10px]">
                 <thead><tr className="border-b border-border/50">
-                  {["Symbol", "Holdings (%)", "Raw Return (%)", "Total Return (%)", "Risk Contrib (%)"].map(h => <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>)}
+                  {(contributorTab === "overall" ? OVERALL_COLS : contributorTab === "idio" ? IDIO_COLS : FACTOR_COLS).map(h => <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>)}
                 </tr></thead>
                 <tbody>
-                  {[["IDFCFIRSTB","-3.25%","-24.16%","0.88%","9.52%"],["PAYTM","-1.41%","9.54%","-0.15%","11.77%"]].map((r,i)=>(
+                  {(contributorTab === "overall" ? OVERALL_BOTTOM : contributorTab === "idio" ? IDIO_BOTTOM : FACTOR_BOTTOM).map((r,i)=>(
                     <tr key={i} className="border-b border-border/30">{r.map((c,j)=><td key={j} className={`px-2 py-1 tabular-nums ${c.startsWith("-")?"text-red-400":""}`}>{c}</td>)}</tr>
                   ))}
                 </tbody>

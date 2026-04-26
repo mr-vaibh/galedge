@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -56,11 +57,17 @@ const sampleData = Array.from({ length: 60 }, (_, i) => ({
 }));
 
 export default function PeerComparisonPage() {
+  const router = useRouter();
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Peer Comparison</h1>
-        <Tabs defaultValue="performance">
+        <Tabs value="peer" onValueChange={(v) => {
+          if (typeof v === "string") {
+            if (v === "performance") router.push("/analytics/overview/performance");
+            else if (v === "holdings") router.push("/analytics/overview/holdings");
+          }
+        }}>
           <TabsList className="h-7">
             <TabsTrigger value="performance" className="text-[10px] h-6">Performance Summary</TabsTrigger>
             <TabsTrigger value="peer" className="text-[10px] h-6">Peer Comparison</TabsTrigger>

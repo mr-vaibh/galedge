@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -103,6 +104,7 @@ function PeriodSelector() {
 }
 
 export default function PerformanceSummaryPage() {
+  const router = useRouter();
   const [metrics, setMetrics] = useState<Record<string, unknown> | null>(null);
   const [equityCurve, setEquityCurve] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
@@ -138,7 +140,12 @@ export default function PerformanceSummaryPage() {
       </div>
 
       {/* Analytics sub-nav tabs */}
-      <Tabs defaultValue="performance">
+      <Tabs value="performance" onValueChange={(v) => {
+        if (typeof v === "string") {
+          if (v === "peer") router.push("/analytics/overview/peer-comparison");
+          else if (v === "holdings") router.push("/analytics/overview/holdings");
+        }
+      }}>
         <TabsList className="h-8">
           <TabsTrigger value="performance" className="text-xs h-7">Performance Summary</TabsTrigger>
           <TabsTrigger value="peer" className="text-xs h-7">Peer Comparison</TabsTrigger>

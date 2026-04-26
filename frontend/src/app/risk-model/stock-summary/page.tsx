@@ -41,9 +41,64 @@ export default function StockSummaryPage() {
   const [universe, setUniverse] = useState("INEC1");
   const [selected, setSelected] = useState(DEFAULT_STOCKS);
   const [search, setSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<{ symbol: string; name: string }[]>([]);
+  const [searching, setSearching] = useState(false);
   const [exposures, setExposures] = useState<Record<string, Record<string, number>>>({});
   const [loading, setLoading] = useState(false);
   const [factorNames, setFactorNames] = useState<string[]>([]);
+
+  const handleSearch = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    setSearching(true);
+    try {
+      const results = await api.search(query);
+      setSearchResults(results.slice(0, 8));
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && search.trim()) {
+      // If there are search results, add the first one
+      if (searchResults.length > 0) {
+        addStock(searchResults[0]);
+      } else {
+        // Try adding directly by symbol
+        const symbol = search.trim().toUpperCase();
+        const alreadyExists = selected.some((s) => s.symbol === symbol || s.symbol === `${symbol}.NS`);
+        if (!alreadyExists) {
+          const color = CHART_COLORS[selected.length % CHART_COLORS.length];
+          setSelected([...selected, { symbol: `${symbol}.NS`, name: symbol, color }]);
+        }
+        setSearch("");
+        setSearchResults([]);
+      }
+    }
+  };
+
+  const addStock = (stock: { symbol: string; name: string }) => {
+    const alreadyExists = selected.some((s) => s.symbol === stock.symbol);
+    if (!alreadyExists) {
+      const color = CHART_COLORS[selected.length % CHART_COLORS.length];
+      setSelected([...selected, { symbol: stock.symbol, name: stock.name, color }]);
+    }
+    setSearch("");
+    setSearchResults([]);
+  };
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      handleSearch(search);
+    }, 300);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   useEffect(() => {
     if (selected.length === 0) return;
@@ -67,7 +122,7 @@ export default function StockSummaryPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Select value={universe} onValueChange={(v) => v && setUniverse(v)}>
+          <Select value={universe} onValueChange={(v) => { if (typeof v === "string") setUniverse(v); }}>
             <SelectTrigger className="w-[140px] h-8"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="INEC1">INEC1</SelectItem>
@@ -96,8 +151,26 @@ export default function StockSummaryPage() {
                 placeholder="Search stock by symbol or name"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
                 className="h-8 text-xs pl-8"
               />
+              {searching && (
+                <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+              )}
+              {searchResults.length > 0 && search.trim() && (
+                <div className="absolute top-9 left-0 right-0 bg-card border rounded-lg shadow-lg z-20 max-h-48 overflow-y-auto">
+                  {searchResults.map((r) => (
+                    <button
+                      key={r.symbol}
+                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 flex items-center justify-between"
+                      onClick={() => addStock(r)}
+                    >
+                      <span className="font-medium">{r.symbol}</span>
+                      <span className="text-muted-foreground text-[10px] truncate ml-2">{r.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </CardHeader>

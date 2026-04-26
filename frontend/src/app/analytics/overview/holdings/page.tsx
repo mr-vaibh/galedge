@@ -1,7 +1,9 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, Filter, Info, Maximize2 } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 
@@ -41,9 +43,24 @@ const holdingsTimeSeries = Array.from({ length: 50 }, (_, i) => ({
 }));
 
 export default function HoldingsSummaryPage() {
+  const router = useRouter();
   return (
     <div className="p-4 space-y-4">
-      <h1 className="text-xl font-bold">Holdings & Factor Summary</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold">Holdings & Factor Summary</h1>
+        <Tabs value="holdings" onValueChange={(v) => {
+          if (typeof v === "string") {
+            if (v === "performance") router.push("/analytics/overview/performance");
+            else if (v === "peer") router.push("/analytics/overview/peer-comparison");
+          }
+        }}>
+          <TabsList className="h-7">
+            <TabsTrigger value="performance" className="text-[10px] h-6">Performance Summary</TabsTrigger>
+            <TabsTrigger value="peer" className="text-[10px] h-6">Peer Comparison</TabsTrigger>
+            <TabsTrigger value="holdings" className="text-[10px] h-6">Holdings Summary</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Holdings Table */}

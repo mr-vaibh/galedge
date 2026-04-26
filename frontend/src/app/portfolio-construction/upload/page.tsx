@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, Download } from "lucide-react";
+import { Upload, Download, Loader2, CheckCircle2 } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
 const BENCHMARKS = [
   "NIFTY 50", "NIFTY 500", "NIFTY 100", "NIFTY 200", "SENSEX", "BSE 500",
@@ -26,9 +30,108 @@ const SAMPLE_TEMPLATE = [
 ];
 
 export default function UploadPortfolioPage() {
+  const router = useRouter();
+  const { token } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [fund, setFund] = useState("");
   const [scheme, setScheme] = useState("");
   const [benchmark, setBenchmark] = useState("");
+  const [date, setDate] = useState("2026-04-24");
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) setFile(f);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const f = e.dataTransfer.files?.[0];
+    if (f) setFile(f);
+  };
+
+  const handleDownloadTemplate = () => {
+    const header = "ExchangeSymbol,SEMV";
+    const rows = SAMPLE_TEMPLATE.map((r) => `${r.symbol},${r.semv}`);
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "portfolio_template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleProceed = async () => {
+    if (!fund.trim()) {
+      setError("Fund name is required");
+      return;
+    }
+    if (!file) {
+      setError("Please upload a CSV file");
+      return;
+    }
+    if (!token) {
+      setError("Please log in to upload a portfolio");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      // Step 1: Create portfolio
+      const createRes = await fetch(`${API_BASE}/api/portfolios/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          fund,
+          scheme,
+          benchmark,
+          date,
+        }),
+      });
+
+      if (!createRes.ok) {
+        const err = await createRes.json().catch(() => null);
+        throw new Error(err?.detail || `Failed to create portfolio (${createRes.status})`);
+      }
+
+      const portfolio = await createRes.json();
+      const portfolioId = portfolio.id;
+
+      // Step 2: Upload holdings CSV
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const uploadRes = await fetch(`${API_BASE}/api/portfolios/${portfolioId}/upload-holdings`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json().catch(() => null);
+        throw new Error(err?.detail || `Failed to upload holdings (${uploadRes.status})`);
+      }
+
+      // Step 3: Navigate to portfolio selection
+      router.push("/portfolio-construction/select");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="p-4 space-y-4">
@@ -48,7 +151,7 @@ export default function UploadPortfolioPage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Benchmark</Label>
-              <Select value={benchmark} onValueChange={(v) => v && setBenchmark(v)}>
+              <Select value={benchmark} onValueChange={(v) => { if (typeof v === "string") setBenchmark(v); }}>
                 <SelectTrigger><SelectValue placeholder="Select Benchmark" /></SelectTrigger>
                 <SelectContent>
                   {BENCHMARKS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
@@ -57,7 +160,7 @@ export default function UploadPortfolioPage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Date</Label>
-              <Input type="date" defaultValue="2026-04-24" />
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
         </CardContent>
@@ -69,13 +172,43 @@ export default function UploadPortfolioPage() {
           <CardTitle className="text-sm">Upload CSV</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="border-2 border-dashed border-border/50 rounded-lg p-12 text-center mb-4">
-            <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground">Drag files to upload</p>
-            <p className="text-xs text-muted-foreground/60 my-1">OR</p>
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <Upload className="h-3 w-3" /> Browse Files
-            </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          <div
+            className="border-2 border-dashed border-border/50 rounded-lg p-12 text-center mb-4 cursor-pointer hover:border-border transition-colors"
+            onClick={() => fileInputRef.current?.click()}
+            onDrop={handleDrop}
+            onDragOver={(e) => e.preventDefault()}
+          >
+            {file ? (
+              <>
+                <CheckCircle2 className="h-10 w-10 mx-auto mb-3 text-emerald-500" />
+                <p className="text-sm font-medium">{file.name}</p>
+                <p className="text-xs text-muted-foreground mt-1">{(file.size / 1024).toFixed(1)} KB</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 gap-1.5"
+                  onClick={(e) => { e.stopPropagation(); setFile(null); }}
+                >
+                  Remove
+                </Button>
+              </>
+            ) : (
+              <>
+                <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">Drag files to upload</p>
+                <p className="text-xs text-muted-foreground/60 my-1">OR</p>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Upload className="h-3 w-3" /> Browse Files
+                </Button>
+              </>
+            )}
           </div>
 
           <div className="text-xs text-red-400 mb-4">
@@ -85,7 +218,7 @@ export default function UploadPortfolioPage() {
           {/* Example + Download Template */}
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium">Example</span>
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleDownloadTemplate}>
               <Download className="h-3 w-3" /> Download Template — CSV
             </Button>
           </div>
@@ -109,8 +242,21 @@ export default function UploadPortfolioPage() {
         </CardContent>
       </Card>
 
+      {error && (
+        <div className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-4 py-2">
+          {error}
+        </div>
+      )}
+
       <div className="flex justify-end">
-        <Button className="bg-blue-600 hover:bg-blue-700">Proceed</Button>
+        <Button
+          className="bg-blue-600 hover:bg-blue-700 gap-1.5"
+          onClick={handleProceed}
+          disabled={loading}
+        >
+          {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          {loading ? "Uploading..." : "Proceed"}
+        </Button>
       </div>
     </div>
   );
