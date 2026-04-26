@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { usePortfolio } from "@/lib/portfolio-context";
 import {
   Select,
   SelectContent,
@@ -22,7 +23,13 @@ export default function SelectPortfolioPage() {
   const router = useRouter();
   const { token } = useAuth();
   const [portfolios, setPortfolios] = useState<Record<string, unknown>[]>([]);
+  const { selectPortfolio } = usePortfolio();
   const [loading, setLoading] = useState(true);
+
+  function handleViewAnalytics(p: Record<string, unknown>) {
+    selectPortfolio(Number(p.id), String(p.fund_name), String(p.scheme_name || ""));
+    router.push(`/analytics/overview/performance?portfolio_id=${p.id}`);
+  }
 
   async function fetchPortfolios() {
     if (!token) { setLoading(false); return; }
@@ -77,7 +84,7 @@ export default function SelectPortfolioPage() {
           <table className="w-full text-[11px]">
             <thead>
               <tr className="border-b border-border/50 bg-muted/20">
-                {["Fund Name", "Scheme Name", "Benchmark", "Type", "AUM (Cr)", "Analytics", "Delete"].map((h) => (
+                {["Fund Name", "Scheme Name", "Benchmark", "Type", "AUM (Cr)", "Actions"].map((h) => (
                   <th key={h} className="px-3 py-2.5 text-left font-medium text-muted-foreground">{h}</th>
                 ))}
               </tr>
@@ -94,19 +101,16 @@ export default function SelectPortfolioPage() {
                 </td></tr>
               ) : (
                 portfolios.map((p) => (
-                  <tr key={Number(p.id)} className="border-b border-border/30 hover:bg-muted/30 cursor-pointer"
-                    onClick={() => router.push(`/analytics/overview/performance?portfolio=${p.id}`)}>
+                  <tr key={Number(p.id)} className="border-b border-border/30 hover:bg-muted/30">
                     <td className="px-3 py-2 font-medium">{String(p.fund_name)}</td>
                     <td className="px-3 py-2">{String(p.scheme_name || "—")}</td>
                     <td className="px-3 py-2 text-muted-foreground">{String(p.benchmark || "—")}</td>
                     <td className="px-3 py-2"><Badge>{String(p.portfolio_type)}</Badge></td>
                     <td className="px-3 py-2 tabular-nums">{String(p.initial_aum || "—")}</td>
-                    <td className="px-3 py-2">
-                      <Badge className={`text-[8px] ${p.analytics_status === "AVAILABLE" ? "bg-emerald-600" : "bg-red-600"}`}>
-                        {String(p.analytics_status)}
-                      </Badge>
-                    </td>
-                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-3 py-2 flex gap-1">
+                      <Button size="sm" className="h-6 text-[9px] bg-blue-600 hover:bg-blue-700" onClick={() => handleViewAnalytics(p)}>
+                        View Analytics
+                      </Button>
                       <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deletePortfolio(Number(p.id))}>
                         <Trash2 className="h-3 w-3" />
                       </Button>

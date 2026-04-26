@@ -4,6 +4,7 @@ import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CurrencyProvider } from "@/lib/currency";
 import { AuthProvider } from "@/lib/auth";
+import { PortfolioProvider } from "@/lib/portfolio-context";
 import { AppShell } from "@/components/AppShell";
 
 const geistSans = Geist({
@@ -136,9 +137,11 @@ export default function RootLayout({
       <body className="min-h-full">
         <AuthProvider>
         <CurrencyProvider>
+        <PortfolioProvider>
         <TooltipProvider>
           <AppShell>{children}</AppShell>
         </TooltipProvider>
+        </PortfolioProvider>
         </CurrencyProvider>
         </AuthProvider>
       </body>
