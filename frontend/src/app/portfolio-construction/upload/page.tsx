@@ -90,14 +90,17 @@ export default function UploadPortfolioPage() {
         body: JSON.stringify({
           fund_name: fund,
           scheme_name: scheme,
-          benchmark,
-          date,
+          benchmark: benchmark || "NIFTY 500",
         }),
       });
 
       if (!createRes.ok) {
         const err = await createRes.json().catch(() => null);
-        throw new Error(err?.detail || `Failed to create portfolio (${createRes.status})`);
+        const detail = err?.detail;
+        const msg = typeof detail === "string" ? detail
+          : Array.isArray(detail) ? detail.map((d: { msg?: string }) => d.msg || JSON.stringify(d)).join(", ")
+          : `Failed to create portfolio (${createRes.status})`;
+        throw new Error(msg);
       }
 
       const portfolio = await createRes.json();
@@ -106,6 +109,7 @@ export default function UploadPortfolioPage() {
       // Step 2: Upload holdings CSV
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("holding_date", date);
 
       const uploadRes = await fetch(`${API_BASE}/api/portfolios/${portfolioId}/upload-holdings`, {
         method: "POST",
@@ -117,7 +121,11 @@ export default function UploadPortfolioPage() {
 
       if (!uploadRes.ok) {
         const err = await uploadRes.json().catch(() => null);
-        throw new Error(err?.detail || `Failed to upload holdings (${uploadRes.status})`);
+        const detail = err?.detail;
+        const msg = typeof detail === "string" ? detail
+          : Array.isArray(detail) ? detail.map((d: { msg?: string }) => d.msg || JSON.stringify(d)).join(", ")
+          : `Failed to upload holdings (${uploadRes.status})`;
+        throw new Error(msg);
       }
 
       // Step 3: Navigate to portfolio selection
