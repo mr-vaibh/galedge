@@ -746,30 +746,86 @@ async def get_heatmap(
 
 # ── Screener ─────────────────────────────────────────────────────────────────
 
-def _fetch_screener_stock(sym: str) -> dict | None:
-    """Fetch screener data for a single stock. Returns None on failure."""
+def _fetch_screener_meta(sym: str) -> dict | None:
+    """Fetch and cache full screener metadata for a stock (sector, P/E, margins, etc.)."""
+    cache_key = f"screener_{sym}"
+    if cache_key in _screener_cache:
+        return _screener_cache[cache_key]
     try:
-        t = yf.Ticker(sym)
-        info = t.info
-        fi = t.fast_info
-        price = fi.last_price
-        prev_close = fi.previous_close
-        change_pct = ((price - prev_close) / prev_close * 100) if prev_close else 0
-        return {
+        info = yf.Ticker(sym).info
+        meta = {
             "symbol": sym,
             "name": info.get("shortName", sym),
             "sector": info.get("sector"),
             "industry": info.get("industry"),
-            "price": _clean_value(price),
-            "changePercent": _clean_value(round(change_pct, 2)),
             "marketCap": _clean_value(info.get("marketCap")),
             "trailingPE": _clean_value(info.get("trailingPE")),
             "forwardPE": _clean_value(info.get("forwardPE")),
             "dividendYield": _clean_value(info.get("dividendYield")),
             "beta": _clean_value(info.get("beta")),
         }
+        _screener_cache[cache_key] = meta
+        return meta
     except Exception:
         return None
+
+
+def _build_screener() -> list[dict]:
+    """Build screener data: cached meta + batch price download."""
+    cache_key = "screener_built"
+    now = time.time()
+    cached = _screener_cache.get(cache_key)
+    if cached and (now - cached["timestamp"]) < 300:
+        return cached["data"]
+
+    all_symbols = STOCK_UNIVERSE["us"] + STOCK_UNIVERSE["india"]
+
+    # Step 1: Fetch meta (cached forever per symbol)
+    missing = [s for s in all_symbols if f"screener_{s}" not in _screener_cache]
+    if missing:
+        for i in range(0, len(missing), 20):
+            batch = missing[i:i + 20]
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                list(executor.map(_fetch_screener_meta, batch))
+
+    # Step 2: Batch download prices — ONE API call
+    try:
+        df = yf.download(all_symbols, period="2d", interval="1d", group_by="ticker", progress=False, threads=True)
+    except Exception:
+        df = pd.DataFrame()
+
+    # Step 3: Merge meta + live prices
+    all_stocks = []
+    for sym in all_symbols:
+        meta = _screener_cache.get(f"screener_{sym}")
+        if not meta or not meta.get("marketCap"):
+            continue
+        try:
+            if len(all_symbols) == 1:
+                sym_df = df
+            else:
+                if sym not in df.columns.get_level_values(0):
+                    continue
+                sym_df = df[sym]
+            closes = sym_df["Close"].dropna()
+            if len(closes) < 2:
+                continue
+            price = float(closes.iloc[-1])
+            prev = float(closes.iloc[-2])
+            if prev <= 0 or price != price:
+                continue
+            change_pct = ((price - prev) / prev) * 100
+            all_stocks.append({
+                **meta,
+                "price": _clean_value(round(price, 2)),
+                "changePercent": _clean_value(round(change_pct, 2)),
+            })
+        except Exception:
+            # Still include with no price data
+            all_stocks.append({**meta, "price": None, "changePercent": None})
+
+    _screener_cache[cache_key] = {"data": all_stocks, "timestamp": now}
+    return all_stocks
 
 
 @app.get("/api/screener")
@@ -785,20 +841,10 @@ async def stock_screener(
     limit: int = Query(50),
 ):
     """Screen stocks by fundamental filters."""
-    global _screener_cache
-
-    cache_key = "screener_all"
-    now = time.time()
-
-    # Serve from cache if < 10 minutes old
-    if cache_key in _screener_cache and (now - _screener_cache[cache_key]["timestamp"]) < 600:
-        all_stocks = _screener_cache[cache_key]["data"]
-    else:
-        all_symbols = STOCK_UNIVERSE["us"] + STOCK_UNIVERSE["india"]
-        with ThreadPoolExecutor(max_workers=20) as executor:
-            results = list(executor.map(_fetch_screener_stock, all_symbols))
-        all_stocks = [r for r in results if r is not None]
-        _screener_cache[cache_key] = {"data": all_stocks, "timestamp": now}
+    try:
+        all_stocks = _build_screener()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
     # Apply filters
     filtered = all_stocks

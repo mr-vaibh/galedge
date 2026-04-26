@@ -108,7 +108,13 @@ export default function ScreenerPage() {
             </thead>
             <tbody>
               {loading && !results.length ? (
-                <tr><td colSpan={10} className="p-8 text-center text-muted-foreground">Loading screener data...</td></tr>
+                <tr><td colSpan={10} className="p-12 text-center">
+                  <div className="inline-flex flex-col items-center gap-2">
+                    <div className="h-5 w-5 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
+                    <span className="text-sm text-muted-foreground">Loading screener data...</span>
+                    <span className="text-xs text-muted-foreground/60">First load may take 15-30s while data is fetched</span>
+                  </div>
+                </td></tr>
               ) : results.length === 0 ? (
                 <tr><td colSpan={10} className="p-8 text-center text-muted-foreground">No results. Try adjusting filters.</td></tr>
               ) : (
