@@ -28,7 +28,7 @@ interface HoldingWithQuote extends Holding {
 
 export default function PortfolioPage() {
   const router = useRouter();
-  const { symbol: curSymbol, formatCurrency, formatCurrencyCompact, currency, rate } = useCurrency();
+  const { symbol: curSymbol, formatCurrency, formatCurrencyCompact, currency, rate, rateReady } = useCurrency();
   const hCur = (h: HoldingWithQuote) => h.symbol.endsWith(".NS") || h.symbol.endsWith(".BO") ? "INR" : "USD";
   const [holdings, setHoldings] = useState<HoldingWithQuote[]>([]);
   const [loading, setLoading] = useState(false);
@@ -66,7 +66,7 @@ export default function PortfolioPage() {
     const nativeCur = sym.endsWith(".NS") || sym.endsWith(".BO") ? "INR" : "USD";
     let buyPrice = parseFloat(form.buyPrice);
     // Convert buy price from display currency to stock's native currency for storage
-    if (currency !== nativeCur) {
+    if (currency !== nativeCur && rateReady) {
       if (currency === "INR" && nativeCur === "USD") buyPrice = buyPrice / rate;
       else if (currency === "USD" && nativeCur === "INR") buyPrice = buyPrice * rate;
     }

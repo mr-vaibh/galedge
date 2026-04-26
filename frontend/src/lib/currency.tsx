@@ -8,7 +8,10 @@ interface CurrencyContextType {
   currency: CurrencyCode;
   setCurrency: (c: CurrencyCode) => void;
   symbol: string;
-  rate: number; // conversion rate FROM USD TO selected currency
+  rate: number;
+  rateReady: boolean;
+  rateFailed: boolean;
+  rateUpdatedAt: string | null;
   convert: (value: number, fromCurrency?: string) => number;
   formatCurrency: (value: number, fromCurrency?: string) => string;
   formatCurrencyCompact: (value: number, fromCurrency?: string) => string;
@@ -19,22 +22,16 @@ const SYMBOLS: Record<CurrencyCode, string> = {
   INR: "₹",
 };
 
-// Fallback rate if API fails
-const FALLBACK_RATES: Record<string, number> = {
-  USD_TO_INR: 84.5,
-  INR_TO_USD: 1 / 84.5,
-};
-
 const STORAGE_KEY = "galedge_currency";
 
 const CurrencyContext = createContext<CurrencyContextType | null>(null);
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrencyState] = useState<CurrencyCode>("USD");
-  const [rates, setRates] = useState<Record<string, number>>({
-    USD: 1,
-    INR: FALLBACK_RATES.USD_TO_INR,
-  });
+  const [rates, setRates] = useState<Record<string, number> | null>(null);
+  const [rateReady, setRateReady] = useState(false);
+  const [rateFailed, setRateFailed] = useState(false);
+  const [rateUpdatedAt, setRateUpdatedAt] = useState<string | null>(null);
 
   // Load saved preference
   useEffect(() => {
@@ -44,19 +41,26 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Fetch live exchange rate
+  // Fetch live exchange rate — no fallback
   useEffect(() => {
     async function fetchRate() {
       try {
         const res = await fetch(
           "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json"
         );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (data?.usd?.inr) {
           setRates({ USD: 1, INR: data.usd.inr });
+          setRateReady(true);
+          setRateFailed(false);
+          setRateUpdatedAt(new Date().toLocaleTimeString());
+        } else {
+          throw new Error("Invalid rate data");
         }
       } catch {
-        // Use fallback
+        setRateFailed(true);
+        setRateReady(false);
       }
     }
     fetchRate();
@@ -67,43 +71,59 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, c);
   }
 
+  // When conversion is needed but rate isn't available, skip conversion
+  // and show in the stock's native currency with its own symbol
+  const canConvert = rateReady && rates !== null;
+
   const convert = useCallback(
     (value: number, fromCurrency?: string): number => {
       if (!value || isNaN(value)) return value;
       const from = (fromCurrency || "USD").toUpperCase();
 
-      // If already in target currency, no conversion
       if (from === currency) return value;
+      if (!canConvert || !rates) return value; // no conversion, return raw
 
-      // Convert to USD first, then to target
-      const inUSD = from === "USD" ? value : value / (rates[from] || rates.INR);
+      const inUSD = from === "USD" ? value : value / (rates[from] || 1);
       return inUSD * (rates[currency] || 1);
     },
-    [currency, rates]
+    [currency, rates, canConvert]
+  );
+
+  // Determine which symbol to show: if conversion fails, use the source currency symbol
+  const effectiveSymbol = useCallback(
+    (fromCurrency?: string): string => {
+      const from = (fromCurrency || "USD").toUpperCase() as CurrencyCode;
+      if (from === currency) return SYMBOLS[currency];
+      if (!canConvert) return SYMBOLS[from] || SYMBOLS.USD; // show native symbol
+      return SYMBOLS[currency];
+    },
+    [currency, canConvert]
   );
 
   const formatCurrency = useCallback(
     (value: number, fromCurrency?: string): string => {
       if (value == null || isNaN(value)) return "—";
       const converted = convert(value, fromCurrency);
-      return `${SYMBOLS[currency]}${converted.toFixed(2)}`;
+      const sym = effectiveSymbol(fromCurrency);
+      return `${sym}${converted.toFixed(2)}`;
     },
-    [currency, convert]
+    [convert, effectiveSymbol]
   );
 
   const formatCurrencyCompact = useCallback(
     (value: number, fromCurrency?: string): string => {
       if (value == null || isNaN(value)) return "—";
       const converted = convert(value, fromCurrency);
+      const sym = effectiveSymbol(fromCurrency);
       const abs = Math.abs(converted);
       const sign = converted < 0 ? "-" : "";
-      if (abs >= 1e12) return `${sign}${SYMBOLS[currency]}${(abs / 1e12).toFixed(2)}T`;
-      if (abs >= 1e9) return `${sign}${SYMBOLS[currency]}${(abs / 1e9).toFixed(2)}B`;
-      if (abs >= 1e6) return `${sign}${SYMBOLS[currency]}${(abs / 1e6).toFixed(2)}M`;
-      if (abs >= 1e3) return `${sign}${SYMBOLS[currency]}${(abs / 1e3).toFixed(1)}K`;
-      return `${sign}${SYMBOLS[currency]}${abs.toFixed(2)}`;
+      if (abs >= 1e12) return `${sign}${sym}${(abs / 1e12).toFixed(2)}T`;
+      if (abs >= 1e9) return `${sign}${sym}${(abs / 1e9).toFixed(2)}B`;
+      if (abs >= 1e6) return `${sign}${sym}${(abs / 1e6).toFixed(2)}M`;
+      if (abs >= 1e3) return `${sign}${sym}${(abs / 1e3).toFixed(1)}K`;
+      return `${sign}${sym}${abs.toFixed(2)}`;
     },
-    [currency, convert]
+    [convert, effectiveSymbol]
   );
 
   return (
@@ -112,13 +132,29 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
         currency,
         setCurrency,
         symbol: SYMBOLS[currency],
-        rate: rates[currency] || 1,
+        rate: rates?.[currency] ?? 1,
+        rateReady,
+        rateFailed,
+        rateUpdatedAt,
         convert,
         formatCurrency,
         formatCurrencyCompact,
       }}
     >
       {children}
+
+      {/* Toast: shown when currency is not USD and rate fetch failed */}
+      {rateFailed && currency !== "USD" && (
+        <div className="fixed bottom-4 right-4 z-50 max-w-sm animate-in slide-in-from-bottom-2 fade-in">
+          <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-lg px-4 py-3 text-sm shadow-lg">
+            <div className="font-medium">Currency conversion unavailable</div>
+            <div className="text-xs mt-1 opacity-80">
+              Could not fetch live exchange rate. Prices are shown in each stock&apos;s
+              native currency ({SYMBOLS.USD} for US, {SYMBOLS.INR} for Indian stocks).
+            </div>
+          </div>
+        </div>
+      )}
     </CurrencyContext.Provider>
   );
 }

@@ -10,10 +10,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Settings, DollarSign } from "lucide-react";
+import { Settings, DollarSign, CheckCircle2, XCircle } from "lucide-react";
 
 export default function SettingsPage() {
-  const { currency, setCurrency, symbol, rate } = useCurrency();
+  const { currency, setCurrency, symbol, rate, rateReady, rateFailed, rateUpdatedAt } = useCurrency();
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
@@ -49,19 +49,55 @@ export default function SettingsPage() {
             </Select>
           </div>
 
-          <div className="text-sm text-muted-foreground space-y-1">
+          <div className="text-sm text-muted-foreground space-y-2">
             <p>
               All prices will be displayed in{" "}
               <span className="font-medium text-foreground">{symbol} {currency}</span>.
             </p>
+
+            {/* Live Rate Status */}
             {currency !== "USD" && (
-              <p className="text-xs">
-                Exchange rate: $1 = {symbol}{rate.toFixed(2)} (auto-updated)
-              </p>
+              <div className="rounded-lg border p-3 space-y-1">
+                <div className="flex items-center gap-2 text-xs">
+                  {rateReady ? (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                      <span className="text-emerald-500 font-medium">Live rate active</span>
+                    </>
+                  ) : rateFailed ? (
+                    <>
+                      <XCircle className="h-3.5 w-3.5 text-destructive" />
+                      <span className="text-destructive font-medium">Rate fetch failed</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="h-3.5 w-3.5 rounded-full bg-amber-500 animate-pulse" />
+                      <span className="text-amber-500 font-medium">Fetching rate...</span>
+                    </>
+                  )}
+                </div>
+
+                {rateReady && (
+                  <div className="text-xs space-y-0.5">
+                    <p>$1 = {symbol}{rate.toFixed(2)}</p>
+                    {rateUpdatedAt && (
+                      <p className="text-muted-foreground">Updated at {rateUpdatedAt}</p>
+                    )}
+                  </div>
+                )}
+
+                {rateFailed && (
+                  <p className="text-xs text-muted-foreground">
+                    Prices will be shown in each stock&apos;s native currency ($ for US, ₹ for Indian stocks)
+                    until the rate becomes available.
+                  </p>
+                )}
+              </div>
             )}
+
             <p className="text-xs mt-2">
-              Note: Stock data is fetched in its native currency (USD for US stocks, INR for Indian stocks)
-              and converted to your display currency automatically.
+              Exchange rates are fetched live from an open API and auto-update on each page load.
+              No hardcoded rates are used.
             </p>
           </div>
         </CardContent>
