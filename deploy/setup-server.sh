@@ -45,8 +45,9 @@ if [ ! -d "$APP_DIR/.git" ]; then
   git clone --depth=1 "$REPO" "$APP_DIR"
 else
   cd "$APP_DIR"
-  git fetch --depth=1 origin main
+  git fetch --depth=1 --no-tags --force origin main
   git reset --hard origin/main
+  git clean -fd
 fi
 chown -R $DEPLOY_USER:$DEPLOY_USER "$APP_DIR"
 
@@ -71,10 +72,12 @@ su - $DEPLOY_USER -c "
   pip install \
     --prefer-binary \
     --no-build-isolation \
+    --no-cache-dir \
     -r $APP_DIR/backend/requirements.txt
 
   pip install \
     --no-build-isolation \
+    --no-cache-dir \
     -e $APP_DIR/packages/galedge-core
 "
 
