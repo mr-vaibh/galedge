@@ -18,6 +18,15 @@ jobs:
           script: |
             set -e
 
+            # Ensure swap exists so the Next.js build doesn't get OOM-killed (exit 137)
+            if ! sudo swapon --show | grep -q '/swapfile'; then
+              sudo fallocate -l 2G /swapfile
+              sudo chmod 600 /swapfile
+              sudo mkswap /swapfile
+              sudo swapon /swapfile
+              echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+            fi
+
             cd /opt/galedge
 
             # Pull latest code
