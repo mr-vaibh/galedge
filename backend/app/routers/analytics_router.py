@@ -108,18 +108,31 @@ def get_performance_summary(
         )
         .all()
     )
-    # Map symbols: portfolio uses "HDFCBANK" but prices use "HDFCBANK.NS"
+    # Map symbols: portfolio may use "HDFCBANK" but prices use "HDFCBANK.NS" or "HDFCBANK.BO"
+    # Try to find the actual symbol in the price database
     raw_symbols = [h.symbol for h in holdings]
     symbols = []
-    symbol_map = {}
+    symbol_map = {}  # mapped_symbol -> original_symbol
     for s in raw_symbols:
         if "." in s:
+            # Already has exchange suffix
             symbols.append(s)
             symbol_map[s] = s
         else:
-            ns = f"{s}.NS"
-            symbols.append(ns)
-            symbol_map[ns] = s
+            # Try all common exchange suffixes
+            matched = False
+            for suffix in [".NS", ".BO", ""]:
+                candidate = f"{s}{suffix}" if suffix else s
+                exists = db.query(StockPrice.id).filter(StockPrice.symbol == candidate).first()
+                if exists:
+                    symbols.append(candidate)
+                    symbol_map[candidate] = s
+                    matched = True
+                    break
+            if not matched:
+                # Fallback: try .NS (most common for Indian stocks)
+                symbols.append(f"{s}.NS")
+                symbol_map[f"{s}.NS"] = s
 
     # Fetch ALL available price data for holdings (not just portfolio date range)
     # This lets us compute returns even if portfolio was just uploaded today
@@ -213,18 +226,31 @@ def get_holdings_with_exposures(
         .order_by(PortfolioHolding.weight.desc())
         .all()
     )
-    # Map symbols: portfolio uses "HDFCBANK" but prices use "HDFCBANK.NS"
+    # Map symbols: portfolio may use "HDFCBANK" but prices use "HDFCBANK.NS" or "HDFCBANK.BO"
+    # Try to find the actual symbol in the price database
     raw_symbols = [h.symbol for h in holdings]
     symbols = []
-    symbol_map = {}
+    symbol_map = {}  # mapped_symbol -> original_symbol
     for s in raw_symbols:
         if "." in s:
+            # Already has exchange suffix
             symbols.append(s)
             symbol_map[s] = s
         else:
-            ns = f"{s}.NS"
-            symbols.append(ns)
-            symbol_map[ns] = s
+            # Try all common exchange suffixes
+            matched = False
+            for suffix in [".NS", ".BO", ""]:
+                candidate = f"{s}{suffix}" if suffix else s
+                exists = db.query(StockPrice.id).filter(StockPrice.symbol == candidate).first()
+                if exists:
+                    symbols.append(candidate)
+                    symbol_map[candidate] = s
+                    matched = True
+                    break
+            if not matched:
+                # Fallback: try .NS (most common for Indian stocks)
+                symbols.append(f"{s}.NS")
+                symbol_map[f"{s}.NS"] = s
 
     # Stock info (sector, industry, market_cap)
     info_rows = db.query(StockInfo).filter(StockInfo.symbol.in_(symbols)).all()
