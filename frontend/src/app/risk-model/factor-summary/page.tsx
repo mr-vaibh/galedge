@@ -14,6 +14,8 @@ import { Download, Filter, Info, Maximize2, RefreshCw, Loader2 } from "lucide-re
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { api, FactorSummaryRow } from "@/lib/api";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+
 function CardControls() {
   return (
     <div className="flex items-center gap-1">
@@ -90,10 +92,19 @@ export default function FactorSummaryPage() {
         }))
       );
     } catch (e) {
-      if (universe !== "INEC1") {
-        setError(`No data available for ${universe}. Only INEC1 model is currently built. Switch to INEC1 or build ${universe} via POST /api/data/risk-model/build?model_name=${universe}`);
-      } else {
-        setError("Failed to load factor data. Make sure the backend is running and data has been ingested. The backend auto-seeds on first start — it may take 30 seconds.");
+      // Auto-build the model if it doesn't exist
+      try {
+        setError(null);
+        setLoading(true);
+        await fetch(`${API_BASE}/api/data/risk-model/build?model_name=${universe}`, { method: "POST" });
+        // Retry loading after build
+        const summary = await api.factorSummary(universe);
+        setFactors(summary.factors);
+        const corr = await api.factorCorrelation(universe);
+        setCorrFactors(corr.factors);
+        setCorrMatrix(corr.matrix);
+      } catch {
+        setError("Failed to load or build factor data. Make sure the backend is running and data has been ingested.");
       }
     }
     setLoading(false);

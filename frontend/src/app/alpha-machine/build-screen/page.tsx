@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +60,8 @@ const EXAMPLES = [
 ];
 
 export default function BuildScreenPage() {
+  const router = useRouter();
+  const { token } = useAuth();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [parentUniverse, setParentUniverse] = useState("");
@@ -142,12 +146,38 @@ export default function BuildScreenPage() {
       const rows: ScreenResult[] = Array.isArray(data) ? data : data.results ?? data.data ?? [];
       setResults(rows);
       setResultsTotal(data.total ?? rows.length);
+
+      // Also save the screen if name is provided and user is logged in
+      if (name.trim() && token) {
+        try {
+          await fetch(`${API_BASE}/api/alpha/screens`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              name: name.trim(),
+              description: description.trim(),
+              parent_universe: parentUniverse,
+              sector,
+              industry,
+              portfolio_weight: portfolioWeight,
+              screener_query: screenerQuery,
+              score_equation: scoreEquation,
+              score_variable: scoreVariable,
+            }),
+          });
+        } catch {
+          // Save failed silently — screen was still computed
+        }
+      }
     } catch (e: unknown) {
       setExecuteError(e instanceof Error ? e.message : "Execution failed");
     } finally {
       setExecuting(false);
     }
-  }, [screenerQuery, portfolioWeight]);
+  }, [screenerQuery, portfolioWeight, name, description, parentUniverse, sector, industry, scoreEquation, scoreVariable, token]);
 
   const filteredMetrics = metrics.filter((m) =>
     m.toLowerCase().includes(metricSearch.toLowerCase())

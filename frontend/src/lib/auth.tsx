@@ -90,14 +90,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
+      // OAuth2PasswordRequestForm expects form-urlencoded, not JSON
       const res = await fetch(`${API_BASE}/api/auth/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`,
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.detail || "Login failed");
+        const err = await res.json().catch(() => ({ detail: "Login failed" }));
+        const msg = typeof err?.detail === "string" ? err.detail : "Invalid email or password";
+        throw new Error(msg);
       }
       const data = await res.json();
       saveToken(data.access_token);
