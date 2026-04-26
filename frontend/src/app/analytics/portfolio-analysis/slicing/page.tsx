@@ -1,17 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { BarChartPanel } from "@/components/charts/BarChartPanel";
 import { CardControls } from "@/components/CardControls";
+import { usePortfolio } from "@/lib/portfolio-context";
+import { useAuth } from "@/lib/auth";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
 const DIMENSIONS = [
-  "Market Cap", "Liquidity", "Total Risk", "Idiosyncratic Risk",
-  "Sector", "Industry", "Earnings Window", "IPO", "Financial Type", "Position Age",
+  "Sector", "Market Cap", "Liquidity", "Total Risk", "Idiosyncratic Risk",
+  "Industry", "Earnings Window", "IPO", "Financial Type", "Position Age",
 ];
+
+interface Holding {
+  symbol: string;
+  weight: number;
+  sector: string;
+  market_cap?: number;
+  factor_exposures?: Record<string, number>;
+}
+
+interface SliceGroup {
+  name: string;
+  count: number;
+  totalWeight: number;
+  holdings: Holding[];
+}
 
 function DataTable({ title, columns, rows }: { title: string; columns: string[]; rows: string[][] }) {
   return (
@@ -26,9 +44,7 @@ function DataTable({ title, columns, rows }: { title: string; columns: string[];
             <thead>
               <tr className="border-b border-border/50">
                 {columns.map((c) => (
-                  <th key={c} className="px-2 py-1.5 text-left font-medium text-muted-foreground whitespace-nowrap">
-                    {c} <span className="text-[8px]">v</span>
-                  </th>
+                  <th key={c} className="px-2 py-1.5 text-left font-medium text-muted-foreground whitespace-nowrap">{c}</th>
                 ))}
               </tr>
             </thead>
@@ -36,12 +52,13 @@ function DataTable({ title, columns, rows }: { title: string; columns: string[];
               {rows.map((row, i) => (
                 <tr key={i} className="border-b border-border/30 hover:bg-muted/20">
                   {row.map((cell, j) => (
-                    <td key={j} className={`px-2 py-1 tabular-nums ${j > 0 && cell.startsWith("-") ? "text-red-400" : j > 0 ? "" : ""}`}>
-                      {cell}
-                    </td>
+                    <td key={j} className={`px-2 py-1 tabular-nums ${j > 0 && cell.startsWith("-") ? "text-red-400" : ""}`}>{cell}</td>
                   ))}
                 </tr>
               ))}
+              {rows.length === 0 && (
+                <tr><td colSpan={columns.length} className="px-2 py-4 text-center text-muted-foreground">No data available</td></tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -50,146 +67,109 @@ function DataTable({ title, columns, rows }: { title: string; columns: string[];
   );
 }
 
-const slicingTotalReturnData = [
-  { date: "2024-01", midCap: 1.2, smallCap: 0.8, micro: 0.5 },
-  { date: "2024-02", midCap: 2.5, smallCap: 1.9, micro: 1.1 },
-  { date: "2024-03", midCap: 3.1, smallCap: 2.8, micro: 1.8 },
-  { date: "2024-04", midCap: 4.8, smallCap: 3.5, micro: 2.4 },
-  { date: "2024-05", midCap: 5.2, smallCap: 4.1, micro: 3.0 },
-  { date: "2024-06", midCap: 6.8, smallCap: 5.6, micro: 3.9 },
-  { date: "2024-07", midCap: 7.5, smallCap: 6.2, micro: 4.5 },
-  { date: "2024-08", midCap: 8.9, smallCap: 7.8, micro: 5.2 },
-  { date: "2024-09", midCap: 9.4, smallCap: 8.1, micro: 5.8 },
-  { date: "2024-10", midCap: 10.8, smallCap: 9.5, micro: 6.4 },
-  { date: "2024-11", midCap: 12.1, smallCap: 10.2, micro: 7.1 },
-  { date: "2024-12", midCap: 12.92, smallCap: 10.8, micro: 7.5 },
-];
+function groupHoldings(holdings: Holding[], dimension: string): SliceGroup[] {
+  const groups: Record<string, Holding[]> = {};
 
-const slicingRollingVolData = [
-  { date: "2024-01", midCap: 14.2, smallCap: 16.8, micro: 19.5 },
-  { date: "2024-02", midCap: 13.8, smallCap: 16.2, micro: 18.9 },
-  { date: "2024-03", midCap: 14.5, smallCap: 17.1, micro: 20.2 },
-  { date: "2024-04", midCap: 13.1, smallCap: 15.8, micro: 18.4 },
-  { date: "2024-05", midCap: 12.9, smallCap: 15.2, micro: 17.8 },
-  { date: "2024-06", midCap: 13.5, smallCap: 16.0, micro: 18.6 },
-  { date: "2024-07", midCap: 14.0, smallCap: 16.5, micro: 19.1 },
-  { date: "2024-08", midCap: 13.3, smallCap: 15.5, micro: 18.0 },
-  { date: "2024-09", midCap: 13.8, smallCap: 16.1, micro: 18.8 },
-  { date: "2024-10", midCap: 14.1, smallCap: 16.7, micro: 19.4 },
-  { date: "2024-11", midCap: 13.6, smallCap: 15.9, micro: 18.5 },
-  { date: "2024-12", midCap: 13.9, smallCap: 16.3, micro: 19.0 },
-];
+  holdings.forEach((h) => {
+    let key: string;
+    if (dimension === "Sector") {
+      key = h.sector || "Unknown";
+    } else if (dimension === "Market Cap") {
+      const mc = h.market_cap ?? 0;
+      if (mc > 50000) key = "Large Cap";
+      else if (mc > 10000) key = "Mid Cap";
+      else if (mc > 2000) key = "Small Cap";
+      else key = "Micro Cap";
+    } else {
+      key = h.sector || "Unknown";
+    }
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(h);
+  });
 
-const slicingPEData = [
-  { date: "2024-01", midCap: 24.5, smallCap: 28.2, micro: 32.1 },
-  { date: "2024-02", midCap: 25.1, smallCap: 28.8, micro: 33.0 },
-  { date: "2024-03", midCap: 24.8, smallCap: 28.5, micro: 32.5 },
-  { date: "2024-04", midCap: 25.5, smallCap: 29.2, micro: 33.8 },
-  { date: "2024-05", midCap: 25.2, smallCap: 28.9, micro: 33.2 },
-  { date: "2024-06", midCap: 24.9, smallCap: 28.6, micro: 32.8 },
-  { date: "2024-07", midCap: 25.8, smallCap: 29.5, micro: 34.1 },
-  { date: "2024-08", midCap: 25.4, smallCap: 29.1, micro: 33.5 },
-  { date: "2024-09", midCap: 25.0, smallCap: 28.7, micro: 33.0 },
-  { date: "2024-10", midCap: 25.6, smallCap: 29.3, micro: 33.9 },
-  { date: "2024-11", midCap: 25.3, smallCap: 29.0, micro: 33.4 },
-  { date: "2024-12", midCap: 25.1, smallCap: 28.8, micro: 33.1 },
-];
-
-const slicingAllocationData = [
-  { date: "2024-01", midCap: 0.05, smallCap: 0.02, micro: -0.01 },
-  { date: "2024-02", midCap: 0.08, smallCap: 0.04, micro: 0.01 },
-  { date: "2024-03", midCap: 0.12, smallCap: 0.06, micro: 0.02 },
-  { date: "2024-04", midCap: 0.15, smallCap: 0.09, micro: 0.03 },
-  { date: "2024-05", midCap: 0.18, smallCap: 0.11, micro: 0.04 },
-  { date: "2024-06", midCap: 0.22, smallCap: 0.14, micro: 0.05 },
-  { date: "2024-07", midCap: 0.25, smallCap: 0.17, micro: 0.06 },
-  { date: "2024-08", midCap: 0.28, smallCap: 0.19, micro: 0.07 },
-  { date: "2024-09", midCap: 0.32, smallCap: 0.22, micro: 0.08 },
-  { date: "2024-10", midCap: 0.35, smallCap: 0.25, micro: 0.09 },
-  { date: "2024-11", midCap: 0.38, smallCap: 0.28, micro: 0.10 },
-  { date: "2024-12", midCap: 0.42, smallCap: 0.31, micro: 0.12 },
-];
-
-const slicingTopHoldingsBar = [
-  { name: "CANHLIFE", value: 3.39 },
-  { name: "SENCO", value: 3.14 },
-  { name: "FUSION", value: 2.78 },
-  { name: "SUBEXLTD", value: 2.73 },
-  { name: "TRENT", value: -1.28 },
-  { name: "PAYTM", value: -1.41 },
-  { name: "532960", value: -1.71 },
-  { name: "IDFCFIRSTB", value: -3.25 },
-];
-
-const slicingSeriesConfig = [
-  { key: "midCap", name: "Mid Cap", color: "#3b82f6" },
-  { key: "smallCap", name: "Small Cap", color: "#10b981" },
-  { key: "micro", name: "Micro", color: "#f59e0b" },
-];
-
-const CHART_CONFIGS: Record<string, { data: Record<string, unknown>[]; yFormatter?: (v: number) => string }> = {
-  "Total Return (%)": { data: slicingTotalReturnData },
-  "Rolling 1Y Realized (%)": { data: slicingRollingVolData },
-  "PE Ratio": { data: slicingPEData, yFormatter: (v: number) => `${v.toFixed(1)}x` },
-  "Allocation Effect (%)": { data: slicingAllocationData },
-};
-
-function ChartPanel({ title }: { title: string }) {
-  const config = CHART_CONFIGS[title];
-  if (config) {
-    return (
-      <Card>
-        <CardHeader className="pb-1 flex-row items-center justify-between py-2 px-3">
-          <CardTitle className="text-[11px]">{title}</CardTitle>
-          <CardControls />
-        </CardHeader>
-        <CardContent>
-          <TimeSeriesChart
-            data={config.data}
-            series={slicingSeriesConfig}
-            height={144}
-            yFormatter={config.yFormatter}
-          />
-        </CardContent>
-      </Card>
-    );
-  }
-  // Fallback for "Top Holdings (%)" bar chart
-  return (
-    <Card>
-      <CardHeader className="pb-1 flex-row items-center justify-between py-2 px-3">
-        <CardTitle className="text-[11px]">{title}</CardTitle>
-        <CardControls />
-      </CardHeader>
-      <CardContent>
-        <BarChartPanel data={slicingTopHoldingsBar} height={144} />
-      </CardContent>
-    </Card>
-  );
+  return Object.entries(groups)
+    .map(([name, hlds]) => ({
+      name,
+      count: hlds.length,
+      totalWeight: hlds.reduce((s, h) => s + h.weight, 0),
+      holdings: hlds,
+    }))
+    .sort((a, b) => b.totalWeight - a.totalWeight);
 }
 
 export default function SlicingAndDicingPage() {
-  const [activeDimension, setActiveDimension] = useState("Market Cap");
+  const [activeDimension, setActiveDimension] = useState("Sector");
+  const { selectedPortfolioId, selectedFundName } = usePortfolio();
+  const { token } = useAuth();
 
-  const decompositionCols = ["Dividend Return (%)", "Other Return (%)", "Transaction Cost (%)", "Brokerage Fees (%)"];
-  const decompositionRows = [
-    ["-0.14%", "0.19%", "-1.69%", "-0.54%"],
-    ["12.92%", "-1.14%", "-60.43%", "-22.2%"],
-    ["0.67%", "0.68%", "-13.66%", "-4.28%"],
-    ["0%", "0%", "0%", "0%"],
-  ];
+  const [holdings, setHoldings] = useState<Holding[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const volCols = ["Market Realized Risk (%)", "Style Realized Risk (%)", "Industry Realized Risk (%)"];
-  const volRows = [
-    ["0%", "0%", "0%"],
-    ["3.78%", "2.82%", "1.49%"],
-    ["5.05%", "5.95%", "4.29%"],
-    ["0%", "0%", "0%"],
-  ];
+  const fetchHoldings = useCallback(async () => {
+    if (!selectedPortfolioId || !token) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/analytics/holdings/${selectedPortfolioId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`Failed to fetch holdings: ${res.status}`);
+      const data = await res.json();
+      const holdingsArr: Holding[] = Array.isArray(data) ? data : data.holdings ?? [];
+      setHoldings(holdingsArr);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to fetch holdings");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedPortfolioId, token]);
+
+  useEffect(() => {
+    fetchHoldings();
+  }, [fetchHoldings]);
+
+  if (!selectedPortfolioId) {
+    return (
+      <div className="p-4 space-y-3">
+        <h1 className="text-xl font-bold">Slicing and Dicing</h1>
+        <Card>
+          <CardContent className="p-8 text-center text-muted-foreground">
+            No portfolio selected. Go to Portfolio Construction to upload and select one.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const groups = groupHoldings(holdings, activeDimension);
+
+  // Build table rows from groups
+  const weightTableRows = groups.map((g) => [
+    g.name,
+    String(g.count),
+    `${(g.totalWeight * 100).toFixed(2)}%`,
+  ]);
+
+  // Bar chart data: weight by group
+  const weightBarData = groups.map((g) => ({
+    name: g.name,
+    value: parseFloat((g.totalWeight * 100).toFixed(2)),
+  }));
+
+  // Top holdings sorted by weight
+  const topHoldings = [...holdings].sort((a, b) => b.weight - a.weight).slice(0, 10);
+  const topHoldingsBarData = topHoldings.map((h) => ({
+    name: h.symbol,
+    value: parseFloat((h.weight * 100).toFixed(2)),
+  }));
+
+  // Bottom holdings (lowest weight, possibly negative/short)
+  const bottomHoldings = [...holdings].sort((a, b) => a.weight - b.weight).slice(0, 10);
 
   return (
     <div className="p-4 space-y-3">
-      <h1 className="text-xl font-bold">Slicing and Dicing</h1>
+      <h1 className="text-xl font-bold">Slicing and Dicing{selectedFundName ? ` — ${selectedFundName}` : ""}</h1>
 
       {/* Dimension Tabs */}
       <div className="flex gap-0.5 overflow-x-auto pb-1">
@@ -206,74 +186,110 @@ export default function SlicingAndDicingPage() {
         ))}
       </div>
 
-      {/* 8-Panel Grid: 2 rows x 4 cols */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-        {/* Row 1: Tables */}
-        <DataTable
-          title="Return Decomposition"
-          columns={decompositionCols}
-          rows={decompositionRows}
-        />
-        <DataTable
-          title="Realized Volatility (%)"
-          columns={volCols}
-          rows={volRows}
-        />
-        <DataTable
-          title="Valuation Ratios"
-          columns={["P/E Ratio", "ROE (%)"]}
-          rows={[["22.5", "18.2%"], ["19.8", "15.7%"], ["24.1", "20.3%"], ["—", "—"]]}
-        />
-        <DataTable
-          title="Brinson Decomposition Summary"
-          columns={["Allocation (%)", "Selection (%)"]}
-          rows={[["0.12%", "0.45%"], ["-0.08%", "1.23%"], ["0.34%", "-0.15%"], ["0%", "0%"]]}
-        />
-
-        {/* Row 2: Charts */}
-        <ChartPanel title="Total Return (%)" />
-        <ChartPanel title="Rolling 1Y Realized (%)" />
-        <ChartPanel title="PE Ratio" />
-        <ChartPanel title="Allocation Effect (%)" />
-      </div>
-
-      {/* Contributors and Detractors */}
-      <div className="mt-4">
-        <div className="flex items-center gap-3 mb-3">
-          <h2 className="text-sm font-semibold">Contributors and Detractors</h2>
-          <Tabs defaultValue="overall">
-            <TabsList className="h-7">
-              <TabsTrigger value="overall" className="text-[10px] h-6">Overall</TabsTrigger>
-              <TabsTrigger value="idio" className="text-[10px] h-6">Idio</TabsTrigger>
-              <TabsTrigger value="factor" className="text-[10px] h-6">Factor</TabsTrigger>
-            </TabsList>
-          </Tabs>
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
         </div>
+      )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-          <DataTable
-            title="Top 10 - Holdings (%)"
-            columns={["Symbol", "Holdings (%)", "Raw Return (%)", "Total Return (%)", "Total Risk Contribution (%)"]}
-            rows={[
-              ["CANHLIFE", "3.39%", "17.26%", "0.48%", "1.78%"],
-              ["SENCO", "3.14%", "80.55%", "2%", "10.44%"],
-              ["FUSION", "2.78%", "15.49%", "0.4%", "1.14%"],
-              ["SUBEXLTD", "2.73%", "24.29%", "0.35%", "11.58%"],
-            ]}
-          />
-          <DataTable
-            title="Bottom 10 - Holdings (%)"
-            columns={["Symbol", "Holdings (%)", "Raw Return (%)", "Total Return (%)", "Total Risk Contribution (%)"]}
-            rows={[
-              ["IDFCFIRSTB", "-3.25%", "-24.16%", "0.88%", "9.52%"],
-              ["532960", "-1.71%", "29.26%", "-0.91%", "6.04%"],
-              ["PAYTM", "-1.41%", "9.54%", "-0.15%", "11.77%"],
-              ["TRENT", "-1.28%", "-8.07%", "0.1%", "3.08%"],
-            ]}
-          />
-          <ChartPanel title="Top Holdings (%)" />
-        </div>
-      </div>
+      {error && (
+        <Card><CardContent className="p-4 text-center text-red-400">{error}</CardContent></Card>
+      )}
+
+      {!loading && !error && (
+        <>
+          {/* Summary Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+            <DataTable
+              title={`Weight by ${activeDimension}`}
+              columns={[activeDimension, "# Holdings", "Weight (%)"]}
+              rows={weightTableRows}
+            />
+            <DataTable
+              title="Holdings Count by Group"
+              columns={[activeDimension, "Count", "% of Total"]}
+              rows={groups.map((g) => [
+                g.name,
+                String(g.count),
+                `${((g.count / Math.max(holdings.length, 1)) * 100).toFixed(1)}%`,
+              ])}
+            />
+            <Card>
+              <CardHeader className="pb-1 flex-row items-center justify-between py-2 px-3">
+                <CardTitle className="text-[11px]">Weight Distribution by {activeDimension}</CardTitle>
+                <CardControls />
+              </CardHeader>
+              <CardContent>
+                {weightBarData.length > 0 ? (
+                  <BarChartPanel data={weightBarData} height={144} />
+                ) : (
+                  <div className="flex items-center justify-center h-[144px] text-muted-foreground text-xs">No data</div>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-1 flex-row items-center justify-between py-2 px-3">
+                <CardTitle className="text-[11px]">Top Holdings (%)</CardTitle>
+                <CardControls />
+              </CardHeader>
+              <CardContent>
+                {topHoldingsBarData.length > 0 ? (
+                  <BarChartPanel data={topHoldingsBarData} height={144} />
+                ) : (
+                  <div className="flex items-center justify-center h-[144px] text-muted-foreground text-xs">No data</div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Contributors and Detractors */}
+          <div className="mt-4">
+            <div className="flex items-center gap-3 mb-3">
+              <h2 className="text-sm font-semibold">Contributors and Detractors</h2>
+              <Tabs defaultValue="overall">
+                <TabsList className="h-7">
+                  <TabsTrigger value="overall" className="text-[10px] h-6">Overall</TabsTrigger>
+                  <TabsTrigger value="factor" className="text-[10px] h-6">Factor</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <DataTable
+                title="Top 10 - Holdings (%)"
+                columns={["Symbol", "Weight (%)", "Sector"]}
+                rows={topHoldings.map((h) => [
+                  h.symbol,
+                  `${(h.weight * 100).toFixed(2)}%`,
+                  h.sector || "—",
+                ])}
+              />
+              <DataTable
+                title="Bottom 10 - Holdings (%)"
+                columns={["Symbol", "Weight (%)", "Sector"]}
+                rows={bottomHoldings.map((h) => [
+                  h.symbol,
+                  `${(h.weight * 100).toFixed(2)}%`,
+                  h.sector || "—",
+                ])}
+              />
+              <Card>
+                <CardHeader className="pb-1 flex-row items-center justify-between py-2 px-3">
+                  <CardTitle className="text-[11px]">Top Holdings (%)</CardTitle>
+                  <CardControls />
+                </CardHeader>
+                <CardContent>
+                  {topHoldingsBarData.length > 0 ? (
+                    <BarChartPanel data={topHoldingsBarData} height={144} />
+                  ) : (
+                    <div className="flex items-center justify-center h-[144px] text-muted-foreground text-xs">No data</div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

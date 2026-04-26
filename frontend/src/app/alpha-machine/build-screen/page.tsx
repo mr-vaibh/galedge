@@ -82,6 +82,7 @@ export default function BuildScreenPage() {
   const [verifying, setVerifying] = useState(false);
   const [verifyStatus, setVerifyStatus] = useState<{ ok: boolean; message: string } | null>(null);
   const [executeError, setExecuteError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
   // Fetch metrics list from API on mount
   useEffect(() => {
@@ -147,10 +148,10 @@ export default function BuildScreenPage() {
       setResults(rows);
       setResultsTotal(data.total ?? rows.length);
 
-      // Also save the screen if name is provided and user is logged in
+      // Save the screen if name is provided and user is logged in
       if (name.trim() && token) {
         try {
-          await fetch(`${API_BASE}/api/alpha/screens`, {
+          const saveRes = await fetch(`${API_BASE}/api/alpha/screens`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -168,9 +169,16 @@ export default function BuildScreenPage() {
               score_variable: scoreVariable,
             }),
           });
+          if (saveRes.ok) {
+            setSaveSuccess(`Screen "${name}" saved successfully! Found ${rows.length} stocks.`);
+            // Navigate to alpha machine home after 2 seconds
+            setTimeout(() => router.push("/alpha-machine"), 2000);
+          }
         } catch {
-          // Save failed silently — screen was still computed
+          // Save failed but screen was computed — show results anyway
         }
+      } else if (!name.trim()) {
+        setSaveSuccess(`Found ${rows.length} matching stocks. Enter a name to save this screen.`);
       }
     } catch (e: unknown) {
       setExecuteError(e instanceof Error ? e.message : "Execution failed");
@@ -380,6 +388,13 @@ export default function BuildScreenPage() {
 
       {/* Results Area */}
       <Card>
+        {saveSuccess && (
+          <div className="px-4 pt-4">
+            <div className="text-xs text-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md px-3 py-2">
+              {saveSuccess}
+            </div>
+          </div>
+        )}
         {executeError && (
           <div className="px-4 pt-4">
             <div className="text-xs text-red-500 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-md px-3 py-2">

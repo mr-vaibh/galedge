@@ -136,7 +136,28 @@ export default function FactorSummaryPage() {
           </Select>
           {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         </div>
-        <Button variant="outline" size="sm" className="gap-1.5">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => {
+            if (factors.length > 0) {
+              const { downloadCSV } = require("@/lib/csv");
+              downloadCSV(factors.map(f => ({
+                Factor_Type: f.factor_type,
+                Factor: f.factor,
+                CAGR: f.cagr,
+                Cumulative_Return: f.cumulative_return,
+                Sharpe: f.sharpe,
+                Daily_Return: f.daily_return,
+                Max_Drawdown: f.max_drawdown,
+                Start: f.start_date,
+                End: f.end_date,
+              })), `factor_summary_${universe}`);
+            }
+          }}
+          disabled={factors.length === 0}
+        >
           <Download className="h-3.5 w-3.5" /> Download Raw Data
         </Button>
       </div>
