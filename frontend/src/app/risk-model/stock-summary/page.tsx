@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,20 +12,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Download, Filter, Info, Maximize2, X, Search } from "lucide-react";
+import { Download, Filter, Info, Maximize2, X, Search, Loader2 } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
+import { api } from "@/lib/api";
 
-const SAMPLE_STOCKS = [
-  { symbol: "RELIANCE", name: "Reliance Industries Ltd", color: "#3b82f6" },
-  { symbol: "HDFCBANK", name: "HDFC Bank Ltd", color: "#10b981" },
-  { symbol: "SBIN", name: "State Bank of India Ltd", color: "#f59e0b" },
-  { symbol: "BAJFINANCE", name: "Bajaj Finserv Ltd", color: "#a855f7" },
-  { symbol: "COALINDIA", name: "Coal India Ltd", color: "#ef4444" },
-  { symbol: "ICICIBANK", name: "Indo Count Industries Ltd", color: "#06b6d4" },
+const DEFAULT_STOCKS = [
+  { symbol: "RELIANCE.NS", name: "Reliance Industries", color: "#3b82f6" },
+  { symbol: "HDFCBANK.NS", name: "HDFC Bank", color: "#10b981" },
+  { symbol: "TCS.NS", name: "Tata Consultancy", color: "#f59e0b" },
+  { symbol: "INFY.NS", name: "Infosys", color: "#a855f7" },
+  { symbol: "SBIN.NS", name: "State Bank of India", color: "#ef4444" },
 ];
 
-const RISK_FACTORS = ["MARKET", "BETA", "SIZE", "EARNYILD", "LTMOM", "LIQUIDITY", "FINLVG", "PROFIT"];
-const DECOMP_FACTORS = ["MARKET", "BETA", "CONNECTIVITY", "EARNYILD", "FINLVG", "LTMOM", "VALUE"];
+const CHART_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#a855f7", "#ef4444", "#06b6d4"];
 
 function CardControls() {
   return (
@@ -40,8 +39,28 @@ function CardControls() {
 
 export default function StockSummaryPage() {
   const [universe, setUniverse] = useState("INEC1");
-  const [selected, setSelected] = useState(SAMPLE_STOCKS);
+  const [selected, setSelected] = useState(DEFAULT_STOCKS);
   const [search, setSearch] = useState("");
+  const [exposures, setExposures] = useState<Record<string, Record<string, number>>>({});
+  const [loading, setLoading] = useState(false);
+  const [factorNames, setFactorNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (selected.length === 0) return;
+    setLoading(true);
+    api.stockExposures(selected.map(s => s.symbol), universe)
+      .then((data) => {
+        setExposures(data.exposures);
+        // Get all unique factor names
+        const allFactors = new Set<string>();
+        Object.values(data.exposures).forEach(exp => {
+          Object.keys(exp).forEach(f => allFactors.add(f));
+        });
+        setFactorNames(Array.from(allFactors).sort());
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [selected, universe]);
 
   return (
     <div className="p-4 space-y-4">
@@ -56,6 +75,7 @@ export default function StockSummaryPage() {
             </SelectContent>
           </Select>
           <span className="text-sm text-muted-foreground">Stock Summary</span>
+          {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         </div>
         <Button variant="outline" size="sm" className="gap-1.5">
           <Download className="h-3.5 w-3.5" /> Download Raw Data
@@ -105,44 +125,50 @@ export default function StockSummaryPage() {
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Stock Risk Summary */}
+        {/* Stock Risk Summary — from API */}
         <Card>
           <CardHeader className="pb-2 flex-row items-center justify-between">
-            <CardTitle className="text-sm">Stock Risk Summary</CardTitle>
+            <CardTitle className="text-sm">Stock Factor Exposures</CardTitle>
             <CardControls />
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-[11px]">
-                <thead>
+                <thead className="sticky top-0 bg-card z-10">
                   <tr className="border-b border-border/50">
                     <th className="px-2 py-2 text-left font-medium text-muted-foreground">Factor</th>
-                    {selected.slice(0, 4).map((s) => (
-                      <th key={s.symbol} className="px-2 py-2 text-right font-medium" style={{ color: s.color }}>{s.symbol}</th>
+                    {selected.slice(0, 5).map((s) => (
+                      <th key={s.symbol} className="px-2 py-2 text-right font-medium text-[10px]" style={{ color: s.color }}>
+                        {s.symbol.replace(".NS", "")}
+                      </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {RISK_FACTORS.map((f) => (
+                  {factorNames.length > 0 ? factorNames.map((f) => (
                     <tr key={f} className="border-b border-border/30 hover:bg-muted/30">
                       <td className="px-2 py-1.5 font-medium text-muted-foreground">{f}</td>
-                      {selected.slice(0, 4).map((s) => {
-                        const v = (Math.sin(f.length * s.symbol.length) * 2).toFixed(2);
+                      {selected.slice(0, 5).map((s) => {
+                        const v = exposures[s.symbol]?.[f] ?? 0;
                         return (
-                          <td key={s.symbol} className={`px-2 py-1.5 text-right tabular-nums ${parseFloat(v) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                            {v}
+                          <td key={s.symbol} className={`px-2 py-1.5 text-right tabular-nums ${v >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                            {v.toFixed(2)}
                           </td>
                         );
                       })}
                     </tr>
-                  ))}
+                  )) : (
+                    <tr><td colSpan={6} className="px-2 py-8 text-center text-muted-foreground text-xs">
+                      {loading ? "Loading exposures..." : "No exposure data. Build factor model first."}
+                    </td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </CardContent>
         </Card>
 
-        {/* Return Decomposition Table */}
+        {/* Return Decomposition Table (sample) */}
         <Card>
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Return Decomposition</CardTitle>
@@ -154,19 +180,21 @@ export default function StockSummaryPage() {
                 <thead>
                   <tr className="border-b border-border/50">
                     <th className="px-2 py-2 text-left font-medium text-muted-foreground">Factor</th>
-                    <th className="px-2 py-2 text-right font-medium text-muted-foreground">BAJFINANCE</th>
-                    <th className="px-2 py-2 text-right font-medium text-muted-foreground">RELIANCE</th>
-                    <th className="px-2 py-2 text-right font-medium text-muted-foreground">HDFCBANK</th>
+                    {selected.slice(0, 3).map((s) => (
+                      <th key={s.symbol} className="px-2 py-2 text-right font-medium text-[10px]" style={{ color: s.color }}>
+                        {s.symbol.replace(".NS", "")}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {DECOMP_FACTORS.map((f) => (
+                  {["MARKET", "BETA", "SIZE", "LTMOM", "EARNYILD", "VALUE", "TOTAL"].map((f) => (
                     <tr key={f} className="border-b border-border/30 hover:bg-muted/30">
                       <td className="px-2 py-1.5 font-medium text-muted-foreground">{f}</td>
-                      {["BAJFINANCE", "RELIANCE", "HDFCBANK"].map((s) => {
-                        const v = (Math.sin(f.length + s.length) * 5).toFixed(2);
+                      {selected.slice(0, 3).map((s) => {
+                        const v = (Math.sin(f.length * s.symbol.length * 0.7) * 5).toFixed(2);
                         return (
-                          <td key={s} className={`px-2 py-1.5 text-right tabular-nums ${parseFloat(v) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                          <td key={s.symbol} className={`px-2 py-1.5 text-right tabular-nums ${parseFloat(v) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                             {v}%
                           </td>
                         );
@@ -182,7 +210,7 @@ export default function StockSummaryPage() {
         {/* Return Decomposition Chart */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2 flex-row items-center justify-between">
-            <CardTitle className="text-sm">Return Decomposition — BAJFINANCE</CardTitle>
+            <CardTitle className="text-sm">Return Decomposition — {selected[0]?.symbol.replace(".NS", "") || "Select stock"}</CardTitle>
             <CardControls />
           </CardHeader>
           <CardContent className="p-2">
@@ -191,14 +219,12 @@ export default function StockSummaryPage() {
                 date: `2025-${String(Math.floor(i / 8) + 1).padStart(2, "0")}-${String((i % 8) * 3 + 1).padStart(2, "0")}`,
                 MARKET: 5 + Math.sin(i * 0.1) * 8,
                 BETA: -2 + Math.cos(i * 0.15) * 3,
-                FINLVG: -1 + Math.sin(i * 0.2) * 2,
                 LTMOM: 3 + Math.cos(i * 0.08) * 5,
                 TOTAL: 8 + Math.sin(i * 0.05) * 15,
               }))}
               series={[
                 { key: "MARKET", name: "MARKET", color: "#3b82f6" },
                 { key: "BETA", name: "BETA", color: "#10b981" },
-                { key: "FINLVG", name: "FINLVG", color: "#f59e0b" },
                 { key: "LTMOM", name: "LTMOM", color: "#a855f7" },
                 { key: "TOTAL", name: "TOTAL", color: "#ef4444" },
               ]}

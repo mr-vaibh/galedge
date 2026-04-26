@@ -282,6 +282,18 @@ export interface BacktestResponse {
   }[];
 }
 
+export interface FactorSummaryRow {
+  factor_type: string;
+  factor: string;
+  cagr: number;
+  cumulative_return: number;
+  sharpe: number;
+  daily_return: number;
+  max_drawdown: number;
+  start_date: string;
+  end_date: string;
+}
+
 export const api = {
   quote: (symbol: string) => fetchAPI<Quote>(`/api/quote/${symbol}`),
 
@@ -341,4 +353,44 @@ export const api = {
     fetchAPI<BacktestResponse>(
       `/api/predict/backtest/${symbol}?period=${period}&timeframe=${timeframe}`
     ),
+
+  // ── Galedge Alpha Platform APIs ──────────────────────────────────────────
+
+  // Data ingestion
+  dataStats: () => fetchAPI<Record<string, unknown>>("/api/data/stats"),
+  ingestPrices: (market = "india", period = "2y") =>
+    fetchAPI<Record<string, unknown>>(`/api/data/ingest/prices?market=${market}&period=${period}`, ),
+  ingestFull: (period = "2y") =>
+    fetchAPI<Record<string, unknown>>(`/api/data/ingest/full?period=${period}`),
+  buildFactorModel: (model = "INEC1") =>
+    fetchAPI<Record<string, unknown>>(`/api/data/risk-model/build?model_name=${model}`),
+
+  // Risk Model
+  factorSummary: (model = "INEC1") =>
+    fetchAPI<{ model: string; factors: FactorSummaryRow[] }>(`/api/data/risk-model/factors?model_name=${model}`),
+  factorReturns: (factorName: string, model = "INEC1") =>
+    fetchAPI<{ factor: string; data: { date: string; return: number; cumulative: number }[] }>(
+      `/api/data/risk-model/factor-returns/${factorName}?model_name=${model}`
+    ),
+  factorCorrelation: (model = "INEC1") =>
+    fetchAPI<{ factors: string[]; matrix: number[][] }>(`/api/data/risk-model/correlation?model_name=${model}`),
+  stockExposures: (symbols: string[], model = "INEC1") =>
+    fetchAPI<{ symbols: string[]; exposures: Record<string, Record<string, number>> }>(
+      `/api/data/risk-model/stock-exposures?symbols=${symbols.join(",")}&model_name=${model}`
+    ),
+
+  // Auth
+  register: (email: string, password: string, fullName = "", organization = "") =>
+    fetch(`${API_BASE}/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, full_name: fullName, organization }),
+    }).then(r => r.json()),
+
+  login: (email: string, password: string) =>
+    fetch(`${API_BASE}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`,
+    }).then(r => r.json()),
 };

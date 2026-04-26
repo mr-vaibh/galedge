@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -10,47 +10,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Download, Filter, Info, Maximize2 } from "lucide-react";
+import { Download, Filter, Info, Maximize2, RefreshCw, Loader2 } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
-
-// ── Sample factor data (will be replaced with API data) ──────────────────────
-
-const FACTORS = [
-  { type: "Market", name: "MARKET", cagr: 12.48, cumReturn: 316.92, sharpe: 0.62, dailyReturn: 0.05, maxDD: -38.12, start: "01-Jan-2013", end: "20-Mar-2026" },
-  { type: "Style", name: "BETA", cagr: -1.67, cumReturn: -19.46, sharpe: -0.15, dailyReturn: -0.01, maxDD: -43.97, start: "01-Jan-2013", end: "20-Mar-2026" },
-  { type: "Style", name: "SIZE", cagr: 4.43, cumReturn: 73.84, sharpe: 0.52, dailyReturn: 0.02, maxDD: -15.42, start: "01-Jan-2013", end: "20-Mar-2026" },
-  { type: "Style", name: "EARNYILD", cagr: 1.98, cumReturn: 28.76, sharpe: 0.24, dailyReturn: 0.01, maxDD: -20.31, start: "01-Jan-2013", end: "20-Mar-2026" },
-  { type: "Style", name: "LTMOM", cagr: 5.22, cumReturn: 90.18, sharpe: 0.58, dailyReturn: 0.02, maxDD: -12.88, start: "01-Jan-2013", end: "20-Mar-2026" },
-  { type: "Style", name: "LIQUIDITY", cagr: -2.34, cumReturn: -26.52, sharpe: -0.21, dailyReturn: -0.01, maxDD: -48.76, start: "01-Jan-2013", end: "20-Mar-2026" },
-  { type: "Style", name: "FINLVG", cagr: -0.89, cumReturn: -11.24, sharpe: -0.08, dailyReturn: -0.00, maxDD: -35.62, start: "01-Jan-2013", end: "20-Mar-2026" },
-  { type: "Style", name: "PROFIT", cagr: 3.12, cumReturn: 48.15, sharpe: 0.38, dailyReturn: 0.01, maxDD: -18.94, start: "01-Jan-2013", end: "20-Mar-2026" },
-  { type: "Style", name: "GROWTH", cagr: 0.67, cumReturn: 9.12, sharpe: 0.07, dailyReturn: 0.00, maxDD: -22.47, start: "01-Jan-2013", end: "20-Mar-2026" },
-  { type: "Style", name: "DIVYILD", cagr: 1.45, cumReturn: 20.18, sharpe: 0.18, dailyReturn: 0.01, maxDD: -25.33, start: "01-Jan-2013", end: "20-Mar-2026" },
-  { type: "Style", name: "VALUE", cagr: 2.76, cumReturn: 41.89, sharpe: 0.31, dailyReturn: 0.01, maxDD: -19.76, start: "01-Jan-2013", end: "20-Mar-2026" },
-];
-
-const CORR_FACTORS = ["AUTOCOMP", "BETA", "CAPGOODS", "CEMENT", "DIVYILD", "EARNYILD", "FINLVG", "GROWTH", "LIQUIDITY", "LTMOM", "MARKET", "PROFIT", "SIZE", "VALUE"];
-
-// Generate sample correlation matrix
-function genCorr(): number[][] {
-  return CORR_FACTORS.map((_, i) =>
-    CORR_FACTORS.map((_, j) => {
-      if (i === j) return 1.0;
-      const v = (Math.sin(i * 7 + j * 13) * 0.5);
-      return Math.round(v * 100) / 100;
-    })
-  );
-}
-const CORR_MATRIX = genCorr();
-
-function corrColor(val: number): string {
-  if (val >= 0.5) return "rgba(16,185,129,0.7)";
-  if (val >= 0.2) return "rgba(16,185,129,0.35)";
-  if (val >= 0) return "rgba(16,185,129,0.1)";
-  if (val >= -0.2) return "rgba(239,68,68,0.1)";
-  if (val >= -0.5) return "rgba(239,68,68,0.35)";
-  return "rgba(239,68,68,0.7)";
-}
+import { api, FactorSummaryRow } from "@/lib/api";
 
 function CardControls() {
   return (
@@ -63,8 +25,95 @@ function CardControls() {
   );
 }
 
+function corrColor(val: number): string {
+  if (val >= 0.5) return "rgba(16,185,129,0.7)";
+  if (val >= 0.2) return "rgba(16,185,129,0.35)";
+  if (val >= 0) return "rgba(16,185,129,0.1)";
+  if (val >= -0.2) return "rgba(239,68,68,0.1)";
+  if (val >= -0.5) return "rgba(239,68,68,0.35)";
+  return "rgba(239,68,68,0.7)";
+}
+
+const CHART_COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#a855f7", "#06b6d4", "#ef4444", "#ec4899", "#f97316"];
+
 export default function FactorSummaryPage() {
   const [universe, setUniverse] = useState("INEC1");
+  const [factors, setFactors] = useState<FactorSummaryRow[]>([]);
+  const [corrFactors, setCorrFactors] = useState<string[]>([]);
+  const [corrMatrix, setCorrMatrix] = useState<number[][]>([]);
+  const [factorReturnsData, setFactorReturnsData] = useState<Record<string, unknown>[]>([]);
+  const [factorSeries, setFactorSeries] = useState<{ key: string; name: string; color: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadData() {
+    setLoading(true);
+    setError(null);
+    try {
+      // Fetch factor summary
+      const summary = await api.factorSummary(universe);
+      setFactors(summary.factors);
+
+      // Fetch correlation
+      const corr = await api.factorCorrelation(universe);
+      setCorrFactors(corr.factors);
+      setCorrMatrix(corr.matrix);
+
+      // Fetch factor return time series for top 5 style factors
+      const styleFactors = summary.factors
+        .filter((f) => f.factor_type === "Style" || f.factor_type === "Market")
+        .slice(0, 5);
+
+      const returnPromises = styleFactors.map((f) => api.factorReturns(f.factor, universe));
+      const returnResults = await Promise.all(returnPromises);
+
+      // Merge into unified time series
+      const dateMap = new Map<string, Record<string, unknown>>();
+      returnResults.forEach((r, idx) => {
+        const factorName = styleFactors[idx].factor;
+        r.data.forEach((point) => {
+          const existing = dateMap.get(point.date) || { date: point.date };
+          existing[factorName] = (1 + point.cumulative) * 100; // normalize to 100 base
+          dateMap.set(point.date, existing);
+        });
+      });
+
+      const chartData = Array.from(dateMap.values()).sort(
+        (a, b) => String(a.date).localeCompare(String(b.date))
+      );
+      setFactorReturnsData(chartData);
+      setFactorSeries(
+        styleFactors.map((f, i) => ({
+          key: f.factor,
+          name: f.factor,
+          color: CHART_COLORS[i % CHART_COLORS.length],
+        }))
+      );
+    } catch (e) {
+      setError("Failed to load factor data. Run data ingestion first: POST /api/data/ingest/full");
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadData();
+  }, [universe]);
+
+  if (error) {
+    return (
+      <div className="p-4 space-y-4">
+        <h1 className="text-xl font-bold">Factor Performance Summary</h1>
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-sm text-muted-foreground mb-4">{error}</p>
+            <Button onClick={loadData} variant="outline" className="gap-1.5">
+              <RefreshCw className="h-3.5 w-3.5" /> Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-4">
@@ -80,6 +129,7 @@ export default function FactorSummaryPage() {
               <SelectItem value="INEC2">INEC2</SelectItem>
             </SelectContent>
           </Select>
+          {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         </div>
         <Button variant="outline" size="sm" className="gap-1.5">
           <Download className="h-3.5 w-3.5" /> Download Raw Data
@@ -94,9 +144,9 @@ export default function FactorSummaryPage() {
             <CardControls />
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
               <table className="w-full text-[11px]">
-                <thead>
+                <thead className="sticky top-0 bg-card z-10">
                   <tr className="border-b border-border/50">
                     {["Factor Type", "Factor", "CAGR", "Cum. Return", "Sharpe", "Daily Ret", "Max DD", "Start Date", "End Date"].map((h) => (
                       <th key={h} className="px-2 py-2 text-left font-medium text-muted-foreground whitespace-nowrap">{h}</th>
@@ -104,19 +154,22 @@ export default function FactorSummaryPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {FACTORS.map((f, i) => (
-                    <tr key={f.name} className={`border-b border-border/30 hover:bg-muted/30 cursor-pointer ${i === 0 ? "bg-muted/20" : ""}`}>
-                      <td className="px-2 py-1.5 text-muted-foreground">{f.type}</td>
-                      <td className="px-2 py-1.5 font-medium">{f.name}</td>
+                  {factors.map((f, i) => (
+                    <tr key={f.factor} className={`border-b border-border/30 hover:bg-muted/30 cursor-pointer ${i === 0 ? "bg-muted/20" : ""}`}>
+                      <td className="px-2 py-1.5 text-muted-foreground">{f.factor_type}</td>
+                      <td className="px-2 py-1.5 font-medium">{f.factor}</td>
                       <td className={`px-2 py-1.5 tabular-nums ${f.cagr >= 0 ? "text-emerald-400" : "text-red-400"}`}>{f.cagr.toFixed(2)}%</td>
-                      <td className={`px-2 py-1.5 tabular-nums ${f.cumReturn >= 0 ? "text-emerald-400" : "text-red-400"}`}>{f.cumReturn.toFixed(2)}%</td>
+                      <td className={`px-2 py-1.5 tabular-nums ${f.cumulative_return >= 0 ? "text-emerald-400" : "text-red-400"}`}>{f.cumulative_return.toFixed(2)}%</td>
                       <td className="px-2 py-1.5 tabular-nums">{f.sharpe.toFixed(2)}</td>
-                      <td className="px-2 py-1.5 tabular-nums">{f.dailyReturn.toFixed(2)}%</td>
-                      <td className="px-2 py-1.5 tabular-nums text-red-400">{f.maxDD.toFixed(2)}%</td>
-                      <td className="px-2 py-1.5 text-muted-foreground">{f.start}</td>
-                      <td className="px-2 py-1.5 text-muted-foreground">{f.end}</td>
+                      <td className="px-2 py-1.5 tabular-nums">{f.daily_return.toFixed(4)}%</td>
+                      <td className="px-2 py-1.5 tabular-nums text-red-400">{f.max_drawdown.toFixed(2)}%</td>
+                      <td className="px-2 py-1.5 text-muted-foreground text-[10px]">{f.start_date}</td>
+                      <td className="px-2 py-1.5 text-muted-foreground text-[10px]">{f.end_date}</td>
                     </tr>
                   ))}
+                  {factors.length === 0 && !loading && (
+                    <tr><td colSpan={9} className="px-2 py-8 text-center text-muted-foreground text-xs">No factors. Run POST /api/data/risk-model/build first.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -130,84 +183,77 @@ export default function FactorSummaryPage() {
             <CardControls />
           </CardHeader>
           <CardContent className="p-2">
-            <div className="overflow-x-auto">
-              <table className="text-[9px]">
-                <thead>
-                  <tr>
-                    <th className="p-1" />
-                    {CORR_FACTORS.map((f) => (
-                      <th key={f} className="p-1 text-center font-medium text-muted-foreground -rotate-45 origin-center h-12 w-8">
-                        <span className="inline-block transform">{f}</span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {CORR_MATRIX.map((row, i) => (
-                    <tr key={CORR_FACTORS[i]}>
-                      <td className="p-1 font-medium text-muted-foreground whitespace-nowrap text-right pr-2">{CORR_FACTORS[i]}</td>
-                      {row.map((val, j) => (
-                        <td
-                          key={j}
-                          className="p-0.5 text-center tabular-nums"
-                          style={{ backgroundColor: corrColor(val), minWidth: "28px" }}
-                        >
-                          {val.toFixed(2)}
-                        </td>
+            {corrFactors.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="text-[9px]">
+                  <thead>
+                    <tr>
+                      <th className="p-1" />
+                      {corrFactors.map((f) => (
+                        <th key={f} className="p-1 text-center font-medium text-muted-foreground" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: "60px" }}>
+                          {f}
+                        </th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {corrMatrix.map((row, i) => (
+                      <tr key={corrFactors[i]}>
+                        <td className="p-1 font-medium text-muted-foreground whitespace-nowrap text-right pr-2">{corrFactors[i]}</td>
+                        {row.map((val, j) => (
+                          <td
+                            key={j}
+                            className="p-0.5 text-center tabular-nums"
+                            style={{ backgroundColor: corrColor(val), minWidth: "28px" }}
+                          >
+                            {val.toFixed(2)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="py-12 text-center text-muted-foreground text-xs">
+                No correlation data available
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Factor Returns Time Series */}
+        {/* Factor Returns Time Series — from real API */}
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Returns Time Series</CardTitle>
             <CardControls />
           </CardHeader>
           <CardContent className="p-2">
-            <TimeSeriesChart
-              data={Array.from({ length: 120 }, (_, i) => ({
-                date: `2024-${String(Math.floor(i / 10) + 1).padStart(2, "0")}-${String((i % 10) * 3 + 1).padStart(2, "0")}`,
-                MARKET: 100 + i * 0.3 + Math.sin(i * 0.1) * 10,
-                BETA: 100 - i * 0.05 + Math.cos(i * 0.15) * 5,
-                SIZE: 100 + i * 0.15 + Math.sin(i * 0.2) * 4,
-                LTMOM: 100 + i * 0.2 + Math.sin(i * 0.08) * 8,
-                EARNYILD: 100 + i * 0.08 + Math.cos(i * 0.12) * 3,
-              }))}
-              series={[
-                { key: "MARKET", name: "MARKET", color: "#10b981" },
-                { key: "BETA", name: "BETA", color: "#3b82f6" },
-                { key: "SIZE", name: "SIZE", color: "#f59e0b" },
-                { key: "LTMOM", name: "LTMOM", color: "#a855f7" },
-                { key: "EARNYILD", name: "EARNYILD", color: "#06b6d4" },
-              ]}
-              height={240}
-              yFormatter={(v) => v.toFixed(0)}
-            />
+            {factorReturnsData.length > 0 ? (
+              <TimeSeriesChart
+                data={factorReturnsData}
+                series={factorSeries}
+                height={240}
+                yFormatter={(v) => v.toFixed(0)}
+              />
+            ) : (
+              <div className="h-60 flex items-center justify-center text-muted-foreground text-xs">
+                {loading ? "Loading factor returns..." : "No data available"}
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Factor Correlation Time Series */}
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
-            <CardTitle className="text-sm">Factor Correlation Time Series — BETA vs SIZE</CardTitle>
+            <CardTitle className="text-sm">Factor Correlation Time Series</CardTitle>
             <CardControls />
           </CardHeader>
           <CardContent className="p-2">
-            <TimeSeriesChart
-              data={Array.from({ length: 120 }, (_, i) => ({
-                date: `2024-${String(Math.floor(i / 10) + 1).padStart(2, "0")}-${String((i % 10) * 3 + 1).padStart(2, "0")}`,
-                correlation: Math.sin(i * 0.05) * 0.3 + 0.15,
-              }))}
-              series={[{ key: "correlation", name: "BETA vs SIZE", color: "#f97316" }]}
-              height={240}
-              yFormatter={(v) => v.toFixed(2)}
-            />
+            <div className="h-60 flex items-center justify-center text-muted-foreground text-xs">
+              Select two factors to view rolling correlation
+            </div>
           </CardContent>
         </Card>
       </div>
