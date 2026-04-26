@@ -108,15 +108,25 @@ def get_performance_summary(
         )
         .all()
     )
-    symbols = [h.symbol for h in holdings]
+    # Map symbols: portfolio uses "HDFCBANK" but prices use "HDFCBANK.NS"
+    raw_symbols = [h.symbol for h in holdings]
+    symbols = []
+    symbol_map = {}
+    for s in raw_symbols:
+        if "." in s:
+            symbols.append(s)
+            symbol_map[s] = s
+        else:
+            ns = f"{s}.NS"
+            symbols.append(ns)
+            symbol_map[ns] = s
 
-    # Fetch price data for return computation
+    # Fetch ALL available price data for holdings (not just portfolio date range)
+    # This lets us compute returns even if portfolio was just uploaded today
     prices = (
         db.query(StockPrice)
         .filter(
             StockPrice.symbol.in_(symbols),
-            StockPrice.date >= portfolio.start_date,
-            StockPrice.date <= (portfolio.end_date or latest_date),
         )
         .order_by(StockPrice.date)
         .all()
@@ -136,7 +146,10 @@ def get_performance_summary(
     for sym in symbols:
         if sym in first_close and first_close[sym] > 0:
             sym_return = (last_close[sym] - first_close[sym]) / first_close[sym]
-            total_return += weight_map[sym] * sym_return
+            # Look up weight using original symbol (without .NS)
+            original_sym = symbol_map.get(sym, sym)
+            weight = weight_map.get(original_sym, weight_map.get(sym, 0))
+            total_return += weight * sym_return
 
     # Total AUM
     total_semv = sum(h.semv for h in holdings)
@@ -200,7 +213,18 @@ def get_holdings_with_exposures(
         .order_by(PortfolioHolding.weight.desc())
         .all()
     )
-    symbols = [h.symbol for h in holdings]
+    # Map symbols: portfolio uses "HDFCBANK" but prices use "HDFCBANK.NS"
+    raw_symbols = [h.symbol for h in holdings]
+    symbols = []
+    symbol_map = {}
+    for s in raw_symbols:
+        if "." in s:
+            symbols.append(s)
+            symbol_map[s] = s
+        else:
+            ns = f"{s}.NS"
+            symbols.append(ns)
+            symbol_map[ns] = s
 
     # Stock info (sector, industry, market_cap)
     info_rows = db.query(StockInfo).filter(StockInfo.symbol.in_(symbols)).all()

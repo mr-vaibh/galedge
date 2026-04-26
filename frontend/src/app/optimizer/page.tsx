@@ -120,12 +120,27 @@ export default function OptimizerPage() {
         expected_returns: expectedReturns,
         covariance_matrix: covMatrix,
         objective,
-        constraints: constraints.map(c => ({
-          type: c.type,
-          params: Object.fromEntries(
-            Object.entries(c.params).map(([k, v]) => [k, isNaN(Number(v)) ? v : Number(v)])
-          ),
-        })),
+        constraints: constraints.map(c => {
+          const flat: Record<string, unknown> = { type: c.type };
+          // Map frontend param names to backend ConstraintSpec fields
+          const p = c.params;
+          if (c.type === "position_size_bound") {
+            flat.min = Number(p.min_weight) || 0;
+            flat.max = Number(p.max_weight) || 1;
+          } else if (c.type === "max_positions") {
+            flat.value = Number(p.max_positions) || 10;
+          } else if (c.type === "beta_exposure") {
+            flat.min = Number(p.min_beta) || 0;
+            flat.max = Number(p.max_beta) || 2;
+          } else if (c.type === "turnover") {
+            flat.value = Number(p.max_turnover) || 0.5;
+          } else if (c.type === "sector_constraint") {
+            flat.sector = p.sector || "";
+            flat.min = Number(p.min_weight) || 0;
+            flat.max = Number(p.max_weight) || 1;
+          }
+          return flat;
+        }),
       };
 
       const res = await fetch(`${API_BASE}/api/optimize`, {
