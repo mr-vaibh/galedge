@@ -10,7 +10,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Download, Filter, Info, Maximize2, BarChart3 } from "lucide-react";
+import { Download, Filter, Info, Maximize2 } from "lucide-react";
+import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 
 // ── Sample factor data (will be replaced with API data) ──────────────────────
 
@@ -168,38 +169,45 @@ export default function FactorSummaryPage() {
             <CardTitle className="text-sm">Factor Returns Time Series</CardTitle>
             <CardControls />
           </CardHeader>
-          <CardContent>
-            <div className="h-64 flex items-center justify-center border border-dashed border-border/50 rounded-lg">
-              <div className="text-center text-muted-foreground">
-                <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                <p className="text-xs">Factor return time series chart</p>
-                <p className="text-[10px] text-muted-foreground/60 mt-1">Cumulative returns for MARKET, BETA, SIZE, LTMOM...</p>
-                <div className="flex gap-2 justify-center mt-3">
-                  {["MARKET", "BETA", "SIZE", "LTMOM", "EARNYILD"].map((f, i) => (
-                    <Button key={f} variant="outline" size="sm" className="h-5 text-[9px] px-1.5" style={{ borderColor: ["#10b981", "#3b82f6", "#f59e0b", "#a855f7", "#06b6d4"][i] }}>
-                      {f}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </div>
+          <CardContent className="p-2">
+            <TimeSeriesChart
+              data={Array.from({ length: 120 }, (_, i) => ({
+                date: `2024-${String(Math.floor(i / 10) + 1).padStart(2, "0")}-${String((i % 10) * 3 + 1).padStart(2, "0")}`,
+                MARKET: 100 + i * 0.3 + Math.sin(i * 0.1) * 10,
+                BETA: 100 - i * 0.05 + Math.cos(i * 0.15) * 5,
+                SIZE: 100 + i * 0.15 + Math.sin(i * 0.2) * 4,
+                LTMOM: 100 + i * 0.2 + Math.sin(i * 0.08) * 8,
+                EARNYILD: 100 + i * 0.08 + Math.cos(i * 0.12) * 3,
+              }))}
+              series={[
+                { key: "MARKET", name: "MARKET", color: "#10b981" },
+                { key: "BETA", name: "BETA", color: "#3b82f6" },
+                { key: "SIZE", name: "SIZE", color: "#f59e0b" },
+                { key: "LTMOM", name: "LTMOM", color: "#a855f7" },
+                { key: "EARNYILD", name: "EARNYILD", color: "#06b6d4" },
+              ]}
+              height={240}
+              yFormatter={(v) => v.toFixed(0)}
+            />
           </CardContent>
         </Card>
 
         {/* Factor Correlation Time Series */}
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
-            <CardTitle className="text-sm">Factor Correlation Time Series — BETA vs BETA</CardTitle>
+            <CardTitle className="text-sm">Factor Correlation Time Series — BETA vs SIZE</CardTitle>
             <CardControls />
           </CardHeader>
-          <CardContent>
-            <div className="h-64 flex items-center justify-center border border-dashed border-border/50 rounded-lg">
-              <div className="text-center text-muted-foreground">
-                <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                <p className="text-xs">Rolling correlation time series</p>
-                <p className="text-[10px] text-muted-foreground/60 mt-1">Select two factors to compare</p>
-              </div>
-            </div>
+          <CardContent className="p-2">
+            <TimeSeriesChart
+              data={Array.from({ length: 120 }, (_, i) => ({
+                date: `2024-${String(Math.floor(i / 10) + 1).padStart(2, "0")}-${String((i % 10) * 3 + 1).padStart(2, "0")}`,
+                correlation: Math.sin(i * 0.05) * 0.3 + 0.15,
+              }))}
+              series={[{ key: "correlation", name: "BETA vs SIZE", color: "#f97316" }]}
+              height={240}
+              yFormatter={(v) => v.toFixed(2)}
+            />
           </CardContent>
         </Card>
       </div>

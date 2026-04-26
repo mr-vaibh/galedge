@@ -3,7 +3,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, Filter, Info, Maximize2, BarChart3 } from "lucide-react";
+import { Download, Filter, Info, Maximize2 } from "lucide-react";
+import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
+import { BarChartPanel } from "@/components/charts/BarChartPanel";
 
 function CC() {
   return (
@@ -47,21 +49,78 @@ function STable({ title, rows }: { title: string; rows: [string, string, string]
   );
 }
 
-function Chart({ title }: { title: string }) {
-  return (
-    <Card>
-      <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-        <CardTitle className="text-[11px]">{title}</CardTitle>
-        <CC />
-      </CardHeader>
-      <CardContent>
-        <div className="h-40 flex items-center justify-center border border-dashed border-border/30 rounded">
-          <BarChart3 className="h-5 w-5 opacity-20 text-muted-foreground" />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+const returnDecompData = [
+  { date: "2024-01", factor: 1.2, idio: 0.8, total: 2.0 },
+  { date: "2024-02", factor: 2.1, idio: 1.1, total: 3.2 },
+  { date: "2024-03", factor: 1.8, idio: 1.5, total: 3.3 },
+  { date: "2024-04", factor: 3.0, idio: 0.9, total: 3.9 },
+  { date: "2024-05", factor: 2.5, idio: 1.8, total: 4.3 },
+  { date: "2024-06", factor: 4.1, idio: 2.2, total: 6.3 },
+  { date: "2024-07", factor: 5.3, idio: 2.8, total: 8.1 },
+  { date: "2024-08", factor: 6.8, idio: 3.1, total: 9.9 },
+  { date: "2024-09", factor: 7.5, idio: 3.9, total: 11.4 },
+  { date: "2024-10", factor: 9.2, idio: 4.5, total: 13.7 },
+  { date: "2024-11", factor: 10.8, idio: 5.6, total: 16.4 },
+  { date: "2024-12", factor: 12.3, idio: 6.67, total: 18.97 },
+];
+
+const riskData = [
+  { date: "2024-01", realized: 15.1, predicted: 13.2, factor: 8.8 },
+  { date: "2024-02", realized: 14.8, predicted: 13.0, factor: 8.5 },
+  { date: "2024-03", realized: 15.5, predicted: 13.5, factor: 9.0 },
+  { date: "2024-04", realized: 14.2, predicted: 12.6, factor: 8.1 },
+  { date: "2024-05", realized: 13.9, predicted: 12.4, factor: 7.9 },
+  { date: "2024-06", realized: 14.7, predicted: 13.1, factor: 8.4 },
+  { date: "2024-07", realized: 15.0, predicted: 12.9, factor: 8.3 },
+  { date: "2024-08", realized: 14.3, predicted: 12.7, factor: 8.0 },
+  { date: "2024-09", realized: 14.6, predicted: 12.8, factor: 8.2 },
+  { date: "2024-10", realized: 14.1, predicted: 12.5, factor: 7.8 },
+  { date: "2024-11", realized: 14.8, predicted: 13.0, factor: 8.4 },
+  { date: "2024-12", realized: 14.5, predicted: 12.8, factor: 8.2 },
+];
+
+const peData = [
+  { date: "2024-01", active: 20.1, benchmark: 18.5 },
+  { date: "2024-02", active: 20.8, benchmark: 18.9 },
+  { date: "2024-03", active: 21.2, benchmark: 19.2 },
+  { date: "2024-04", active: 21.8, benchmark: 19.5 },
+  { date: "2024-05", active: 22.1, benchmark: 19.7 },
+  { date: "2024-06", active: 21.5, benchmark: 19.4 },
+  { date: "2024-07", active: 22.0, benchmark: 19.6 },
+  { date: "2024-08", active: 22.3, benchmark: 19.8 },
+  { date: "2024-09", active: 22.8, benchmark: 20.0 },
+  { date: "2024-10", active: 22.1, benchmark: 19.7 },
+  { date: "2024-11", active: 22.4, benchmark: 19.9 },
+  { date: "2024-12", active: 22.5, benchmark: 19.8 },
+];
+
+const mktCapData = [
+  { date: "2024-01", active: 85200, benchmark: 92400 },
+  { date: "2024-02", active: 87100, benchmark: 93200 },
+  { date: "2024-03", active: 88400, benchmark: 94100 },
+  { date: "2024-04", active: 90200, benchmark: 95300 },
+  { date: "2024-05", active: 91800, benchmark: 96100 },
+  { date: "2024-06", active: 93500, benchmark: 97200 },
+  { date: "2024-07", active: 95100, benchmark: 98400 },
+  { date: "2024-08", active: 96800, benchmark: 99100 },
+  { date: "2024-09", active: 98200, benchmark: 100300 },
+  { date: "2024-10", active: 99800, benchmark: 101500 },
+  { date: "2024-11", active: 101400, benchmark: 102800 },
+  { date: "2024-12", active: 103200, benchmark: 104100 },
+];
+
+const topHoldingsBarData = [
+  { name: "CANHLIFE", value: 3.39 },
+  { name: "SENCO", value: 3.14 },
+  { name: "FUSION", value: 2.78 },
+  { name: "SUBEXLTD", value: 2.73 },
+  { name: "GABRIEL", value: 2.51 },
+  { name: "ATHERENERG", value: 2.35 },
+  { name: "CHOICEIN", value: 2.12 },
+  { name: "TRENT", value: -1.28 },
+  { name: "PAYTM", value: -1.41 },
+  { name: "IDFCFIRSTB", value: -3.25 },
+];
 
 export default function ReturnsAndRiskPage() {
   return (
@@ -105,10 +164,74 @@ export default function ReturnsAndRiskPage() {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-        <Chart title="Return Decomposition (%)" />
-        <Chart title="Predicted Risk (%)" />
-        <Chart title="PE Ratio" />
-        <Chart title="Market Cap" />
+        <Card>
+          <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+            <CardTitle className="text-[11px]">Return Decomposition (%)</CardTitle>
+            <CC />
+          </CardHeader>
+          <CardContent>
+            <TimeSeriesChart
+              data={returnDecompData}
+              series={[
+                { key: "total", name: "Total", color: "#3b82f6" },
+                { key: "factor", name: "Factor", color: "#10b981" },
+                { key: "idio", name: "Idiosyncratic", color: "#f59e0b" },
+              ]}
+              height={160}
+            />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+            <CardTitle className="text-[11px]">Predicted Risk (%)</CardTitle>
+            <CC />
+          </CardHeader>
+          <CardContent>
+            <TimeSeriesChart
+              data={riskData}
+              series={[
+                { key: "realized", name: "Realized", color: "#ef4444" },
+                { key: "predicted", name: "Predicted", color: "#3b82f6" },
+                { key: "factor", name: "Factor", color: "#10b981" },
+              ]}
+              height={160}
+            />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+            <CardTitle className="text-[11px]">PE Ratio</CardTitle>
+            <CC />
+          </CardHeader>
+          <CardContent>
+            <TimeSeriesChart
+              data={peData}
+              series={[
+                { key: "active", name: "Active", color: "#3b82f6" },
+                { key: "benchmark", name: "Benchmark", color: "#f59e0b" },
+              ]}
+              height={160}
+              yFormatter={(v) => `${v.toFixed(1)}x`}
+            />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+            <CardTitle className="text-[11px]">Market Cap</CardTitle>
+            <CC />
+          </CardHeader>
+          <CardContent>
+            <TimeSeriesChart
+              data={mktCapData}
+              series={[
+                { key: "active", name: "Active", color: "#3b82f6" },
+                { key: "benchmark", name: "Benchmark", color: "#f59e0b" },
+              ]}
+              height={160}
+              yFormatter={(v) => `${(v / 1000).toFixed(0)}K Cr`}
+            />
+          </CardContent>
+        </Card>
       </div>
 
       {/* Contributors */}
@@ -154,7 +277,15 @@ export default function ReturnsAndRiskPage() {
               </table>
             </CardContent>
           </Card>
-          <Chart title="Top Holdings (%)" />
+          <Card>
+            <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+              <CardTitle className="text-[11px]">Top Holdings (%)</CardTitle>
+              <CC />
+            </CardHeader>
+            <CardContent>
+              <BarChartPanel data={topHoldingsBarData} height={160} />
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

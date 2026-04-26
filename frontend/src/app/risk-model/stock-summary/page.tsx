@@ -12,7 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Download, Filter, Info, Maximize2, X, Search, BarChart3 } from "lucide-react";
+import { Download, Filter, Info, Maximize2, X, Search } from "lucide-react";
+import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 
 const SAMPLE_STOCKS = [
   { symbol: "RELIANCE", name: "Reliance Industries Ltd", color: "#3b82f6" },
@@ -184,22 +185,25 @@ export default function StockSummaryPage() {
             <CardTitle className="text-sm">Return Decomposition — BAJFINANCE</CardTitle>
             <CardControls />
           </CardHeader>
-          <CardContent>
-            <div className="h-64 flex items-center justify-center border border-dashed border-border/50 rounded-lg">
-              <div className="text-center text-muted-foreground">
-                <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                <p className="text-xs">Return decomposition time series</p>
-                <p className="text-[10px] text-muted-foreground/60 mt-1">Factor-level attribution over time</p>
-                <div className="flex gap-2 justify-center mt-3">
-                  {["MARKET", "BETA", "FINLVG", "LTMOM", "TOTAL"].map((f, i) => (
-                    <span key={f} className="flex items-center gap-1 text-[9px]">
-                      <span className="w-2 h-0.5 rounded" style={{ backgroundColor: ["#3b82f6", "#10b981", "#f59e0b", "#a855f7", "#ef4444"][i] }} />
-                      {f}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
+          <CardContent className="p-2">
+            <TimeSeriesChart
+              data={Array.from({ length: 100 }, (_, i) => ({
+                date: `2025-${String(Math.floor(i / 8) + 1).padStart(2, "0")}-${String((i % 8) * 3 + 1).padStart(2, "0")}`,
+                MARKET: 5 + Math.sin(i * 0.1) * 8,
+                BETA: -2 + Math.cos(i * 0.15) * 3,
+                FINLVG: -1 + Math.sin(i * 0.2) * 2,
+                LTMOM: 3 + Math.cos(i * 0.08) * 5,
+                TOTAL: 8 + Math.sin(i * 0.05) * 15,
+              }))}
+              series={[
+                { key: "MARKET", name: "MARKET", color: "#3b82f6" },
+                { key: "BETA", name: "BETA", color: "#10b981" },
+                { key: "FINLVG", name: "FINLVG", color: "#f59e0b" },
+                { key: "LTMOM", name: "LTMOM", color: "#a855f7" },
+                { key: "TOTAL", name: "TOTAL", color: "#ef4444" },
+              ]}
+              height={250}
+            />
           </CardContent>
         </Card>
       </div>

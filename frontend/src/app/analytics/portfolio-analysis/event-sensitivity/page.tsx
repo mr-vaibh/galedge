@@ -4,7 +4,9 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Download, Filter, Info, Maximize2, BarChart3 } from "lucide-react";
+import { Download, Filter, Info, Maximize2 } from "lucide-react";
+import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
+import { BarChartPanel } from "@/components/charts/BarChartPanel";
 
 function CardControls() {
   return (
@@ -183,25 +185,71 @@ export default function EventSensitivityPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3"><CardTitle className="text-[11px]">Event Returns Time Series</CardTitle></CardHeader>
               <CardContent>
-                <div className="h-36 flex items-center justify-center border border-dashed border-border/30 rounded">
-                  <BarChart3 className="h-5 w-5 opacity-20 text-muted-foreground" />
-                </div>
+                <TimeSeriesChart
+                  data={[
+                    { date: "2019-03-01", portfolio: 0, benchmark: 0 },
+                    { date: "2019-03-08", portfolio: 0.5, benchmark: 0.4 },
+                    { date: "2019-03-15", portfolio: 1.2, benchmark: 0.9 },
+                    { date: "2019-03-22", portfolio: 1.8, benchmark: 1.5 },
+                    { date: "2019-03-29", portfolio: 2.1, benchmark: 1.8 },
+                    { date: "2019-04-05", portfolio: 2.5, benchmark: 2.2 },
+                    { date: "2019-04-12", portfolio: 2.9, benchmark: 2.6 },
+                    { date: "2019-04-19", portfolio: 3.2, benchmark: 2.9 },
+                    { date: "2019-04-26", portfolio: 3.5, benchmark: 3.2 },
+                    { date: "2019-05-03", portfolio: 3.8, benchmark: 3.5 },
+                    { date: "2019-05-10", portfolio: 4.0, benchmark: 3.7 },
+                    { date: "2019-05-17", portfolio: 4.1, benchmark: 3.8 },
+                  ]}
+                  series={[
+                    { key: "portfolio", name: "Portfolio", color: "#3b82f6" },
+                    { key: "benchmark", name: "Benchmark", color: "#f59e0b" },
+                  ]}
+                  height={144}
+                />
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-1 py-2 px-3"><CardTitle className="text-[11px]">Top 10 Factor Return Contributors</CardTitle></CardHeader>
               <CardContent>
-                <div className="h-36 flex items-center justify-center border border-dashed border-border/30 rounded">
-                  <BarChart3 className="h-5 w-5 opacity-20 text-muted-foreground" />
-                </div>
+                <BarChartPanel
+                  data={[
+                    { name: "MARKET", value: 2.14 },
+                    { name: "LTMOM", value: 0.89 },
+                    { name: "SIZE", value: 0.72 },
+                    { name: "GROWTH", value: 0.58 },
+                    { name: "VOLTL", value: 0.45 },
+                    { name: "BETA", value: 0.38 },
+                    { name: "EARNQLTY", value: 0.31 },
+                    { name: "PROFIT", value: 0.27 },
+                    { name: "DIVYLD", value: 0.22 },
+                    { name: "MGMTQLTY", value: 0.18 },
+                  ]}
+                  height={144}
+                  color="#10b981"
+                  showNegativeColors={false}
+                />
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-1 py-2 px-3"><CardTitle className="text-[11px]">Bottom 10 Factor Return Detractors</CardTitle></CardHeader>
               <CardContent>
-                <div className="h-36 flex items-center justify-center border border-dashed border-border/30 rounded">
-                  <BarChart3 className="h-5 w-5 opacity-20 text-muted-foreground" />
-                </div>
+                <BarChartPanel
+                  data={[
+                    { name: "FINLVG", value: -0.42 },
+                    { name: "STMOM", value: -0.38 },
+                    { name: "VALUE", value: -0.35 },
+                    { name: "LIQUIDITY", value: -0.29 },
+                    { name: "EARNVAR", value: -0.24 },
+                    { name: "LEVERAGE", value: -0.21 },
+                    { name: "RESVOL", value: -0.18 },
+                    { name: "BTOP", value: -0.15 },
+                    { name: "INDMOM", value: -0.12 },
+                    { name: "SEASON", value: -0.08 },
+                  ]}
+                  height={144}
+                  color="#ef4444"
+                  showNegativeColors={false}
+                />
               </CardContent>
             </Card>
           </div>

@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, Filter, Info, Maximize2, BarChart3, RefreshCw } from "lucide-react";
+import { Download, Filter, Info, Maximize2, RefreshCw } from "lucide-react";
+import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 
 function CardControls() {
   return (
@@ -58,28 +59,40 @@ function SummaryTable({ title, rows, hasExcess = true }: { title: string; rows: 
   );
 }
 
-function ChartPlaceholder({ title, subtitle, height = "h-52" }: { title: string; subtitle?: string; height?: string }) {
+// Sample time series data
+const perfData = Array.from({ length: 60 }, (_, i) => ({
+  date: `2025-${String(Math.floor(i / 5) + 1).padStart(2, "0")}-${String((i % 5) * 6 + 1).padStart(2, "0")}`,
+  active: 100 + Math.random() * 30 + i * 0.5,
+  benchmark: 100 + Math.random() * 20 + i * 0.25,
+  main: 100 + Math.random() * 25 + i * 0.35,
+}));
+
+const riskData = perfData.map(d => ({
+  date: d.date,
+  active: 12 + Math.random() * 6,
+  benchmark: 14 + Math.random() * 5,
+}));
+
+const peData = perfData.map(d => ({
+  date: d.date,
+  active: 20 + Math.random() * 8,
+  benchmark: 18 + Math.random() * 6,
+}));
+
+function ChartPanel({ title, data, series, yFmt }: {
+  title: string;
+  data: Record<string, unknown>[];
+  series: { key: string; name: string; color: string }[];
+  yFmt?: (v: number) => string;
+}) {
   return (
     <Card>
       <CardHeader className="pb-1 flex-row items-center justify-between">
         <CardTitle className="text-xs">{title}</CardTitle>
         <CardControls />
       </CardHeader>
-      <CardContent>
-        <div className={`${height} flex items-center justify-center border border-dashed border-border/50 rounded-lg`}>
-          <div className="text-center text-muted-foreground">
-            <BarChart3 className="h-6 w-6 mx-auto mb-1.5 opacity-30" />
-            <p className="text-[10px]">{subtitle || title}</p>
-            <div className="flex gap-3 justify-center mt-2">
-              {["Active", "Benchmark", "Main"].map((l, i) => (
-                <span key={l} className="flex items-center gap-1 text-[8px]">
-                  <span className="w-2 h-0.5 rounded" style={{ backgroundColor: ["#f97316", "#eab308", "#10b981"][i] }} />
-                  {l}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
+      <CardContent className="p-2">
+        <TimeSeriesChart data={data} series={series} height={180} yFormatter={yFmt} />
       </CardContent>
     </Card>
   );
@@ -162,9 +175,32 @@ export default function PerformanceSummaryPage() {
         />
 
         {/* Row 2: Charts */}
-        <ChartPlaceholder title="Total Return (%)" subtitle="Cumulative return: Active vs Benchmark vs Main" />
-        <ChartPlaceholder title="Rolling 1Y Realized Risk (%)" subtitle="Active vs Benchmark risk over time" />
-        <ChartPlaceholder title="PE Ratio" subtitle="Portfolio P/E vs Benchmark over time" />
+        <ChartPanel
+          title="Total Return (%)"
+          data={perfData}
+          series={[
+            { key: "active", name: "Active", color: "#f97316" },
+            { key: "benchmark", name: "Benchmark", color: "#eab308" },
+            { key: "main", name: "Main", color: "#10b981" },
+          ]}
+        />
+        <ChartPanel
+          title="Rolling 1Y Realized Risk (%)"
+          data={riskData}
+          series={[
+            { key: "active", name: "Active", color: "#f97316" },
+            { key: "benchmark", name: "Benchmark", color: "#eab308" },
+          ]}
+        />
+        <ChartPanel
+          title="PE Ratio"
+          data={peData}
+          series={[
+            { key: "active", name: "Active", color: "#f97316" },
+            { key: "benchmark", name: "Benchmark", color: "#eab308" },
+          ]}
+          yFmt={(v) => v.toFixed(1)}
+        />
       </div>
     </div>
   );

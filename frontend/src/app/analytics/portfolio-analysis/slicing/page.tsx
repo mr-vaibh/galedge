@@ -11,7 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Download, Filter, Info, Maximize2, BarChart3 } from "lucide-react";
+import { Download, Filter, Info, Maximize2 } from "lucide-react";
+import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
+import { BarChartPanel } from "@/components/charts/BarChartPanel";
 
 const DIMENSIONS = [
   "Market Cap", "Liquidity", "Total Risk", "Idiosyncratic Risk",
@@ -72,7 +74,111 @@ function DataTable({ title, columns, rows, kpi = false }: { title: string; colum
   );
 }
 
+const slicingTotalReturnData = [
+  { date: "2024-01", midCap: 1.2, smallCap: 0.8, micro: 0.5 },
+  { date: "2024-02", midCap: 2.5, smallCap: 1.9, micro: 1.1 },
+  { date: "2024-03", midCap: 3.1, smallCap: 2.8, micro: 1.8 },
+  { date: "2024-04", midCap: 4.8, smallCap: 3.5, micro: 2.4 },
+  { date: "2024-05", midCap: 5.2, smallCap: 4.1, micro: 3.0 },
+  { date: "2024-06", midCap: 6.8, smallCap: 5.6, micro: 3.9 },
+  { date: "2024-07", midCap: 7.5, smallCap: 6.2, micro: 4.5 },
+  { date: "2024-08", midCap: 8.9, smallCap: 7.8, micro: 5.2 },
+  { date: "2024-09", midCap: 9.4, smallCap: 8.1, micro: 5.8 },
+  { date: "2024-10", midCap: 10.8, smallCap: 9.5, micro: 6.4 },
+  { date: "2024-11", midCap: 12.1, smallCap: 10.2, micro: 7.1 },
+  { date: "2024-12", midCap: 12.92, smallCap: 10.8, micro: 7.5 },
+];
+
+const slicingRollingVolData = [
+  { date: "2024-01", midCap: 14.2, smallCap: 16.8, micro: 19.5 },
+  { date: "2024-02", midCap: 13.8, smallCap: 16.2, micro: 18.9 },
+  { date: "2024-03", midCap: 14.5, smallCap: 17.1, micro: 20.2 },
+  { date: "2024-04", midCap: 13.1, smallCap: 15.8, micro: 18.4 },
+  { date: "2024-05", midCap: 12.9, smallCap: 15.2, micro: 17.8 },
+  { date: "2024-06", midCap: 13.5, smallCap: 16.0, micro: 18.6 },
+  { date: "2024-07", midCap: 14.0, smallCap: 16.5, micro: 19.1 },
+  { date: "2024-08", midCap: 13.3, smallCap: 15.5, micro: 18.0 },
+  { date: "2024-09", midCap: 13.8, smallCap: 16.1, micro: 18.8 },
+  { date: "2024-10", midCap: 14.1, smallCap: 16.7, micro: 19.4 },
+  { date: "2024-11", midCap: 13.6, smallCap: 15.9, micro: 18.5 },
+  { date: "2024-12", midCap: 13.9, smallCap: 16.3, micro: 19.0 },
+];
+
+const slicingPEData = [
+  { date: "2024-01", midCap: 24.5, smallCap: 28.2, micro: 32.1 },
+  { date: "2024-02", midCap: 25.1, smallCap: 28.8, micro: 33.0 },
+  { date: "2024-03", midCap: 24.8, smallCap: 28.5, micro: 32.5 },
+  { date: "2024-04", midCap: 25.5, smallCap: 29.2, micro: 33.8 },
+  { date: "2024-05", midCap: 25.2, smallCap: 28.9, micro: 33.2 },
+  { date: "2024-06", midCap: 24.9, smallCap: 28.6, micro: 32.8 },
+  { date: "2024-07", midCap: 25.8, smallCap: 29.5, micro: 34.1 },
+  { date: "2024-08", midCap: 25.4, smallCap: 29.1, micro: 33.5 },
+  { date: "2024-09", midCap: 25.0, smallCap: 28.7, micro: 33.0 },
+  { date: "2024-10", midCap: 25.6, smallCap: 29.3, micro: 33.9 },
+  { date: "2024-11", midCap: 25.3, smallCap: 29.0, micro: 33.4 },
+  { date: "2024-12", midCap: 25.1, smallCap: 28.8, micro: 33.1 },
+];
+
+const slicingAllocationData = [
+  { date: "2024-01", midCap: 0.05, smallCap: 0.02, micro: -0.01 },
+  { date: "2024-02", midCap: 0.08, smallCap: 0.04, micro: 0.01 },
+  { date: "2024-03", midCap: 0.12, smallCap: 0.06, micro: 0.02 },
+  { date: "2024-04", midCap: 0.15, smallCap: 0.09, micro: 0.03 },
+  { date: "2024-05", midCap: 0.18, smallCap: 0.11, micro: 0.04 },
+  { date: "2024-06", midCap: 0.22, smallCap: 0.14, micro: 0.05 },
+  { date: "2024-07", midCap: 0.25, smallCap: 0.17, micro: 0.06 },
+  { date: "2024-08", midCap: 0.28, smallCap: 0.19, micro: 0.07 },
+  { date: "2024-09", midCap: 0.32, smallCap: 0.22, micro: 0.08 },
+  { date: "2024-10", midCap: 0.35, smallCap: 0.25, micro: 0.09 },
+  { date: "2024-11", midCap: 0.38, smallCap: 0.28, micro: 0.10 },
+  { date: "2024-12", midCap: 0.42, smallCap: 0.31, micro: 0.12 },
+];
+
+const slicingTopHoldingsBar = [
+  { name: "CANHLIFE", value: 3.39 },
+  { name: "SENCO", value: 3.14 },
+  { name: "FUSION", value: 2.78 },
+  { name: "SUBEXLTD", value: 2.73 },
+  { name: "TRENT", value: -1.28 },
+  { name: "PAYTM", value: -1.41 },
+  { name: "532960", value: -1.71 },
+  { name: "IDFCFIRSTB", value: -3.25 },
+];
+
+const slicingSeriesConfig = [
+  { key: "midCap", name: "Mid Cap", color: "#3b82f6" },
+  { key: "smallCap", name: "Small Cap", color: "#10b981" },
+  { key: "micro", name: "Micro", color: "#f59e0b" },
+];
+
+const CHART_CONFIGS: Record<string, { data: Record<string, unknown>[]; yFormatter?: (v: number) => string }> = {
+  "Total Return (%)": { data: slicingTotalReturnData },
+  "Rolling 1Y Realized (%)": { data: slicingRollingVolData },
+  "PE Ratio": { data: slicingPEData, yFormatter: (v: number) => `${v.toFixed(1)}x` },
+  "Allocation Effect (%)": { data: slicingAllocationData },
+};
+
 function ChartPanel({ title }: { title: string }) {
+  const config = CHART_CONFIGS[title];
+  if (config) {
+    return (
+      <Card>
+        <CardHeader className="pb-1 flex-row items-center justify-between py-2 px-3">
+          <CardTitle className="text-[11px]">{title}</CardTitle>
+          <CardControls />
+        </CardHeader>
+        <CardContent>
+          <TimeSeriesChart
+            data={config.data}
+            series={slicingSeriesConfig}
+            height={144}
+            yFormatter={config.yFormatter}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+  // Fallback for "Top Holdings (%)" bar chart
   return (
     <Card>
       <CardHeader className="pb-1 flex-row items-center justify-between py-2 px-3">
@@ -80,20 +186,7 @@ function ChartPanel({ title }: { title: string }) {
         <CardControls />
       </CardHeader>
       <CardContent>
-        <div className="h-36 flex items-center justify-center border border-dashed border-border/30 rounded">
-          <div className="text-center">
-            <BarChart3 className="h-5 w-5 mx-auto mb-1 opacity-20 text-muted-foreground" />
-            <p className="text-[9px] text-muted-foreground/60">{title}</p>
-            <div className="flex gap-2 justify-center mt-1">
-              {["Mid Cap", "Small Cap", "Micro"].map((l, i) => (
-                <span key={l} className="flex items-center gap-0.5 text-[7px] text-muted-foreground/40">
-                  <span className="w-1.5 h-0.5 rounded" style={{ backgroundColor: ["#3b82f6", "#10b981", "#f59e0b"][i] }} />
-                  {l}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
+        <BarChartPanel data={slicingTopHoldingsBar} height={144} />
       </CardContent>
     </Card>
   );

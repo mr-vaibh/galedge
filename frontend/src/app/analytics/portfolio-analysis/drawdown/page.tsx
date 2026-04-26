@@ -3,7 +3,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, Filter, Info, Maximize2, BarChart3 } from "lucide-react";
+import { Download, Filter, Info, Maximize2 } from "lucide-react";
+import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
+import { BarChartPanel } from "@/components/charts/BarChartPanel";
 
 function CardControls() {
   return (
@@ -171,12 +173,27 @@ export default function DrawdownPage() {
             <CardControls />
           </CardHeader>
           <CardContent>
-            <div className="h-40 flex items-center justify-center border border-dashed border-border/30 rounded">
-              <div className="text-center">
-                <BarChart3 className="h-5 w-5 mx-auto mb-1 opacity-20 text-muted-foreground" />
-                <p className="text-[9px] text-muted-foreground/60">Portfolio vs NIFTY BANK, NIFTY 500, etc.</p>
-              </div>
-            </div>
+            <TimeSeriesChart
+              data={[
+                { date: "2024-01-15", portfolio: 0, niftyBank: 0, nifty500: 0 },
+                { date: "2024-01-22", portfolio: -2.1, niftyBank: -1.8, nifty500: -1.5 },
+                { date: "2024-01-29", portfolio: -5.4, niftyBank: -3.9, nifty500: -3.2 },
+                { date: "2024-02-05", portfolio: -8.2, niftyBank: -6.1, nifty500: -5.0 },
+                { date: "2024-02-12", portfolio: -12.5, niftyBank: -8.5, nifty500: -7.2 },
+                { date: "2024-02-19", portfolio: -15.8, niftyBank: -10.2, nifty500: -8.8 },
+                { date: "2024-02-26", portfolio: -18.42, niftyBank: -12.1, nifty500: -10.5 },
+                { date: "2024-03-04", portfolio: -16.5, niftyBank: -10.8, nifty500: -9.2 },
+                { date: "2024-03-11", portfolio: -13.2, niftyBank: -8.5, nifty500: -7.1 },
+                { date: "2024-03-18", portfolio: -9.8, niftyBank: -6.2, nifty500: -5.0 },
+                { date: "2024-03-25", portfolio: -5.1, niftyBank: -3.1, nifty500: -2.4 },
+              ]}
+              series={[
+                { key: "portfolio", name: "Portfolio", color: "#3b82f6" },
+                { key: "niftyBank", name: "NIFTY BANK", color: "#f59e0b" },
+                { key: "nifty500", name: "NIFTY 500", color: "#10b981" },
+              ]}
+              height={160}
+            />
           </CardContent>
         </Card>
         <Card>
@@ -185,9 +202,27 @@ export default function DrawdownPage() {
             <CardControls />
           </CardHeader>
           <CardContent>
-            <div className="h-40 flex items-center justify-center border border-dashed border-border/30 rounded">
-              <BarChart3 className="h-5 w-5 opacity-20 text-muted-foreground" />
-            </div>
+            <TimeSeriesChart
+              data={[
+                { date: "2024-01-15", factor: 0, idio: 0, total: 0 },
+                { date: "2024-01-22", factor: -1.2, idio: -0.9, total: -2.1 },
+                { date: "2024-01-29", factor: -3.1, idio: -2.3, total: -5.4 },
+                { date: "2024-02-05", factor: -4.8, idio: -3.4, total: -8.2 },
+                { date: "2024-02-12", factor: -7.5, idio: -5.0, total: -12.5 },
+                { date: "2024-02-19", factor: -9.2, idio: -6.6, total: -15.8 },
+                { date: "2024-02-26", factor: -10.8, idio: -7.62, total: -18.42 },
+                { date: "2024-03-04", factor: -9.5, idio: -7.0, total: -16.5 },
+                { date: "2024-03-11", factor: -7.2, idio: -6.0, total: -13.2 },
+                { date: "2024-03-18", factor: -5.1, idio: -4.7, total: -9.8 },
+                { date: "2024-03-25", factor: -2.8, idio: -2.3, total: -5.1 },
+              ]}
+              series={[
+                { key: "total", name: "Total", color: "#ef4444" },
+                { key: "factor", name: "Factor", color: "#f59e0b" },
+                { key: "idio", name: "Idiosyncratic", color: "#a855f7" },
+              ]}
+              height={160}
+            />
           </CardContent>
         </Card>
         <Card>
@@ -196,9 +231,27 @@ export default function DrawdownPage() {
             <CardControls />
           </CardHeader>
           <CardContent>
-            <div className="h-40 flex items-center justify-center border border-dashed border-border/30 rounded">
-              <BarChart3 className="h-5 w-5 opacity-20 text-muted-foreground" />
-            </div>
+            <TimeSeriesChart
+              data={[
+                { date: "2024-01-15", total: 14.2, factor: 9.8, idio: 4.4 },
+                { date: "2024-01-22", total: 16.5, factor: 11.2, idio: 5.3 },
+                { date: "2024-01-29", total: 19.8, factor: 13.5, idio: 6.3 },
+                { date: "2024-02-05", total: 22.1, factor: 15.1, idio: 7.0 },
+                { date: "2024-02-12", total: 25.4, factor: 17.8, idio: 7.6 },
+                { date: "2024-02-19", total: 28.2, factor: 19.5, idio: 8.7 },
+                { date: "2024-02-26", total: 30.5, factor: 21.2, idio: 9.3 },
+                { date: "2024-03-04", total: 27.8, factor: 19.1, idio: 8.7 },
+                { date: "2024-03-11", total: 23.5, factor: 16.2, idio: 7.3 },
+                { date: "2024-03-18", total: 19.2, factor: 13.0, idio: 6.2 },
+                { date: "2024-03-25", total: 16.1, factor: 11.0, idio: 5.1 },
+              ]}
+              series={[
+                { key: "total", name: "Total Risk", color: "#ef4444" },
+                { key: "factor", name: "Factor Risk", color: "#3b82f6" },
+                { key: "idio", name: "Idio Risk", color: "#10b981" },
+              ]}
+              height={160}
+            />
           </CardContent>
         </Card>
       </div>
@@ -211,9 +264,23 @@ export default function DrawdownPage() {
             <CardControls />
           </CardHeader>
           <CardContent>
-            <div className="h-40 flex items-center justify-center border border-dashed border-border/30 rounded">
-              <BarChart3 className="h-5 w-5 opacity-20 text-muted-foreground" />
-            </div>
+            <BarChartPanel
+              data={[
+                { name: "MARKET", value: 2.14 },
+                { name: "LTMOM", value: 0.89 },
+                { name: "SIZE", value: 0.72 },
+                { name: "GROWTH", value: 0.58 },
+                { name: "VOLTL", value: 0.45 },
+                { name: "BETA", value: 0.38 },
+                { name: "EARNQLTY", value: 0.31 },
+                { name: "PROFIT", value: 0.27 },
+                { name: "DIVYLD", value: 0.22 },
+                { name: "MGMTQLTY", value: 0.18 },
+              ]}
+              height={160}
+              color="#10b981"
+              showNegativeColors={false}
+            />
           </CardContent>
         </Card>
         <Card>
@@ -222,9 +289,23 @@ export default function DrawdownPage() {
             <CardControls />
           </CardHeader>
           <CardContent>
-            <div className="h-40 flex items-center justify-center border border-dashed border-border/30 rounded">
-              <BarChart3 className="h-5 w-5 opacity-20 text-muted-foreground" />
-            </div>
+            <BarChartPanel
+              data={[
+                { name: "FINLVG", value: -0.42 },
+                { name: "STMOM", value: -0.38 },
+                { name: "VALUE", value: -0.35 },
+                { name: "LIQUIDITY", value: -0.29 },
+                { name: "EARNVAR", value: -0.24 },
+                { name: "LEVERAGE", value: -0.21 },
+                { name: "RESVOL", value: -0.18 },
+                { name: "BTOP", value: -0.15 },
+                { name: "INDMOM", value: -0.12 },
+                { name: "SEASON", value: -0.08 },
+              ]}
+              height={160}
+              color="#ef4444"
+              showNegativeColors={false}
+            />
           </CardContent>
         </Card>
       </div>
