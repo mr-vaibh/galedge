@@ -75,6 +75,53 @@ def delete_screen(screen_id: int, user: User = Depends(require_user), db: Sessio
     return {"deleted": True}
 
 
+# ── Screen Execution ──────────────────────────────────────────────────────────
+
+@router.post("/screens/{screen_id}/run")
+def run_screen_query(
+    screen_id: int,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Execute a saved screen query and return matching stocks."""
+    screen = db.query(Screen).filter(Screen.id == screen_id, Screen.user_id == user.id).first()
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    from app.services.screen_executor import run_screen
+    result = run_screen(
+        db=db,
+        query=screen.screener_query,
+        portfolio_weight=screen.portfolio_weight.lower().replace(" ", "_"),
+    )
+
+    # Cache results
+    screen.results = result
+    db.commit()
+
+    return result
+
+
+@router.post("/screens/execute")
+def execute_screen_query(
+    query: str = "",
+    universe: str = "all",
+    weight: str = "equal",
+    limit: int = 50,
+    db: Session = Depends(get_db),
+):
+    """Execute a screen query directly without saving."""
+    from app.services.screen_executor import run_screen
+    return run_screen(db=db, query=query, portfolio_weight=weight, limit=limit)
+
+
+@router.get("/metrics")
+def list_available_metrics():
+    """List all available screening metrics."""
+    from app.services.screen_executor import AVAILABLE_METRICS
+    return {"count": len(AVAILABLE_METRICS), "metrics": AVAILABLE_METRICS}
+
+
 # ── Alpha Models ──────────────────────────────────────────────────────────────
 
 @router.get("/models")

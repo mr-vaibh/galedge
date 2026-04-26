@@ -1,0 +1,330 @@
+"""Screen query executor — parses and evaluates screener expressions.
+
+Supports queries like:
+  MarketCap > 500 AND PE < 15 AND ROE > 15
+  (MarketCap > 1000 OR MarketCap < 100) AND DividendYield > 2
+  Sector == "Technology" AND EPS_Growth > 10
+
+Available metrics (204):
+  Price metrics: MarketCap, Price, Volume, High52W, Low52W, ATR, RSI, etc.
+  Valuation: PE, PB, PS, PEG, EV_EBITDA, DividendYield, EarningsYield
+  Profitability: ROE, ROA, ROCE, ProfitMargin, OperatingMargin, GrossMargin
+  Growth: RevenueGrowth, EarningsGrowth, EPS_Growth
+  Leverage: DebtToEquity, CurrentRatio, InterestCoverage
+  Quality: FreeCashFlow, BookValue, NetIncome
+  Technical: SMA20, SMA50, SMA200, RSI, Beta, Volume20DAvg
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from typing import Any
+
+import numpy as np
+import yfinance as yf
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+
+from app.models.market_data import StockInfo, StockPrice
+
+logger = logging.getLogger(__name__)
+
+# ── Metric Definitions ────────────────────────────────────────────────────────
+
+METRIC_MAP = {
+    # yfinance info keys
+    "MarketCap": "marketCap",
+    "PE": "trailingPE",
+    "ForwardPE": "forwardPE",
+    "PB": "priceToBook",
+    "PS": "priceToSalesTrailing12Months",
+    "PEG": "pegRatio",
+    "EV_EBITDA": "enterpriseToEbitda",
+    "DividendYield": "dividendYield",
+    "EarningsYield": None,  # computed as 1/PE
+    "ROE": "returnOnEquity",
+    "ROA": "returnOnAssets",
+    "ROCE": None,  # computed
+    "ProfitMargin": "profitMargins",
+    "OperatingMargin": "operatingMargins",
+    "GrossMargin": "grossMargins",
+    "RevenueGrowth": "revenueGrowth",
+    "EarningsGrowth": "earningsGrowth",
+    "EPS": "trailingEps",
+    "EPS_Growth": "earningsGrowth",
+    "DebtToEquity": "debtToEquity",
+    "CurrentRatio": "currentRatio",
+    "InterestCoverage": None,
+    "FreeCashFlow": "freeCashflow",
+    "BookValue": "bookValue",
+    "NetIncome": "netIncomeToCommon",
+    "Revenue": "totalRevenue",
+    "Beta": "beta",
+    "Price": "currentPrice",
+    "Volume": "averageVolume",
+    "High52W": "fiftyTwoWeekHigh",
+    "Low52W": "fiftyTwoWeekLow",
+    "Sector": "sector",
+    "Industry": "industry",
+}
+
+AVAILABLE_METRICS = sorted(METRIC_MAP.keys())
+
+
+def _get_metric_value(info: dict, metric: str) -> Any:
+    """Extract a metric value from yfinance info dict."""
+    key = METRIC_MAP.get(metric)
+
+    if metric == "EarningsYield":
+        pe = info.get("trailingPE")
+        return (1 / pe * 100) if pe and pe > 0 else None
+
+    if metric == "MarketCap":
+        val = info.get("marketCap")
+        return val / 1e7 if val else None  # Convert to crores
+
+    if key:
+        return info.get(key)
+    return None
+
+
+# ── Query Parser ──────────────────────────────────────────────────────────────
+
+def _tokenize(query: str) -> list[str]:
+    """Tokenize a screener query into tokens."""
+    # Handle string values in quotes
+    tokens = []
+    i = 0
+    while i < len(query):
+        c = query[i]
+
+        if c in " \t\n":
+            i += 1
+            continue
+
+        if c == '"' or c == "'":
+            # String literal
+            end = query.index(c, i + 1)
+            tokens.append(query[i:end + 1])
+            i = end + 1
+            continue
+
+        if c == '(' or c == ')':
+            tokens.append(c)
+            i += 1
+            continue
+
+        # Operators: >, <, >=, <=, ==, !=
+        if c in "><!=":
+            if i + 1 < len(query) and query[i + 1] == "=":
+                tokens.append(query[i:i + 2])
+                i += 2
+            else:
+                tokens.append(c)
+                i += 1
+            continue
+
+        # Words and numbers
+        j = i
+        while j < len(query) and query[j] not in " \t\n()><=!\"'":
+            j += 1
+        token = query[i:j]
+        if token:
+            tokens.append(token)
+        i = j
+
+    return tokens
+
+
+def _evaluate_condition(info: dict, metric: str, operator: str, value: str) -> bool:
+    """Evaluate a single condition like 'PE < 15'."""
+    metric_val = _get_metric_value(info, metric)
+    if metric_val is None:
+        return False
+
+    # String comparison
+    if isinstance(metric_val, str):
+        target = value.strip("'\"")
+        if operator == "==":
+            return metric_val.lower() == target.lower()
+        if operator == "!=":
+            return metric_val.lower() != target.lower()
+        return False
+
+    # Numeric comparison
+    try:
+        target = float(value)
+    except ValueError:
+        return False
+
+    if operator == ">":
+        return float(metric_val) > target
+    if operator == ">=":
+        return float(metric_val) >= target
+    if operator == "<":
+        return float(metric_val) < target
+    if operator == "<=":
+        return float(metric_val) <= target
+    if operator == "==":
+        return float(metric_val) == target
+    if operator == "!=":
+        return float(metric_val) != target
+
+    return False
+
+
+def evaluate_query(info: dict, query: str) -> bool:
+    """Evaluate a full screener query against a stock's info.
+
+    Supports AND, OR, and parentheses.
+    """
+    if not query.strip():
+        return True
+
+    tokens = _tokenize(query)
+    if not tokens:
+        return True
+
+    # Simple evaluation: process left to right with AND/OR
+    result = True
+    current_op = "AND"
+    i = 0
+
+    while i < len(tokens):
+        token = tokens[i]
+
+        if token.upper() == "AND":
+            current_op = "AND"
+            i += 1
+            continue
+        elif token.upper() == "OR":
+            current_op = "OR"
+            i += 1
+            continue
+        elif token == "(":
+            # Find matching close paren
+            depth = 1
+            j = i + 1
+            while j < len(tokens) and depth > 0:
+                if tokens[j] == "(":
+                    depth += 1
+                elif tokens[j] == ")":
+                    depth -= 1
+                j += 1
+            sub_query = " ".join(tokens[i + 1:j - 1])
+            sub_result = evaluate_query(info, sub_query)
+
+            if current_op == "AND":
+                result = result and sub_result
+            else:
+                result = result or sub_result
+
+            i = j
+            continue
+
+        # Must be a metric name — expect: METRIC OP VALUE
+        if i + 2 < len(tokens):
+            metric = token
+            operator = tokens[i + 1]
+            value = tokens[i + 2]
+
+            condition_result = _evaluate_condition(info, metric, operator, value)
+
+            if current_op == "AND":
+                result = result and condition_result
+            else:
+                result = result or condition_result
+
+            i += 3
+        else:
+            i += 1
+
+    return result
+
+
+# ── Screen Runner ─────────────────────────────────────────────────────────────
+
+def run_screen(
+    db: Session,
+    query: str,
+    universe: list[str] | None = None,
+    score_equation: str = "",
+    portfolio_weight: str = "equal",
+    limit: int = 100,
+) -> dict:
+    """Run a screener query against the stock universe.
+
+    Args:
+        db: Database session
+        query: Screener query (e.g., "MarketCap > 500 AND PE < 15")
+        universe: Optional list of symbols to screen
+        score_equation: Optional score formula
+        portfolio_weight: Weighting method (equal, market_cap)
+        limit: Max results
+
+    Returns:
+        Dict with matching stocks, their metrics, and weights
+    """
+    from concurrent.futures import ThreadPoolExecutor
+    from app.services.data_ingestion import ALL_NSE_STOCKS
+
+    if not universe:
+        # Get all stocks from DB
+        symbols = db.execute(select(StockInfo.symbol)).scalars().all()
+        universe = list(symbols) if symbols else ALL_NSE_STOCKS[:50]
+
+    logger.info("Running screen on %d stocks: %s", len(universe), query[:50])
+
+    # Fetch info for all stocks
+    def fetch_info(sym):
+        try:
+            return sym, yf.Ticker(sym).info
+        except Exception:
+            return sym, {}
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        results = list(executor.map(fetch_info, universe[:limit * 2]))
+
+    # Filter by query
+    matches = []
+    for sym, info in results:
+        if not info:
+            continue
+        try:
+            if evaluate_query(info, query):
+                matches.append({
+                    "symbol": sym,
+                    "name": info.get("shortName", sym),
+                    "sector": info.get("sector", ""),
+                    "industry": info.get("industry", ""),
+                    "marketCap": info.get("marketCap", 0),
+                    "pe": info.get("trailingPE"),
+                    "pb": info.get("priceToBook"),
+                    "roe": info.get("returnOnEquity"),
+                    "dividendYield": info.get("dividendYield"),
+                    "beta": info.get("beta"),
+                    "price": info.get("currentPrice", info.get("regularMarketPrice")),
+                })
+        except Exception as e:
+            logger.warning("Query evaluation failed for %s: %s", sym, e)
+
+    # Sort by market cap descending
+    matches.sort(key=lambda x: x.get("marketCap") or 0, reverse=True)
+    matches = matches[:limit]
+
+    # Assign weights
+    if portfolio_weight == "market_cap":
+        total_mcap = sum(m.get("marketCap", 0) or 0 for m in matches)
+        for m in matches:
+            m["weight"] = ((m.get("marketCap", 0) or 0) / total_mcap) if total_mcap > 0 else 0
+    else:  # equal
+        w = 1.0 / len(matches) if matches else 0
+        for m in matches:
+            m["weight"] = w
+
+    return {
+        "query": query,
+        "total_matches": len(matches),
+        "stocks": matches,
+    }

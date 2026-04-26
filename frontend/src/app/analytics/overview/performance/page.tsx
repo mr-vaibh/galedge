@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -59,25 +59,7 @@ function SummaryTable({ title, rows, hasExcess = true }: { title: string; rows: 
   );
 }
 
-// Sample time series data
-const perfData = Array.from({ length: 60 }, (_, i) => ({
-  date: `2025-${String(Math.floor(i / 5) + 1).padStart(2, "0")}-${String((i % 5) * 6 + 1).padStart(2, "0")}`,
-  active: 100 + Math.random() * 30 + i * 0.5,
-  benchmark: 100 + Math.random() * 20 + i * 0.25,
-  main: 100 + Math.random() * 25 + i * 0.35,
-}));
-
-const riskData = perfData.map(d => ({
-  date: d.date,
-  active: 12 + Math.random() * 6,
-  benchmark: 14 + Math.random() * 5,
-}));
-
-const peData = perfData.map(d => ({
-  date: d.date,
-  active: 20 + Math.random() * 8,
-  benchmark: 18 + Math.random() * 6,
-}));
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
 function ChartPanel({ title, data, series, yFmt }: {
   title: string;
@@ -121,6 +103,27 @@ function PeriodSelector() {
 }
 
 export default function PerformanceSummaryPage() {
+  const [metrics, setMetrics] = useState<Record<string, unknown> | null>(null);
+  const [equityCurve, setEquityCurve] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/backtest/quick?universe=NIFTY%2050&start=2025-06-01&end=2026-04-24&frequency=Monthly&method=equal`, { method: "POST" })
+      .then(r => r.json())
+      .then(data => {
+        setMetrics(data.metrics);
+        setEquityCurve(data.equity_curve || []);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Derive chart data from equity curve
+  const perfData = equityCurve.map(e => ({
+    date: String(e.date),
+    active: Number(e.value) / 100000, // normalize to 100 base
+  }));
+
   return (
     <div className="p-4 space-y-4">
       {/* Header */}
@@ -145,61 +148,68 @@ export default function PerformanceSummaryPage() {
 
       {/* 6-Panel Grid (2 rows x 3 cols) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {/* Row 1: Summary Tables */}
+        {/* Row 1: Summary Tables — from live backtest data */}
         <SummaryTable
           title="Profit and Loss Summary"
-          rows={[
-            { label: "Total Return (%)", active: "18.97%", benchmark: "9.57%", excess: "9.40%" },
-            { label: "CAGR (%)", active: "5.07%", benchmark: "0.07%", excess: "5.00%" },
-            { label: "Sharpe Ratio", active: "0.52", benchmark: "0.13", excess: "0.39" },
-            { label: "Treynor Ratio", active: "4.93", benchmark: "0.07", excess: "4.86" },
+          rows={metrics ? [
+            { label: "Total Return (%)", active: `${metrics.total_return}%`, benchmark: "—", excess: `${metrics.total_return}%` },
+            { label: "CAGR (%)", active: `${metrics.cagr}%`, benchmark: "—", excess: `${metrics.cagr}%` },
+            { label: "Sharpe Ratio", active: `${metrics.sharpe_ratio}`, benchmark: "—", excess: "—" },
+            { label: "Avg Positions", active: `${metrics.avg_positions}`, benchmark: "—" },
+          ] : [
+            { label: "Total Return (%)", active: loading ? "..." : "—", benchmark: "—" },
           ]}
         />
         <SummaryTable
           title="Risk Summary"
-          rows={[
-            { label: "Realized Risk (%)", active: "14.5%", benchmark: "16.2%" },
-            { label: "Total Predicted Risk (%)", active: "12.8%", benchmark: "14.1%" },
-            { label: "Factor Predicted Risk (%)", active: "8.2%", benchmark: "12.5%" },
-            { label: "Portfolio Concentration", active: "0.042", benchmark: "0.018" },
+          rows={metrics ? [
+            { label: "Max Drawdown (%)", active: `${metrics.max_drawdown}%`, benchmark: "—" },
+            { label: "Avg Turnover (%)", active: `${metrics.avg_turnover}%`, benchmark: "—" },
+            { label: "Tx Cost Drag (%)", active: `${metrics.transaction_cost_drag}%`, benchmark: "—" },
+          ] : [
+            { label: "Max Drawdown (%)", active: loading ? "..." : "—", benchmark: "—" },
           ]}
           hasExcess={false}
         />
         <SummaryTable
-          title="Valuation Summary"
-          rows={[
-            { label: "P/E Ratio", active: "22.5", benchmark: "19.8" },
-            { label: "Return on Equity (%)", active: "18.2%", benchmark: "15.7%" },
+          title="Portfolio Summary"
+          rows={metrics ? [
+            { label: "Initial Capital", active: `₹${(Number(metrics.initial_capital) / 1e7).toFixed(2)} Cr`, benchmark: "—" },
+            { label: "Final Value", active: `₹${(Number(metrics.final_value) / 1e7).toFixed(2)} Cr`, benchmark: "—" },
+            { label: "Total Trades", active: `${metrics.total_trades}`, benchmark: "—" },
+            { label: "Rebalances", active: `${metrics.total_rebalances}`, benchmark: "—" },
+          ] : [
+            { label: "Initial Capital", active: loading ? "..." : "—", benchmark: "—" },
           ]}
           hasExcess={false}
         />
 
-        {/* Row 2: Charts */}
+        {/* Row 2: Charts — from live equity curve */}
         <ChartPanel
-          title="Total Return (%)"
+          title="Portfolio Value (₹ Lakhs)"
           data={perfData}
           series={[
-            { key: "active", name: "Active", color: "#f97316" },
-            { key: "benchmark", name: "Benchmark", color: "#eab308" },
-            { key: "main", name: "Main", color: "#10b981" },
+            { key: "active", name: "Portfolio", color: "#f97316" },
+          ]}
+          yFmt={(v) => `${v.toFixed(0)}L`}
+        />
+        <ChartPanel
+          title="Drawdown (%)"
+          data={equityCurve.map(e => ({ date: String(e.date), drawdown: Number(e.drawdown) }))}
+          series={[
+            { key: "drawdown", name: "Drawdown", color: "#ef4444" },
           ]}
         />
         <ChartPanel
-          title="Rolling 1Y Realized Risk (%)"
-          data={riskData}
+          title="Portfolio Value Trend"
+          data={equityCurve.map((e, i) => ({
+            date: String(e.date),
+            value: Number(e.value),
+          }))}
           series={[
-            { key: "active", name: "Active", color: "#f97316" },
-            { key: "benchmark", name: "Benchmark", color: "#eab308" },
+            { key: "value", name: "Value", color: "#10b981" },
           ]}
-        />
-        <ChartPanel
-          title="PE Ratio"
-          data={peData}
-          series={[
-            { key: "active", name: "Active", color: "#f97316" },
-            { key: "benchmark", name: "Benchmark", color: "#eab308" },
-          ]}
-          yFmt={(v) => v.toFixed(1)}
+          yFmt={(v) => `${(v / 1e7).toFixed(2)}Cr`}
         />
       </div>
     </div>
