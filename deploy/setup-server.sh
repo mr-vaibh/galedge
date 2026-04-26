@@ -1,7 +1,4 @@
 #!/bin/bash
-# Run ONCE on a fresh server
-# Usage: ssh root@your-server 'bash -s' < setup-server.sh
-
 set -e
 
 DOMAIN="galedge.byvaibhav.com"
@@ -58,13 +55,27 @@ git config --global pack.windowMemory "50m"
 git config --global pack.packSizeLimit "50m"
 git config --global pack.threads "1"
 
-echo "=== Setting up Python backend ==="
+echo "=== Setting up Python backend (LOW MEMORY SAFE) ==="
 su - $DEPLOY_USER -c "
-  python3 -m venv $APP_DIR/.venv
+  set -e
+  export MAX_JOBS=1
+
+  if [ ! -d $APP_DIR/.venv ]; then
+    python3 -m venv $APP_DIR/.venv
+  fi
+
   source $APP_DIR/.venv/bin/activate
-  pip install --upgrade pip
-  pip install -r $APP_DIR/backend/requirements.txt
-  pip install -e $APP_DIR/packages/galedge-core
+
+  pip install --upgrade pip setuptools wheel
+
+  pip install \
+    --prefer-binary \
+    --no-build-isolation \
+    -r $APP_DIR/backend/requirements.txt
+
+  pip install \
+    --no-build-isolation \
+    -e $APP_DIR/packages/galedge-core
 "
 
 echo "=== Building frontend ==="
