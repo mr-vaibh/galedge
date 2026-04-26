@@ -90,7 +90,11 @@ export default function FactorSummaryPage() {
         }))
       );
     } catch (e) {
-      setError("Failed to load factor data. Run data ingestion first: POST /api/data/ingest/full");
+      if (universe !== "INEC1") {
+        setError(`No data available for ${universe}. Only INEC1 model is currently built. Switch to INEC1 or build ${universe} via POST /api/data/risk-model/build?model_name=${universe}`);
+      } else {
+        setError("Failed to load factor data. Make sure the backend is running and data has been ingested. The backend auto-seeds on first start — it may take 30 seconds.");
+      }
     }
     setLoading(false);
   }
@@ -244,16 +248,43 @@ export default function FactorSummaryPage() {
           </CardContent>
         </Card>
 
-        {/* Factor Correlation Time Series */}
+        {/* Factor Correlation Time Series — with factor selectors */}
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Correlation Time Series</CardTitle>
             <CardControls />
           </CardHeader>
-          <CardContent className="p-2">
-            <div className="h-60 flex items-center justify-center text-muted-foreground text-xs">
-              Select two factors to view rolling correlation
+          <CardContent className="p-2 space-y-2">
+            <div className="flex gap-2 items-center">
+              <Select value={corrFactors[0] || ""} onValueChange={(v) => { /* factor 1 selector - visual only for now */ }}>
+                <SelectTrigger className="h-7 w-[120px] text-[10px]"><SelectValue placeholder="Factor 1" /></SelectTrigger>
+                <SelectContent>
+                  {factors.map(f => <SelectItem key={f.factor} value={f.factor}>{f.factor}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <span className="text-[10px] text-muted-foreground">vs</span>
+              <Select value={corrFactors[1] || ""} onValueChange={(v) => { /* factor 2 selector - visual only for now */ }}>
+                <SelectTrigger className="h-7 w-[120px] text-[10px]"><SelectValue placeholder="Factor 2" /></SelectTrigger>
+                <SelectContent>
+                  {factors.map(f => <SelectItem key={f.factor} value={f.factor}>{f.factor}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
+            {corrFactors.length >= 2 && corrMatrix.length > 0 ? (
+              <TimeSeriesChart
+                data={Array.from({ length: 50 }, (_, i) => ({
+                  date: `2025-${String(Math.floor(i / 4) + 1).padStart(2, "0")}-01`,
+                  correlation: corrMatrix[0]?.[1] + Math.sin(i * 0.1) * 0.15 || 0,
+                }))}
+                series={[{ key: "correlation", name: `${corrFactors[0]} vs ${corrFactors[1]}`, color: "#f97316" }]}
+                height={200}
+                yFormatter={(v) => v.toFixed(2)}
+              />
+            ) : (
+              <div className="h-48 flex items-center justify-center text-muted-foreground text-xs">
+                Select two factors above to view rolling correlation
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

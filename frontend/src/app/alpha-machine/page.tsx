@@ -1,42 +1,98 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, Pencil, Trash2, Eye, Upload } from "lucide-react";
+import { RefreshCw, Pencil, Trash2, Plus, Loader2 } from "lucide-react";
+import { useAuth } from "@/lib/auth";
 
-const SAMPLE_SCREENS = [
-  { name: "Edelweiss", desc: "Test", created: "05-Mar-2026", modified: "05-Mar-2026" },
-  { name: "Industry Relative Reversal", desc: "Short Term Industry Relative Reversal", created: "20-Dec-2025", modified: "20-Dec-2025" },
-  { name: "Industry Relative Reversal Vol Adjusted", desc: "Short Term Industry Relative Reversal", created: "21-Dec-2025", modified: "21-Dec-2025" },
-  { name: "Industry Relative Reversal Vol Adjusted v2", desc: "Short Term Industry Relative Reversal", created: "21-Dec-2025", modified: "21-Dec-2025" },
-  { name: "Jain Portfolio Exclusions", desc: "Exclusions", created: "20-Mar-2026", modified: "20-Mar-2026" },
-  { name: "Momentum Marcellus", desc: "Momentum Description", created: "29-Dec-2025", modified: "29-Dec-2025" },
-  { name: "Momentum Value Mixture", desc: "Momentum Value Mixture", created: "21-Dec-2025", modified: "21-Dec-2025" },
-  { name: "Momentum Value Mixture v2", desc: "Momentum Value Mixture", created: "21-Dec-2025", modified: "21-Dec-2025" },
-  { name: "Nippon Sample", desc: "Placeholder", created: "13-Feb-2026", modified: "13-Feb-2026" },
-];
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
-const SAMPLE_BACKTESTS = [
-  { name: "Backtest 1", screen: "Edelweiss", start: "01-Jan-2020", end: "31-Dec-2025" },
-];
+interface Screen {
+  id: number;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+}
 
-const SAMPLE_ALPHA_MODELS: { name: string; start: string; end: string; status: string }[] = [];
-
-const SAMPLE_MT_ALPHAS: { name: string; start: string; end: string; status: string }[] = [];
+interface AlphaModel {
+  id: number;
+  name: string;
+  description: string;
+  status: string;
+  start_date: string | null;
+  end_date: string | null;
+}
 
 export default function AlphaMachinePage() {
+  const router = useRouter();
+  const { token } = useAuth();
   const [activeTab, setActiveTab] = useState("screeners");
+  const [screens, setScreens] = useState<Screen[]>([]);
+  const [userModels, setUserModels] = useState<AlphaModel[]>([]);
+  const [platformModels, setPlatformModels] = useState<AlphaModel[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  async function fetchData() {
+    setLoading(true);
+    if (!token) { setLoading(false); return; }
+
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+
+      const [screensRes, modelsRes] = await Promise.all([
+        fetch(`${API_BASE}/api/alpha/screens`, { headers }).then(r => r.ok ? r.json() : []),
+        fetch(`${API_BASE}/api/alpha/models`, { headers }).then(r => r.ok ? r.json() : { user_models: [], platform_models: [] }),
+      ]);
+
+      setScreens(Array.isArray(screensRes) ? screensRes : []);
+      setUserModels(modelsRes.user_models || []);
+      setPlatformModels(modelsRes.platform_models || []);
+    } catch {
+      // API might not be available
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => { fetchData(); }, [token]);
+
+  async function deleteScreen(id: number) {
+    if (!token || !confirm("Delete this screen?")) return;
+    await fetch(`${API_BASE}/api/alpha/screens/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    fetchData();
+  }
+
+  async function deleteModel(id: number) {
+    if (!token || !confirm("Delete this alpha model?")) return;
+    await fetch(`${API_BASE}/api/alpha/models/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    fetchData();
+  }
 
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Alpha Machine</h1>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <RefreshCw className="h-3.5 w-3.5" /> Refresh
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={fetchData}>
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          Refresh
         </Button>
       </div>
+
+      {!token && (
+        <div className="rounded-lg border bg-card p-6 text-center">
+          <p className="text-sm text-muted-foreground mb-3">Login to create and manage screens and alpha models</p>
+          <Button onClick={() => router.push("/login")} size="sm">Login</Button>
+        </div>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
@@ -45,9 +101,13 @@ export default function AlphaMachinePage() {
         </TabsList>
 
         <TabsContent value="screeners" className="space-y-6 mt-4">
-          {/* User Created Screens */}
           <div>
-            <h2 className="text-sm font-semibold mb-3">User Created Screens</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold">User Created Screens</h2>
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => router.push("/alpha-machine/build-screen")}>
+                <Plus className="h-3 w-3" /> New Screen
+              </Button>
+            </div>
             <div className="rounded-lg border bg-card overflow-hidden">
               <table className="w-full text-[11px]">
                 <thead>
@@ -58,49 +118,32 @@ export default function AlphaMachinePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {SAMPLE_SCREENS.map((s) => (
-                    <tr key={s.name} className="border-b border-border/30 hover:bg-muted/30">
-                      <td className="px-3 py-2 font-medium">{s.name}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{s.desc}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{s.created}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{s.modified}</td>
-                      <td className="px-3 py-2">
-                        <Button variant="ghost" size="icon" className="h-6 w-6"><Pencil className="h-3 w-3" /></Button>
-                      </td>
-                      <td className="px-3 py-2">
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive"><Trash2 className="h-3 w-3" /></Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Backtests */}
-          <div>
-            <h2 className="text-sm font-semibold mb-3">Backtests</h2>
-            <div className="rounded-lg border bg-card overflow-hidden">
-              <table className="w-full text-[11px]">
-                <thead>
-                  <tr className="border-b border-border/50 bg-muted/20">
-                    {["Backtest Name", "Screen Name", "Start Date", "End Date", "Modify", "Delete"].map((h) => (
-                      <th key={h} className="px-3 py-2.5 text-left font-medium text-muted-foreground">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {SAMPLE_BACKTESTS.length === 0 ? (
-                    <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">No records</td></tr>
+                  {loading ? (
+                    <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></td></tr>
+                  ) : screens.length === 0 ? (
+                    <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
+                      No screens created yet.{" "}
+                      <button className="text-blue-400 hover:underline" onClick={() => router.push("/alpha-machine/build-screen")}>
+                        Create your first screen
+                      </button>
+                    </td></tr>
                   ) : (
-                    SAMPLE_BACKTESTS.map((b) => (
-                      <tr key={b.name} className="border-b border-border/30 hover:bg-muted/30">
-                        <td className="px-3 py-2">{b.name}</td>
-                        <td className="px-3 py-2">{b.screen}</td>
-                        <td className="px-3 py-2">{b.start}</td>
-                        <td className="px-3 py-2">{b.end}</td>
-                        <td className="px-3 py-2"><Button variant="ghost" size="icon" className="h-6 w-6"><Pencil className="h-3 w-3" /></Button></td>
-                        <td className="px-3 py-2"><Button variant="ghost" size="icon" className="h-6 w-6 text-destructive"><Trash2 className="h-3 w-3" /></Button></td>
+                    screens.map((s) => (
+                      <tr key={s.id} className="border-b border-border/30 hover:bg-muted/30">
+                        <td className="px-3 py-2 font-medium">{s.name}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{s.description || "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{s.created_at?.slice(0, 10)}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{s.updated_at?.slice(0, 10)}</td>
+                        <td className="px-3 py-2">
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => router.push(`/alpha-machine/build-screen?id=${s.id}`)}>
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                        </td>
+                        <td className="px-3 py-2">
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteScreen(s.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -111,43 +154,75 @@ export default function AlphaMachinePage() {
         </TabsContent>
 
         <TabsContent value="alpha" className="space-y-6 mt-4">
-          {/* User Created Alpha Models */}
           <div>
-            <h2 className="text-sm font-semibold mb-3">User Created Alpha Models</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold">User Created Alpha Models</h2>
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => router.push("/alpha-machine/build-model")}>
+                <Plus className="h-3 w-3" /> New Model
+              </Button>
+            </div>
             <div className="rounded-lg border bg-card overflow-hidden">
               <table className="w-full text-[11px]">
                 <thead>
                   <tr className="border-b border-border/50 bg-muted/20">
-                    {["Model Name", "Start Date", "End Date", "Status", "View Results", "Enable Production", "Delete"].map((h) => (
+                    {["Model Name", "Start Date", "End Date", "Status", "Delete"].map((h) => (
                       <th key={h} className="px-3 py-2.5 text-left font-medium text-muted-foreground">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {SAMPLE_ALPHA_MODELS.length === 0 ? (
-                    <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">No records</td></tr>
-                  ) : null}
+                  {loading ? (
+                    <tr><td colSpan={5} className="px-3 py-8 text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></td></tr>
+                  ) : userModels.length === 0 ? (
+                    <tr><td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">
+                      No alpha models created yet.{" "}
+                      <button className="text-blue-400 hover:underline" onClick={() => router.push("/alpha-machine/build-model")}>
+                        Build your first model
+                      </button>
+                    </td></tr>
+                  ) : (
+                    userModels.map((m) => (
+                      <tr key={m.id} className="border-b border-border/30 hover:bg-muted/30">
+                        <td className="px-3 py-2 font-medium">{m.name}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{m.start_date || "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{m.end_date || "—"}</td>
+                        <td className="px-3 py-2"><Badge className="text-[8px]">{m.status}</Badge></td>
+                        <td className="px-3 py-2">
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteModel(m.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
 
-          {/* MethodTech Alphas */}
           <div>
             <h2 className="text-sm font-semibold mb-3">Galedge Alphas</h2>
             <div className="rounded-lg border bg-card overflow-hidden">
               <table className="w-full text-[11px]">
                 <thead>
                   <tr className="border-b border-border/50 bg-muted/20">
-                    {["Model Name", "Start Date", "End Date", "Status", "View Results"].map((h) => (
+                    {["Model Name", "Description", "Status"].map((h) => (
                       <th key={h} className="px-3 py-2.5 text-left font-medium text-muted-foreground">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {SAMPLE_MT_ALPHAS.length === 0 ? (
-                    <tr><td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">No records</td></tr>
-                  ) : null}
+                  {platformModels.length === 0 ? (
+                    <tr><td colSpan={3} className="px-3 py-8 text-center text-muted-foreground">Platform alphas coming soon</td></tr>
+                  ) : (
+                    platformModels.map((m) => (
+                      <tr key={m.id} className="border-b border-border/30">
+                        <td className="px-3 py-2 font-medium">{m.name}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{m.description}</td>
+                        <td className="px-3 py-2"><Badge className="text-[8px] bg-emerald-600">{m.status}</Badge></td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

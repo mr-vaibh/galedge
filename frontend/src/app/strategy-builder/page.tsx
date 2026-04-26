@@ -1,36 +1,60 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, Pencil, Trash2, ChevronDown } from "lucide-react";
+import { RefreshCw, Plus, Loader2 } from "lucide-react";
+import { useAuth } from "@/lib/auth";
 
-const SAMPLE_BACKTESTS = [
-  { fund: "Golden Crossover", scheme: "Monthly Rebalance", portfolio: "", created: "", modified: "", start: "01-Apr-2026", end: "24-Apr-2026", rebalance: "AVAILABLE", analytics: "AVAILABLE", production: false },
-  { fund: "Golden Crossover", scheme: "Monthly Rebalance", portfolio: "", created: "29-Apr-2026", modified: "", start: "01-Feb-2026", end: "", rebalance: "IN PROGRESS", analytics: "NOT AVAILABLE", production: false },
-  { fund: "Long Passive", scheme: "N500", portfolio: "", created: "", modified: "", start: "", end: "", rebalance: "IN PROGRESS", analytics: "NOT AVAILABLE", production: false },
-];
-
-const SAMPLE_STRATEGIES = [
-  { fund: "Long Passive", scheme: "N500", portfolio: "GoldenCrossover", created: "", modified: "", start: "", end: "", rebalance: "IN PROGRESS", analytics: "", production: false },
-];
-
-const PRODUCTION_ARCHIVED = [
-  { fund: "Long", scheme: "Passive Production", iteration: "—", aum: "—", start: "—", lastRun: "—", nextRebalance: "—" },
-];
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
 export default function StrategyBuilderPage() {
+  const router = useRouter();
+  const { token } = useAuth();
   const [tab, setTab] = useState("backtest");
+  const [strategies, setStrategies] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  async function fetchStrategies() {
+    if (!token) { setLoading(false); return; }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/strategies/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStrategies(Array.isArray(data) ? data : []);
+      }
+    } catch {}
+    setLoading(false);
+  }
+
+  useEffect(() => { fetchStrategies(); }, [token]);
 
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Strategy Builder</h1>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <RefreshCw className="h-3.5 w-3.5" /> Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={fetchStrategies}>
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            Refresh
+          </Button>
+          <Button size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700" onClick={() => router.push("/strategy-builder/build")}>
+            <Plus className="h-3.5 w-3.5" /> Build New Strategy
+          </Button>
+        </div>
       </div>
+
+      {!token && (
+        <div className="rounded-lg border bg-card p-6 text-center">
+          <p className="text-sm text-muted-foreground mb-3">Login to create and manage strategies</p>
+          <Button onClick={() => router.push("/login")} size="sm">Login</Button>
+        </div>
+      )}
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
@@ -38,114 +62,47 @@ export default function StrategyBuilderPage() {
           <TabsTrigger value="production">Production</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="backtest" className="space-y-6 mt-4">
-          {/* User Strategies */}
+        <TabsContent value="backtest" className="mt-4">
           <div className="rounded-lg border bg-card overflow-hidden">
             <table className="w-full text-[11px]">
               <thead>
                 <tr className="border-b border-border/50 bg-muted/20">
-                  {["Fund Name", "Scheme Name", "Portfolio", "Created Date", "Last Modified", "Start Date", "End Date", "Rebalance Status", "Analytics Status", "Modify", "Production", "Delete"].map((h) => (
-                    <th key={h} className="px-2 py-2.5 text-left font-medium text-muted-foreground whitespace-nowrap text-[10px]">{h}</th>
+                  {["Fund Name", "Scheme Name", "Universe", "Status", "Rebalance", "Analytics"].map((h) => (
+                    <th key={h} className="px-3 py-2.5 text-left font-medium text-muted-foreground">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {SAMPLE_BACKTESTS.map((s, i) => (
-                  <tr key={i} className="border-b border-border/30 hover:bg-muted/30">
-                    <td className="px-2 py-2">{s.fund}</td>
-                    <td className="px-2 py-2">{s.scheme}</td>
-                    <td className="px-2 py-2 text-muted-foreground">{s.portfolio || "—"}</td>
-                    <td className="px-2 py-2 text-muted-foreground">{s.created || "—"}</td>
-                    <td className="px-2 py-2 text-muted-foreground">{s.modified || "—"}</td>
-                    <td className="px-2 py-2 text-muted-foreground">{s.start || "—"}</td>
-                    <td className="px-2 py-2 text-muted-foreground">{s.end || "—"}</td>
-                    <td className="px-2 py-2">
-                      <Badge className={`text-[8px] ${s.rebalance === "AVAILABLE" ? "bg-emerald-600" : s.rebalance === "IN PROGRESS" ? "bg-amber-600" : "bg-red-600"}`}>
-                        {s.rebalance}
-                      </Badge>
-                    </td>
-                    <td className="px-2 py-2">
-                      <Badge className={`text-[8px] ${s.analytics === "AVAILABLE" ? "bg-emerald-600" : "bg-red-600"}`}>
-                        {s.analytics || "—"}
-                      </Badge>
-                    </td>
-                    <td className="px-2 py-2"><Button variant="ghost" size="icon" className="h-5 w-5"><Pencil className="h-2.5 w-2.5" /></Button></td>
-                    <td className="px-2 py-2">
-                      <div className="h-4 w-8 rounded-full bg-muted relative">
-                        <div className={`absolute top-0.5 left-0.5 h-3 w-3 rounded-full transition-all ${s.production ? "bg-blue-500 translate-x-4" : "bg-muted-foreground/30"}`} />
-                      </div>
-                    </td>
-                    <td className="px-2 py-2"><Button variant="ghost" size="icon" className="h-5 w-5 text-destructive"><Trash2 className="h-2.5 w-2.5" /></Button></td>
-                  </tr>
-                ))}
+                {loading ? (
+                  <tr><td colSpan={6} className="px-3 py-8 text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></td></tr>
+                ) : strategies.length === 0 ? (
+                  <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
+                    No strategies yet.{" "}
+                    <button className="text-blue-400 hover:underline" onClick={() => router.push("/strategy-builder/build")}>
+                      Build your first strategy
+                    </button>
+                  </td></tr>
+                ) : (
+                  strategies.map((s, i) => (
+                    <tr key={i} className="border-b border-border/30 hover:bg-muted/30 cursor-pointer"
+                      onClick={() => router.push(`/strategy-builder/build?id=${s.id}`)}>
+                      <td className="px-3 py-2 font-medium">{String(s.fund_name)}</td>
+                      <td className="px-3 py-2">{String(s.scheme_name || "—")}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{String(s.universe || "—")}</td>
+                      <td className="px-3 py-2"><Badge className="text-[8px]">{String(s.status)}</Badge></td>
+                      <td className="px-3 py-2"><Badge className={`text-[8px] ${s.rebalance_status === "AVAILABLE" ? "bg-emerald-600" : "bg-amber-600"}`}>{String(s.rebalance_status)}</Badge></td>
+                      <td className="px-3 py-2"><Badge className={`text-[8px] ${s.analytics_status === "AVAILABLE" ? "bg-emerald-600" : "bg-red-600"}`}>{String(s.analytics_status)}</Badge></td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
-
-          {/* Sample Strategies */}
-          <div>
-            <h2 className="text-sm font-semibold mb-2">Sample Strategies</h2>
-            <div className="text-[9px] text-amber-500 mb-2">
-              Disclaimer: The sample strategies displayed here are for demonstration purposes only and do not constitute investment advice or recommendations.
-            </div>
-            <div className="rounded-lg border bg-card overflow-hidden">
-              <table className="w-full text-[11px]">
-                <thead>
-                  <tr className="border-b border-border/50 bg-muted/20">
-                    {["Fund Name", "Scheme Name", "Status"].map((h) => (
-                      <th key={h} className="px-3 py-2.5 text-left font-medium text-muted-foreground">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {SAMPLE_STRATEGIES.map((s, i) => (
-                    <tr key={i} className="border-b border-border/30 hover:bg-muted/30">
-                      <td className="px-3 py-2">{s.fund}</td>
-                      <td className="px-3 py-2">{s.scheme}</td>
-                      <td className="px-3 py-2"><Badge className="text-[8px] bg-amber-600">{s.rebalance}</Badge></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </TabsContent>
 
-        <TabsContent value="production" className="space-y-6 mt-4">
-          <div>
-            <h2 className="text-sm font-semibold mb-3">Active Productions</h2>
-            <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground text-xs">
-              No active production strategies to display.
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-sm font-semibold mb-3">Archived Productions</h2>
-            <div className="rounded-lg border bg-card overflow-hidden">
-              <table className="w-full text-[11px]">
-                <thead>
-                  <tr className="border-b border-border/50 bg-muted/20">
-                    {["Fund Name", "Scheme Name", "Iteration", "Current AUM", "Start Date", "Last Run Date", "Next Rebalance Date", "Manual Trigger"].map((h) => (
-                      <th key={h} className="px-3 py-2.5 text-left font-medium text-muted-foreground">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {PRODUCTION_ARCHIVED.map((p, i) => (
-                    <tr key={i} className="border-b border-border/30 hover:bg-muted/30">
-                      <td className="px-3 py-2">{p.fund}</td>
-                      <td className="px-3 py-2">{p.scheme}</td>
-                      <td className="px-3 py-2">{p.iteration}</td>
-                      <td className="px-3 py-2">{p.aum}</td>
-                      <td className="px-3 py-2">{p.start}</td>
-                      <td className="px-3 py-2">{p.lastRun}</td>
-                      <td className="px-3 py-2">{p.nextRebalance}</td>
-                      <td className="px-3 py-2"><ChevronDown className="h-3 w-3 text-muted-foreground" /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        <TabsContent value="production" className="mt-4">
+          <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground text-xs">
+            No active production strategies. Promote a backtest to production from the backtest tab.
           </div>
         </TabsContent>
       </Tabs>
