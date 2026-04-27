@@ -148,6 +148,9 @@ export default function OptimizerPage() {
       }
 
       const data = await res.json();
+      if (data.status === "infeasible" || data.n_positions === 0) {
+        throw new Error("Infeasible — constraints are too tight. Try lowering min_weight, reducing positions, or relaxing other constraints.");
+      }
       setResult(data);
       setFrontier([]);
 
