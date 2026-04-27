@@ -115,11 +115,15 @@ export default function OptimizerPage() {
         }
       }
 
-      const body = {
+      // Benchmark weights (equal-weight) — needed for tracking error
+      const benchmarkWeights = symbols.map(() => 1.0 / symbols.length);
+
+      const body: Record<string, unknown> = {
         symbols,
         expected_returns: expectedReturns,
         covariance_matrix: covMatrix,
         objective,
+        benchmark_weights: objective === "minimize_tracking_error" ? benchmarkWeights : undefined,
         constraints: constraints.map(c => {
           const flat: Record<string, unknown> = { type: c.type };
           // Map frontend param names to backend ConstraintSpec fields
