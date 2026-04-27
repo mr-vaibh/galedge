@@ -5,11 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Code2, Terminal, ExternalLink, RefreshCw } from "lucide-react";
 
-// On HTTPS: use /code-server/ proxy path. On HTTP: use port 8080 directly.
+// Always use port 8080 on the same hostname
 const CODE_SERVER_URL = process.env.NEXT_PUBLIC_CODE_SERVER_URL || (typeof window !== "undefined"
-  ? window.location.protocol === "https:"
-    ? `${window.location.origin}/code-server/`
-    : `${window.location.protocol}//${window.location.hostname}:8080`
+  ? `http://${window.location.hostname}:8080`
   : "http://localhost:8080");
 
 export default function CodeEditorPage() {
