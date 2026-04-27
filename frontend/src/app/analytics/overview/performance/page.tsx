@@ -140,7 +140,7 @@ export default function PerformanceSummaryPage() {
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Profit and Loss Summary</CardTitle>
               <CardControls data={[{total_return: `${metrics.total_return ?? "—"}%`, cagr: `${metrics.annualised_return ?? "—"}%`, sharpe: metrics.sharpe_ratio ?? "—", holdings: metrics.num_holdings ?? "—"}]} filename="pnl" title="Profit and Loss Summary" expandContent={
-                <table className="text-xs">
+                <table className="w-full text-xs">
                   <tbody>
                     {[
                       ["Total Return", `${metrics.total_return ?? metrics.total_portfolio_return ?? "—"}%`],
@@ -180,7 +180,7 @@ export default function PerformanceSummaryPage() {
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Risk Summary</CardTitle>
               <CardControls data={metrics ? [{max_drawdown: metrics.max_drawdown, volatility: metrics.volatility, avg_turnover: metrics.avg_turnover, trading_days: metrics.trading_days ?? metrics.total_trades}] : []} filename="risk" title="Risk Summary" expandContent={
-                <table className="text-xs">
+                <table className="w-full text-xs">
                   <tbody>
                     {[
                       ["Max Drawdown", `${metrics.max_drawdown ?? "—"}%`],
@@ -220,7 +220,7 @@ export default function PerformanceSummaryPage() {
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Portfolio Summary</CardTitle>
               <CardControls data={metrics ? [{initial_capital: metrics.initial_capital, final_value: metrics.final_value, total_rebalances: metrics.total_rebalances, fund_name: metrics.fund_name ?? selectedFundName}] : []} filename="portfolio" title="Portfolio Summary" expandContent={
-                <table className="text-xs">
+                <table className="w-full text-xs">
                   <tbody>
                     {[
                       ["Initial Capital", metrics.initial_capital ? formatCurrencyCompact(Number(metrics.initial_capital), "INR") : metrics.aum ? formatCurrencyCompact(Number(metrics.aum) * 1e7, "INR") : "—"],

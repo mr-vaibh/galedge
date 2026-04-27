@@ -58,7 +58,7 @@ export function ExpandProvider({ children }: { children: ReactNode }) {
       {visible && typeof window !== "undefined" && createPortal(
         <div className="fixed inset-0 z-40 bg-black/85 flex items-center justify-center p-4" onClick={close}>
           <div
-            className={`bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl flex flex-col ${fullscreen ? "w-[94vw] h-[90vh]" : "max-w-[94vw] max-h-[90vh]"}`}
+            className={`bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl flex flex-col ${fullscreen ? "w-[94vw] h-[90vh]" : "min-w-[420px] max-w-[94vw] max-h-[90vh]"}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-700 shrink-0 gap-6">
