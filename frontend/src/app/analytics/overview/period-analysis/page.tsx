@@ -99,36 +99,45 @@ function groupByQuarter(curve: EquityPoint[]): PeriodRow[] {
 }
 
 function STable({ title, rows, columns }: { title: string; rows: string[][]; columns: string[] }) {
+  const tableJsx = (
+    <table className="w-full text-[10px]">
+      <thead>
+        <tr className="border-b border-border/50">
+          {columns.map((c) => (
+            <th key={c} className="px-2 py-1.5 text-left font-medium text-muted-foreground">{c}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, i) => (
+          <tr key={i} className="border-b border-border/30 hover:bg-muted/20">
+            {row.map((cell, j) => (
+              <td key={j} className={`px-2 py-1 tabular-nums ${j > 0 && cell.startsWith("-") ? "text-red-400" : ""}`}>
+                {cell}
+              </td>
+            ))}
+          </tr>
+        ))}
+        {rows.length === 0 && (
+          <tr><td colSpan={columns.length} className="px-2 py-4 text-center text-muted-foreground">No data</td></tr>
+        )}
+      </tbody>
+    </table>
+  );
+
   return (
     <Card>
       <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
         <CardTitle className="text-[11px]">{title}</CardTitle>
-        <CardControls />
+        <CardControls
+          title={title}
+          data={rows.map((row) => Object.fromEntries(columns.map((c, i) => [c, row[i] ?? ""])))}
+          filename={title.toLowerCase().replace(/\s+/g, "_")}
+          expandContent={tableJsx}
+        />
       </CardHeader>
       <CardContent className="p-0">
-        <table className="w-full text-[10px]">
-          <thead>
-            <tr className="border-b border-border/50">
-              {columns.map((c) => (
-                <th key={c} className="px-2 py-1.5 text-left font-medium text-muted-foreground">{c}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr key={i} className="border-b border-border/30 hover:bg-muted/20">
-                {row.map((cell, j) => (
-                  <td key={j} className={`px-2 py-1 tabular-nums ${j > 0 && cell.startsWith("-") ? "text-red-400" : ""}`}>
-                    {cell}
-                  </td>
-                ))}
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr><td colSpan={columns.length} className="px-2 py-4 text-center text-muted-foreground">No data</td></tr>
-            )}
-          </tbody>
-        </table>
+        {tableJsx}
       </CardContent>
     </Card>
   );
@@ -228,7 +237,7 @@ export default function PeriodAnalysisPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Return by Period (%)</CardTitle>
-              <CardControls data={barData as unknown as Record<string, unknown>[]} filename="period_returns" />
+              <CardControls title="Return by Period (%)" data={barData as unknown as Record<string, unknown>[]} filename="period_returns" expandContent={barData.length > 0 ? <BarChartPanel data={barData} height={600} /> : undefined} />
             </CardHeader>
             <CardContent className="p-2">
               {barData.length > 0 ? (
