@@ -496,7 +496,7 @@ export default function PeerComparisonPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Total Return (%)</CardTitle>
-                <CardControls data={returnBarData as Record<string, unknown>[]} filename="return_comparison" title="Total Return (%)" fullscreen expandContent={
+                <CardControls filename="return_comparison" title="Total Return (%)" fullscreen expandContent={
                   <BarChartPanel data={returnBarData} height={600} />
                 } />
               </CardHeader>
@@ -508,7 +508,7 @@ export default function PeerComparisonPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Sharpe Ratio</CardTitle>
-                <CardControls data={sharpeBarData as Record<string, unknown>[]} filename="sharpe_comparison" title="Sharpe Ratio" fullscreen expandContent={
+                <CardControls filename="sharpe_comparison" title="Sharpe Ratio" fullscreen expandContent={
                   <BarChartPanel data={sharpeBarData} height={600} />
                 } />
               </CardHeader>
@@ -520,7 +520,7 @@ export default function PeerComparisonPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Volatility (%)</CardTitle>
-                <CardControls data={volBarData as Record<string, unknown>[]} filename="volatility_comparison" title="Volatility (%)" fullscreen expandContent={
+                <CardControls filename="volatility_comparison" title="Volatility (%)" fullscreen expandContent={
                   <BarChartPanel data={volBarData} height={600} />
                 } />
               </CardHeader>

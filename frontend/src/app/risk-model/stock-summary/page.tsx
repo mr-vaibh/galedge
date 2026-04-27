@@ -184,7 +184,7 @@ export default function StockSummaryPage() {
         <Card>
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Stock Factor Exposures</CardTitle>
-            <CardControls title="Stock Factor Exposures" expandContent={
+            <CardControls data={factorNames.map(f => { const row: Record<string, unknown> = { Factor: f }; selected.forEach(s => { row[s.symbol.replace(".NS", "")] = exposures[s.symbol]?.[f] ?? 0; }); return row; })} filename="stock_factor_exposures" title="Stock Factor Exposures" expandContent={
               selected.length > 0 ? (
                 <table className="w-full text-[11px]">
                   <thead className="sticky top-0 bg-card z-10">
@@ -270,7 +270,7 @@ export default function StockSummaryPage() {
         <Card>
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Return Decomposition</CardTitle>
-            <CardControls title="Return Decomposition" expandContent={
+            <CardControls data={factorNames.slice(0, 7).map(f => { const row: Record<string, unknown> = { Factor: f }; selected.slice(0, 3).forEach(s => { row[s.symbol.replace(".NS", "")] = exposures[s.symbol]?.[f] ?? 0; }); return row; })} filename="return_decomposition" title="Return Decomposition" expandContent={
               <table className="w-full text-[11px]">
                 <thead>
                   <tr className="border-b border-border/50">

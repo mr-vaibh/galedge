@@ -321,7 +321,7 @@ export default function FactorSummaryPage() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Returns Time Series</CardTitle>
-            <CardControls data={factorReturnsData as Record<string, unknown>[]} filename="factor_returns_ts" title="Factor Returns Time Series" fullscreen expandContent={
+            <CardControls filename="factor_returns_ts" title="Factor Returns Time Series" fullscreen expandContent={
               factorReturnsData.length > 0 ? (
                 <TimeSeriesChart
                   data={factorReturnsData}

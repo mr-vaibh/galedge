@@ -294,7 +294,7 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Return Decomposition (%)</CardTitle>
-                <CardControls data={returnDecompBarData as Record<string, unknown>[]} filename="return_decomposition" title="Return Decomposition (%)" fullscreen expandContent={
+                <CardControls filename="return_decomposition" title="Return Decomposition (%)" fullscreen expandContent={
                   returnDecompBarData.length > 0 ? (
                     <BarChartPanel data={returnDecompBarData} height={600} />
                   ) : undefined
@@ -311,7 +311,7 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Returns (%)</CardTitle>
-                <CardControls data={topBarData as Record<string, unknown>[]} filename="factor_returns" title="Factor Returns (%)" fullscreen expandContent={
+                <CardControls filename="factor_returns" title="Factor Returns (%)" fullscreen expandContent={
                   topBarData.length > 0 ? (
                     <BarChartPanel data={topBarData} height={600} color="#10b981" showNegativeColors={false} />
                   ) : undefined
@@ -328,7 +328,7 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Risk Contrib (%)</CardTitle>
-                <CardControls data={factors.map(f => ({name: f.factor, value: f.risk_contribution * 100})) as Record<string, unknown>[]} filename="factor_risk" title="Factor Risk Contrib (%)" fullscreen expandContent={
+                <CardControls filename="factor_risk" title="Factor Risk Contrib (%)" fullscreen expandContent={
                   factors.length > 0 ? (
                     <BarChartPanel
                       data={factors.map((f) => ({ name: f.factor, value: f.risk_contribution * 100 }))}
@@ -355,7 +355,7 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Exposure</CardTitle>
-                <CardControls data={factors.map(f => ({name: f.factor, value: f.exposure})) as Record<string, unknown>[]} filename="factor_exposure" title="Factor Exposure" fullscreen expandContent={
+                <CardControls filename="factor_exposure" title="Factor Exposure" fullscreen expandContent={
                   factors.length > 0 ? (
                     <BarChartPanel
                       data={factors.map((f) => ({ name: f.factor, value: f.exposure }))}
@@ -460,7 +460,7 @@ export default function ReturnsAndRiskPage() {
               <Card>
                 <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                   <CardTitle className="text-[11px]">Top Factor Returns (%)</CardTitle>
-                  <CardControls data={topHoldingsBarData as Record<string, unknown>[]} filename="top_factor_returns" title="Top Factor Returns (%)" fullscreen expandContent={
+                  <CardControls filename="top_factor_returns" title="Top Factor Returns (%)" fullscreen expandContent={
                     topHoldingsBarData.length > 0 ? (
                       <BarChartPanel data={topHoldingsBarData} height={600} />
                     ) : undefined

@@ -260,7 +260,7 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Portfolio Value</CardTitle>
-              <CardControls data={equityCurve as Record<string, unknown>[]} filename="equity_curve" title="Portfolio Value" fullscreen expandContent={
+              <CardControls filename="equity_curve" title="Portfolio Value" fullscreen expandContent={
                 equityCurve.length > 0 ? (
                   <TimeSeriesChart
                     data={equityCurve.map(e => ({ date: String(e.date), value: Number(e.value) }))}
@@ -286,7 +286,7 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Drawdown (%)</CardTitle>
-              <CardControls data={equityCurve.filter(e => e.drawdown !== undefined).map(e => ({date: String(e.date), drawdown: Number(e.drawdown)}))} filename="drawdown" title="Drawdown (%)" fullscreen expandContent={
+              <CardControls filename="drawdown" title="Drawdown (%)" fullscreen expandContent={
                 equityCurve.length > 0 ? (
                   <TimeSeriesChart
                     data={equityCurve.filter(e => e.drawdown !== undefined).map(e => ({ date: String(e.date), dd: Number(e.drawdown) }))}
@@ -310,7 +310,7 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Value Trend</CardTitle>
-              <CardControls data={equityCurve.map(e => ({date: String(e.date), value: Number(e.value)}))} filename="value_trend" title="Value Trend" fullscreen expandContent={
+              <CardControls filename="value_trend" title="Value Trend" fullscreen expandContent={
                 equityCurve.length > 0 ? (
                   <TimeSeriesChart
                     data={equityCurve.map(e => ({ date: String(e.date), v: Number(e.value) }))}
