@@ -147,7 +147,7 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Profit and Loss Summary</CardTitle>
-                <CardControls data={metrics ? [metrics as Record<string, unknown>] : []} filename="pnl" />
+                <CardControls data={metrics ? [{total_return: `${metrics.total_return}%`, cagr: `${metrics.annualised_return}%`, sharpe: metrics.sharpe_ratio, holdings: metrics.num_holdings}] : []} filename="pnl" />
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full text-[10px]">
@@ -172,7 +172,7 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Risk Summary</CardTitle>
-                <CardControls data={metrics ? [metrics as Record<string, unknown>] : []} filename="risk" />
+                <CardControls data={metrics ? [{volatility: `${metrics.volatility}%`, max_drawdown: `${metrics.max_drawdown}%`, trading_days: metrics.trading_days, aum: metrics.total_aum_cr}] : []} filename="risk" />
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full text-[10px]">

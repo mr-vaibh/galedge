@@ -139,7 +139,7 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Profit and Loss Summary</CardTitle>
-              <CardControls data={[metrics as Record<string, unknown>]} filename="pnl" />
+              <CardControls data={[{total_return: `${metrics.total_return ?? "—"}%`, cagr: `${metrics.annualised_return ?? "—"}%`, sharpe: metrics.sharpe_ratio ?? "—", holdings: metrics.num_holdings ?? "—"}]} filename="pnl" />
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full text-[10px]">

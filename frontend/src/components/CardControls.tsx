@@ -163,41 +163,36 @@ function ExpandModal({ title, data, filename, onClose, children }: {
           </div>
         </div>
 
-        {/* Content — flex-1 fills remaining height, children stretch to fill */}
+        {/* Content */}
         <div className="flex-1 min-h-0 flex flex-col overflow-auto">
           {children ? (
             <div className="flex-1 min-h-0 w-full p-5">{children}</div>
           ) : data && data.length > 0 ? (
-            // Data table fallback
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-neutral-900 z-10">
-                <tr className="border-b border-neutral-700">
-                  <th className="px-3 py-2 text-left text-muted-foreground font-medium">#</th>
-                  {Object.keys(data[0]).map((key) => (
-                    <th key={key} className="px-3 py-2 text-left text-muted-foreground font-medium whitespace-nowrap">
-                      {key.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase())}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((row, i) => (
-                  <tr key={i} className="border-b border-neutral-800 hover:bg-neutral-800/40">
-                    <td className="px-3 py-1.5 text-muted-foreground">{i + 1}</td>
-                    {Object.values(row).map((val, j) => {
-                      const str = String(val ?? "—");
-                      const isNeg = str.startsWith("-") && !isNaN(Number(str));
-                      const isPos = !isNaN(Number(str)) && Number(str) > 0 && str !== "";
-                      return (
-                        <td key={j} className={`px-3 py-1.5 tabular-nums whitespace-nowrap ${isNeg ? "text-red-400" : isPos ? "text-emerald-400" : ""}`}>
-                          {str}
-                        </td>
-                      );
-                    })}
+            <div className="p-4 overflow-auto">
+              <table className="w-full text-[11px]">
+                <thead className="sticky top-0 bg-neutral-900 z-10">
+                  <tr className="border-b border-neutral-700">
+                    {Object.keys(data[0]).filter(k => typeof data[0][k] !== "object").map((key) => (
+                      <th key={key} className="px-3 py-2 text-left text-muted-foreground font-medium whitespace-nowrap">
+                        {key.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase())}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.map((row, i) => (
+                    <tr key={i} className="border-b border-neutral-800 hover:bg-neutral-800/30">
+                      {Object.entries(row).filter(([, v]) => typeof v !== "object").map(([, val], j) => {
+                        const str = val == null ? "—" : String(val);
+                        return (
+                          <td key={j} className="px-3 py-1.5 tabular-nums whitespace-nowrap">{str}</td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
               No data available
