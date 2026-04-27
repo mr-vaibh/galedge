@@ -200,18 +200,22 @@ def run_python_code(req: RunCodeRequest):
         return {"output": output + error if error else output, "error": None}
     except Exception as e:
         output = captured_out.getvalue()
-        # Sanitize: only show the user's code error, hide server paths
+        # Sanitize: only show user code errors, strip ALL server info
         tb = traceback.format_exc()
-        # Remove server file paths, keep only <string> references (user code)
         sanitized_lines = []
         for line in tb.split("\n"):
-            if "screen_router" in line or "exec(req.code" in line:
+            # Skip any line referencing server files (not user code)
+            if 'File "' in line and '"<string>"' not in line:
                 continue
-            # Replace any server paths
-            line = line.replace(str(__file__), "<server>")
+            # Skip internal exec/eval frames
+            if "exec(req" in line or "run_python_code" in line:
+                continue
+            # Remove any absolute paths that might leak
+            import re
+            line = re.sub(r'(/[A-Za-z][\w./\-]*)', '<redacted>', line)
+            line = re.sub(r'([A-Z]:\\[\w\\./\-]*)', '<redacted>', line)
             sanitized_lines.append(line)
         sanitized = "\n".join(sanitized_lines).strip()
-        # If sanitization removed everything, show just the exception
         if not sanitized:
             sanitized = f"{type(e).__name__}: {e}"
         return {"output": output, "error": sanitized}
