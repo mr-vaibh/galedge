@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Code2, Terminal, ExternalLink, RefreshCw } from "lucide-react";
 
-const CODE_SERVER_URL = process.env.NEXT_PUBLIC_CODE_SERVER_URL || "http://localhost:8080";
+// Use same hostname as the app but on port 8080
+const CODE_SERVER_URL = process.env.NEXT_PUBLIC_CODE_SERVER_URL || (typeof window !== "undefined" ? `${window.location.protocol}//${window.location.hostname}:8080` : "http://localhost:8080");
 
 export default function CodeEditorPage() {
   const [loading, setLoading] = useState(true);
