@@ -74,7 +74,7 @@ export function ExpandProvider({ children }: { children: ReactNode }) {
                 </Button>
               </div>
             </div>
-            <div className="flex-1 min-h-0 overflow-auto p-4 [&_table]:text-xs [&_table]:border-collapse">
+            <div className={`flex-1 min-h-0 overflow-auto p-4 [&_table]:border-collapse ${fullscreen ? "[&>div]:w-full [&>div]:h-full [&_.recharts-responsive-container]:!w-full [&_.recharts-responsive-container]:!h-full" : ""}`}>
               {content}
             </div>
           </div>
