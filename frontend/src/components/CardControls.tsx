@@ -172,9 +172,9 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
             </div>
 
             {/* Content */}
-            <div className="overflow-auto p-4">
+            <div className="overflow-auto p-4 flex-1">
               {expandHtml ? (
-                <div dangerouslySetInnerHTML={{ __html: expandHtml }} />
+                <div className="h-full [&_table]:h-full [&_table]:w-full" dangerouslySetInnerHTML={{ __html: expandHtml }} />
               ) : data && data.length > 0 ? (
                 <table className="w-full text-[11px]">
                   <thead className="sticky top-0 bg-neutral-900 z-10">
