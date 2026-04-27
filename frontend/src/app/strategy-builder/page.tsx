@@ -154,7 +154,7 @@ export default function StrategyBuilderPage() {
 
   function downloadTradeList() {
     if (!rebalanceResult) return;
-    const header = "Symbol,Action,Current Weight (%),Target Weight (%),Delta (%),Quantity,Trade Value (INR),Latest Price (INR)";
+    const header = "Symbol,Action,Current Weight (%),Target Weight (%),Delta (%),Quantity,Trade Value (\u20B9),Latest Price (\u20B9)";
     const rows = rebalanceResult.trades.map((t) =>
       `${t.symbol},${t.action},${t.current_weight},${t.target_weight},${t.delta_weight},${t.trade_qty},${t.trade_value},${t.latest_price}`
     );
