@@ -147,6 +147,32 @@ def replace_objectives(strategy_id: int, data: list[ObjectiveCreate], user: User
     return {"updated": len(data)}
 
 
+@router.post("/{strategy_id}/promote")
+def promote_strategy(strategy_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Promote a strategy to production."""
+    strategy = db.query(Strategy).filter(Strategy.id == strategy_id, Strategy.user_id == user.id).first()
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    if strategy.analytics_status != "AVAILABLE":
+        raise HTTPException(status_code=400, detail="Run a backtest first before promoting to production")
+    strategy.status = "production"
+    strategy.is_production = True
+    db.commit()
+    return {"id": strategy.id, "status": "production"}
+
+
+@router.post("/{strategy_id}/demote")
+def demote_strategy(strategy_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Demote a strategy from production back to draft."""
+    strategy = db.query(Strategy).filter(Strategy.id == strategy_id, Strategy.user_id == user.id).first()
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    strategy.status = "draft"
+    strategy.is_production = False
+    db.commit()
+    return {"id": strategy.id, "status": "draft"}
+
+
 @router.delete("/{strategy_id}")
 def delete_strategy(strategy_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
     strategy = db.query(Strategy).filter(Strategy.id == strategy_id, Strategy.user_id == user.id).first()
