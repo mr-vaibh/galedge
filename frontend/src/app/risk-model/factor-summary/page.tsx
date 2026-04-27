@@ -33,6 +33,7 @@ export default function FactorSummaryPage() {
   const [factors, setFactors] = useState<FactorSummaryRow[]>([]);
   const [corrFactors, setCorrFactors] = useState<string[]>([]);
   const [corrMatrix, setCorrMatrix] = useState<number[][]>([]);
+  const [corrPair, setCorrPair] = useState<[string, string]>(["", ""]);
   const [factorReturnsData, setFactorReturnsData] = useState<Record<string, unknown>[]>([]);
   const [factorSeries, setFactorSeries] = useState<{ key: string; name: string; color: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +51,9 @@ export default function FactorSummaryPage() {
       const corr = await api.factorCorrelation(universe);
       setCorrFactors(corr.factors);
       setCorrMatrix(corr.matrix);
+      if (corr.factors.length >= 2) {
+        setCorrPair([corr.factors[0], corr.factors[1]]);
+      }
 
       // Fetch factor return time series for top 5 style factors
       const styleFactors = summary.factors
@@ -93,6 +97,9 @@ export default function FactorSummaryPage() {
         const corr = await api.factorCorrelation(universe);
         setCorrFactors(corr.factors);
         setCorrMatrix(corr.matrix);
+        if (corr.factors.length >= 2) {
+          setCorrPair([corr.factors[0], corr.factors[1]]);
+        }
       } catch {
         setError("Failed to load or build factor data. Make sure the backend is running and data has been ingested.");
       }
@@ -278,27 +285,27 @@ export default function FactorSummaryPage() {
           </CardHeader>
           <CardContent className="p-2 space-y-2">
             <div className="flex gap-2 items-center">
-              <Select value={corrFactors[0] || ""} onValueChange={(v) => { if (typeof v === "string") setCorrFactors([v, corrFactors[1] || ""]); }}>
+              <Select value={corrPair[0]} onValueChange={(v) => { if (typeof v === "string") setCorrPair([v, corrPair[1]]); }}>
                 <SelectTrigger className="h-7 w-[120px] text-[10px]"><SelectValue placeholder="Factor 1" /></SelectTrigger>
                 <SelectContent>
-                  {factors.map(f => <SelectItem key={f.factor} value={f.factor}>{f.factor}</SelectItem>)}
+                  {corrFactors.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
                 </SelectContent>
               </Select>
               <span className="text-[10px] text-muted-foreground">vs</span>
-              <Select value={corrFactors[1] || ""} onValueChange={(v) => { if (typeof v === "string") setCorrFactors([corrFactors[0] || "", v]); }}>
+              <Select value={corrPair[1]} onValueChange={(v) => { if (typeof v === "string") setCorrPair([corrPair[0], v]); }}>
                 <SelectTrigger className="h-7 w-[120px] text-[10px]"><SelectValue placeholder="Factor 2" /></SelectTrigger>
                 <SelectContent>
-                  {factors.map(f => <SelectItem key={f.factor} value={f.factor}>{f.factor}</SelectItem>)}
+                  {corrFactors.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            {corrFactors.length >= 2 && corrMatrix.length > 0 ? (() => {
-              const f1Idx = factors.findIndex(f => f.factor === corrFactors[0]);
-              const f2Idx = factors.findIndex(f => f.factor === corrFactors[1]);
+            {corrPair[0] && corrPair[1] && corrMatrix.length > 0 ? (() => {
+              const f1Idx = corrFactors.indexOf(corrPair[0]);
+              const f2Idx = corrFactors.indexOf(corrPair[1]);
               const corrVal = (f1Idx >= 0 && f2Idx >= 0 && corrMatrix[f1Idx]) ? corrMatrix[f1Idx][f2Idx] : 0;
               return (
                 <div className="h-48 flex flex-col items-center justify-center">
-                  <div className="text-[10px] text-muted-foreground mb-2">{corrFactors[0]} vs {corrFactors[1]}</div>
+                  <div className="text-[10px] text-muted-foreground mb-2">{corrPair[0]} vs {corrPair[1]}</div>
                   <div className={`text-4xl font-bold tabular-nums ${corrVal >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                     {corrVal.toFixed(4)}
                   </div>
