@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, ReactNode } from "react";
+import { useState, useRef, useEffect, ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Download, Filter, Info, Maximize2, Minimize2, X, Search } from "lucide-react";
 import {
@@ -14,18 +15,18 @@ interface Props {
   data?: Record<string, unknown>[];
   filename?: string;
   info?: string;
-  /** Content to render in fullscreen expand modal */
-  expandContent?: ReactNode;
-  /** Callback when filter text changes */
   onFilter?: (query: string) => void;
-  /** Show/hide filter */
   filterable?: boolean;
 }
 
-export function CardControls({ data, filename = "export", info, expandContent, onFilter, filterable }: Props) {
+export function CardControls({ data, filename = "export", info, onFilter, filterable }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
+  const [cardHtml, setCardHtml] = useState<string>("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   function handleFilterToggle() {
     if (showFilter) {
@@ -42,13 +43,29 @@ export function CardControls({ data, filename = "export", info, expandContent, o
     onFilter?.(q);
   }
 
+  function handleExpand(e: React.MouseEvent) {
+    // Find the closest Card parent and clone its content
+    const btn = e.currentTarget as HTMLElement;
+    const card = btn.closest("[class*='rounded-lg border'], [class*='card']");
+    if (card) {
+      // Clone the card's CardContent
+      const content = card.querySelector("[class*='CardContent'], [class*='p-0'], [class*='p-2']");
+      if (content) {
+        setCardHtml(content.innerHTML);
+      } else {
+        setCardHtml(card.innerHTML);
+      }
+    }
+    setExpanded(true);
+  }
+
   return (
     <>
       <div className="flex items-center gap-0.5">
         {/* Filter */}
         {(onFilter || filterable) ? (
           <Tooltip>
-            <TooltipTrigger >
+            <TooltipTrigger>
               <Button
                 variant="ghost"
                 size="icon"
@@ -62,7 +79,7 @@ export function CardControls({ data, filename = "export", info, expandContent, o
           </Tooltip>
         ) : (
           <Tooltip>
-            <TooltipTrigger >
+            <TooltipTrigger>
               <Button variant="ghost" size="icon" className="h-6 w-6 opacity-30 cursor-default">
                 <Filter className="h-3 w-3" />
               </Button>
@@ -73,24 +90,24 @@ export function CardControls({ data, filename = "export", info, expandContent, o
 
         {/* Info */}
         <Tooltip>
-          <TooltipTrigger >
+          <TooltipTrigger>
             <Button variant="ghost" size="icon" className="h-6 w-6">
               <Info className="h-3 w-3" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-[220px]">
-            <p className="text-[10px]">{info || "Chart/table with real data from your portfolio and market prices."}</p>
+            <p className="text-[10px]">{info || "Real data from your portfolio and market prices."}</p>
           </TooltipContent>
         </Tooltip>
 
         {/* Expand */}
         <Tooltip>
-          <TooltipTrigger >
+          <TooltipTrigger>
             <Button
               variant="ghost"
               size="icon"
               className="h-6 w-6"
-              onClick={() => setExpanded(true)}
+              onClick={handleExpand}
             >
               <Maximize2 className="h-3 w-3" />
             </Button>
@@ -100,7 +117,7 @@ export function CardControls({ data, filename = "export", info, expandContent, o
 
         {/* Download */}
         <Tooltip>
-          <TooltipTrigger >
+          <TooltipTrigger>
             <Button
               variant="ghost"
               size="icon"
@@ -119,7 +136,7 @@ export function CardControls({ data, filename = "export", info, expandContent, o
         </Tooltip>
       </div>
 
-      {/* Filter Input (inline, rendered by parent) */}
+      {/* Filter Input */}
       {showFilter && onFilter && (
         <div className="absolute top-12 right-3 z-20 flex items-center gap-1 bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1 shadow-lg">
           <Search className="h-3 w-3 text-muted-foreground" />
@@ -137,11 +154,14 @@ export function CardControls({ data, filename = "export", info, expandContent, o
         </div>
       )}
 
-      {/* Expand Modal */}
-      {expanded && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setExpanded(false)}>
-          <div className="bg-neutral-900 border border-neutral-700 rounded-xl w-[95vw] h-[90vh] overflow-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-neutral-900 border-b border-neutral-700">
+      {/* Expand Modal — rendered via portal to avoid overflow clipping */}
+      {expanded && mounted && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-6" onClick={() => setExpanded(false)}>
+          <div
+            className="bg-neutral-900 border border-neutral-700 rounded-xl w-[92vw] max-h-[88vh] overflow-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 bg-neutral-900/95 backdrop-blur border-b border-neutral-700">
               <span className="text-sm font-semibold">Expanded View</span>
               <div className="flex items-center gap-2">
                 {data && data.length > 0 && (
@@ -154,38 +174,16 @@ export function CardControls({ data, filename = "export", info, expandContent, o
                 </Button>
               </div>
             </div>
-            <div className="p-4">
-              {expandContent || (
-                data && data.length > 0 ? (
-                  <div className="overflow-auto">
-                    <table className="w-full text-[11px]">
-                      <thead>
-                        <tr className="border-b border-neutral-700">
-                          {Object.keys(data[0]).map((key) => (
-                            <th key={key} className="px-3 py-2 text-left text-muted-foreground font-medium whitespace-nowrap">{key}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.map((row, i) => (
-                          <tr key={i} className="border-b border-neutral-800 hover:bg-neutral-800/30">
-                            {Object.values(row).map((val, j) => (
-                              <td key={j} className="px-3 py-1.5 tabular-nums whitespace-nowrap">{String(val ?? "—")}</td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center text-muted-foreground py-20 text-sm">
-                    No tabular data available for this card.
-                  </div>
-                )
-              )}
+            <div className="p-6">
+              {/* Render cloned card content at larger size */}
+              <div
+                className="[&_table]:text-sm [&_td]:px-4 [&_td]:py-2 [&_th]:px-4 [&_th]:py-2.5 [&_svg]:w-full [&_svg]:h-auto"
+                dangerouslySetInnerHTML={{ __html: cardHtml }}
+              />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
