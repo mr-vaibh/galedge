@@ -61,9 +61,9 @@ export function ExpandProvider({ children }: { children: ReactNode }) {
             className={`bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl flex flex-col ${fullscreen ? "w-[94vw] h-[90vh]" : "max-w-[94vw] max-h-[90vh]"}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-700 shrink-0">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-700 shrink-0 gap-6">
               <span className="text-sm font-semibold">{title}</span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 {data && data.length > 0 && (
                   <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={() => downloadCSV(data, filename)}>
                     <Download className="h-3 w-3" /> Download CSV
