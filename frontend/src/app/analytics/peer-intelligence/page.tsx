@@ -175,7 +175,7 @@ export default function PeerIntelligencePage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Cumulative Return (%)</CardTitle>
-                <CardControls data={returnChartData as Record<string, unknown>[]} filename="peer_return" title="Cumulative Return (%)" expandContent={
+                <CardControls data={returnChartData as Record<string, unknown>[]} filename="peer_return" title="Cumulative Return (%)" fullscreen expandContent={
                   returnChartData.length > 1 ? (
                     <TimeSeriesChart
                       data={returnChartData}
@@ -207,7 +207,7 @@ export default function PeerIntelligencePage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Return Contributions (%)</CardTitle>
-                <CardControls data={factorBarData as Record<string, unknown>[]} filename="factor_contributions" title="Factor Return Contributions (%)" expandContent={
+                <CardControls data={factorBarData as Record<string, unknown>[]} filename="factor_contributions" title="Factor Return Contributions (%)" fullscreen expandContent={
                   factorBarData.length > 0 ? (
                     <BarChartPanel data={factorBarData} height={600} />
                   ) : undefined
@@ -245,7 +245,7 @@ export default function PeerIntelligencePage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Top Contributors</CardTitle>
-                <CardControls title="Top Contributors" expandContent={
+                <CardControls title="Top Contributors" fullscreen expandContent={
                   <table className="w-full text-[10px]">
                     <thead>
                       <tr className="border-b border-border/50">
@@ -299,7 +299,7 @@ export default function PeerIntelligencePage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Top Detractors</CardTitle>
-                <CardControls title="Top Detractors" expandContent={
+                <CardControls title="Top Detractors" fullscreen expandContent={
                   <table className="w-full text-[10px]">
                     <thead>
                       <tr className="border-b border-border/50">

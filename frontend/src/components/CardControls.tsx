@@ -21,9 +21,11 @@ interface Props {
   title?: string;
   /** Content rendered in expand modal — pass same JSX as in the card but bigger */
   expandContent?: ReactNode;
+  /** Force fullscreen modal (for charts/heatmaps). Auto-sizes for tables when false. */
+  fullscreen?: boolean;
 }
 
-export function CardControls({ data, filename = "export", info, onFilter, filterable, title, expandContent }: Props) {
+export function CardControls({ data, filename = "export", info, onFilter, filterable, title, expandContent, fullscreen }: Props) {
   const [showFilter, setShowFilter] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
   const { open } = useExpand();
@@ -40,7 +42,7 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
 
   function handleExpand() {
     if (expandContent) {
-      open(title || filename, expandContent, data, filename);
+      open(title || filename, expandContent, data, filename, fullscreen);
     }
   }
 

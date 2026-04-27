@@ -303,7 +303,7 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Cumulative Return (%)</CardTitle>
-                <CardControls data={returnCurve as Record<string, unknown>[]} filename="cumulative_return" title="Cumulative Return (%)" expandContent={
+                <CardControls data={returnCurve as Record<string, unknown>[]} filename="cumulative_return" title="Cumulative Return (%)" fullscreen expandContent={
                   returnCurve.length > 1 ? (
                     <TimeSeriesChart
                       data={returnCurve}
@@ -331,7 +331,7 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Drawdown (%)</CardTitle>
-                <CardControls data={drawdownCurve as Record<string, unknown>[]} filename="drawdown" title="Drawdown (%)" expandContent={
+                <CardControls data={drawdownCurve as Record<string, unknown>[]} filename="drawdown" title="Drawdown (%)" fullscreen expandContent={
                   drawdownCurve.length > 1 ? (
                     <TimeSeriesChart
                       data={drawdownCurve}
@@ -357,7 +357,7 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Portfolio Value</CardTitle>
-                <CardControls data={equityCurve.map(p => ({date: p.date, value: p.value})) as Record<string, unknown>[]} filename="portfolio_value" title="Portfolio Value" expandContent={
+                <CardControls data={equityCurve.map(p => ({date: p.date, value: p.value})) as Record<string, unknown>[]} filename="portfolio_value" title="Portfolio Value" fullscreen expandContent={
                   equityCurve.length > 1 ? (
                     <TimeSeriesChart
                       data={equityCurve.map((p) => ({ date: p.date, value: p.value }))}

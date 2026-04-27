@@ -7,7 +7,7 @@ import { Minimize2, Download } from "lucide-react";
 import { downloadCSV } from "@/lib/csv";
 
 interface ExpandState {
-  open: (title: string, content: ReactNode, data?: Record<string, unknown>[], filename?: string) => void;
+  open: (title: string, content: ReactNode, data?: Record<string, unknown>[], filename?: string, fullscreen?: boolean) => void;
 }
 
 const ExpandContext = createContext<ExpandState>({ open: () => {} });
@@ -22,12 +22,14 @@ export function ExpandProvider({ children }: { children: ReactNode }) {
   const [content, setContent] = useState<ReactNode>(null);
   const [data, setData] = useState<Record<string, unknown>[] | undefined>();
   const [filename, setFilename] = useState("export");
+  const [fullscreen, setFullscreen] = useState(false);
 
-  function open(t: string, c: ReactNode, d?: Record<string, unknown>[], f?: string) {
+  function open(t: string, c: ReactNode, d?: Record<string, unknown>[], f?: string, fs?: boolean) {
     setTitle(t);
     setContent(c);
     setData(d);
     setFilename(f || "export");
+    setFullscreen(fs ?? false);
     setVisible(true);
   }
 
@@ -56,7 +58,7 @@ export function ExpandProvider({ children }: { children: ReactNode }) {
       {visible && typeof window !== "undefined" && createPortal(
         <div className="fixed inset-0 z-40 bg-black/85 flex items-center justify-center p-4" onClick={close}>
           <div
-            className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl flex flex-col max-w-[94vw] max-h-[90vh]"
+            className={`bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl flex flex-col ${fullscreen ? "w-[94vw] h-[90vh]" : "max-w-[94vw] max-h-[90vh]"}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-700 shrink-0">

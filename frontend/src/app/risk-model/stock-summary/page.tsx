@@ -337,7 +337,7 @@ export default function StockSummaryPage() {
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Exposures — {selected[0]?.symbol.replace(".NS", "") || "Select stock"}</CardTitle>
-            <CardControls title={`Factor Exposures — ${selected[0]?.symbol.replace(".NS", "") || "Select stock"}`} expandContent={
+            <CardControls title={`Factor Exposures — ${selected[0]?.symbol.replace(".NS", "") || "Select stock"}`} fullscreen expandContent={
               selected.length > 0 && exposures[selected[0].symbol] ? (
                 <BarChartPanel
                   data={Object.entries(exposures[selected[0].symbol] || {}).map(([f, v]) => ({

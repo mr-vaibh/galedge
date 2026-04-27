@@ -158,7 +158,7 @@ export default function HoldingsSummaryPage() {
                 <CardTitle className="text-[11px]">Holdings Summary</CardTitle>
                 <span className="text-[9px] text-muted-foreground">{selectedSymbols.size}/{holdings.length} Selected</span>
               </div>
-              <CardControls data={holdings.map(h => ({symbol: h.symbol, weight: (h.weight*100).toFixed(2)+'%', sector: h.sector, market_cap: h.market_cap || 0}))} filename="holdings" title="Holdings Summary" expandContent={
+              <CardControls data={holdings.map(h => ({symbol: h.symbol, weight: (h.weight*100).toFixed(2)+'%', sector: h.sector, market_cap: h.market_cap || 0}))} filename="holdings" title="Holdings Summary" fullscreen expandContent={
                 <table className="w-full text-[10px]">
                   <thead>
                     <tr className="border-b border-border/50">
@@ -230,7 +230,7 @@ export default function HoldingsSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Factor Summary</CardTitle>
-              <CardControls data={factorSummary.map(f => ({factor: f.factor, exposure: f.exposure}))} filename="factor_exposures" title="Factor Summary" expandContent={
+              <CardControls data={factorSummary.map(f => ({factor: f.factor, exposure: f.exposure}))} filename="factor_exposures" title="Factor Summary" fullscreen expandContent={
                 <table className="w-full text-[10px]">
                   <thead>
                     <tr className="border-b border-border/50">
@@ -281,7 +281,7 @@ export default function HoldingsSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Holdings (%)</CardTitle>
-              <CardControls data={holdingsBarData as Record<string, unknown>[]} filename="holdings_chart" title="Holdings (%)" expandContent={
+              <CardControls data={holdingsBarData as Record<string, unknown>[]} filename="holdings_chart" title="Holdings (%)" fullscreen expandContent={
                 holdingsBarData.length > 0 ? (
                   <BarChartPanel data={holdingsBarData} height={600} />
                 ) : undefined
@@ -302,7 +302,7 @@ export default function HoldingsSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Factor Exposure</CardTitle>
-              <CardControls data={factorBarData as Record<string, unknown>[]} filename="factor_chart" title="Factor Exposure" expandContent={
+              <CardControls data={factorBarData as Record<string, unknown>[]} filename="factor_chart" title="Factor Exposure" fullscreen expandContent={
                 factorBarData.length > 0 ? (
                   <BarChartPanel data={factorBarData} height={600} />
                 ) : undefined
