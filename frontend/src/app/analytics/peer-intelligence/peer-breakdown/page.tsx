@@ -229,7 +229,7 @@ export default function PeerBreakdownPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Breakdown by {dimension}</CardTitle>
-                <CardControls data={groupedRows.map(r => ({[dimension]: r[0], weight: r[1], count: r[2], symbols: r[3]}))} filename="breakdown" title={`Breakdown by ${dimension}`} fullscreen expandContent={
+                <CardControls data={groupedRows.map(r => ({[dimension]: r[0], weight: r[1], count: r[2], symbols: r[3]}))} filename="breakdown" title={`Breakdown by ${dimension}`} expandContent={
                   <table className="w-full text-[10px]">
                     <thead>
                       <tr className="border-b border-border/50">
@@ -302,7 +302,7 @@ export default function PeerBreakdownPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Top Holdings by Weight</CardTitle>
-                <CardControls title="Top Holdings by Weight" fullscreen expandContent={
+                <CardControls title="Top Holdings by Weight" expandContent={
                   <table className="w-full text-[10px]">
                     <thead>
                       <tr className="border-b border-border/50">
@@ -350,7 +350,7 @@ export default function PeerBreakdownPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Bottom Holdings by Weight</CardTitle>
-                <CardControls title="Bottom Holdings by Weight" fullscreen expandContent={
+                <CardControls title="Bottom Holdings by Weight" expandContent={
                   <table className="w-full text-[10px]">
                     <thead>
                       <tr className="border-b border-border/50">

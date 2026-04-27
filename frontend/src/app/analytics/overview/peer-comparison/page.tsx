@@ -535,7 +535,7 @@ export default function PeerComparisonPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Rankings by Total Return</CardTitle>
-                <CardControls title="Rankings by Total Return" fullscreen expandContent={
+                <CardControls title="Rankings by Total Return" expandContent={
                   <table className="w-full text-[10px]">
                     <thead>
                       <tr className="border-b border-border/50">

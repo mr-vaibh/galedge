@@ -158,7 +158,7 @@ export default function HoldingsSummaryPage() {
                 <CardTitle className="text-[11px]">Holdings Summary</CardTitle>
                 <span className="text-[9px] text-muted-foreground">{selectedSymbols.size}/{holdings.length} Selected</span>
               </div>
-              <CardControls data={holdings.map(h => ({symbol: h.symbol, weight: (h.weight*100).toFixed(2)+'%', sector: h.sector, market_cap: h.market_cap || 0}))} filename="holdings" title="Holdings Summary" fullscreen expandContent={
+              <CardControls data={holdings.map(h => ({symbol: h.symbol, weight: (h.weight*100).toFixed(2)+'%', sector: h.sector, market_cap: h.market_cap || 0}))} filename="holdings" title="Holdings Summary" expandContent={
                 <table className="w-full text-[10px]">
                   <thead>
                     <tr className="border-b border-border/50">
@@ -230,7 +230,7 @@ export default function HoldingsSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Factor Summary</CardTitle>
-              <CardControls data={factorSummary.map(f => ({factor: f.factor, exposure: f.exposure}))} filename="factor_exposures" title="Factor Summary" fullscreen expandContent={
+              <CardControls data={factorSummary.map(f => ({factor: f.factor, exposure: f.exposure}))} filename="factor_exposures" title="Factor Summary" expandContent={
                 <table className="w-full text-[10px]">
                   <thead>
                     <tr className="border-b border-border/50">
