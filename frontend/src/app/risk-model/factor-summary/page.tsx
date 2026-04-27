@@ -217,19 +217,23 @@ export default function FactorSummaryPage() {
             <CardControls>
               {corrFactors.length > 0 ? (
                 <div className="w-full h-full" style={{ minHeight: "calc(88vh - 100px)" }}>
-                  <table className="w-full h-full text-[10px] border-collapse">
+                  <table className="w-full h-full text-[10px] border-collapse" style={{ tableLayout: "fixed" }}>
+                    <colgroup>
+                      <col style={{ width: "80px" }} />
+                      {corrFactors.map((f) => <col key={f} />)}
+                    </colgroup>
                     <thead>
                       <tr>
-                        <th className="p-1" />
+                        <th className="p-0" />
                         {corrFactors.map((f) => (
-                          <th key={f} className="p-1 text-center font-medium text-muted-foreground" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: "70px" }}>{f}</th>
+                          <th key={f} className="p-0 text-center font-medium text-muted-foreground" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: "70px" }}>{f}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {corrMatrix.map((row, i) => (
                         <tr key={corrFactors[i]} style={{ height: `${(100 / corrMatrix.length).toFixed(1)}%` }}>
-                          <td className="p-1 font-medium text-muted-foreground whitespace-nowrap text-right pr-2">{corrFactors[i]}</td>
+                          <td className="p-0 pr-1 font-medium text-muted-foreground whitespace-nowrap text-right text-[9px]">{corrFactors[i]}</td>
                           {row.map((val, j) => (
                             <td key={j} className="text-center tabular-nums" style={{ backgroundColor: corrColor(val) }}>{val.toFixed(2)}</td>
                           ))}
