@@ -256,7 +256,13 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Return Decomposition (%)</CardTitle>
-                <CardControls />
+                <CardControls>
+                  {returnDecompBarData.length > 0 && (
+                    <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
+                      <BarChartPanel data={returnDecompBarData} height={500} />
+                    </div>
+                  )}
+                </CardControls>
               </CardHeader>
               <CardContent>
                 {returnDecompBarData.length > 0 ? (
@@ -269,7 +275,13 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Returns (%)</CardTitle>
-                <CardControls />
+                <CardControls>
+                  {topBarData.length > 0 && (
+                    <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
+                      <BarChartPanel data={topBarData} height={500} color="#10b981" showNegativeColors={false} />
+                    </div>
+                  )}
+                </CardControls>
               </CardHeader>
               <CardContent>
                 {topBarData.length > 0 ? (
@@ -282,7 +294,18 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Risk Contrib (%)</CardTitle>
-                <CardControls />
+                <CardControls>
+                  {factors.length > 0 && (
+                    <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
+                      <BarChartPanel
+                        data={factors.map((f) => ({ name: f.factor, value: f.risk_contribution * 100 }))}
+                        height={500}
+                        color="#3b82f6"
+                        showNegativeColors={false}
+                      />
+                    </div>
+                  )}
+                </CardControls>
               </CardHeader>
               <CardContent>
                 {factors.length > 0 ? (
@@ -300,7 +323,16 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Exposure</CardTitle>
-                <CardControls />
+                <CardControls>
+                  {factors.length > 0 && (
+                    <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
+                      <BarChartPanel
+                        data={factors.map((f) => ({ name: f.factor, value: f.exposure }))}
+                        height={500}
+                      />
+                    </div>
+                  )}
+                </CardControls>
               </CardHeader>
               <CardContent>
                 {factors.length > 0 ? (
@@ -370,7 +402,13 @@ export default function ReturnsAndRiskPage() {
               <Card>
                 <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                   <CardTitle className="text-[11px]">Top Factor Returns (%)</CardTitle>
-                  <CardControls />
+                  <CardControls>
+                    {topHoldingsBarData.length > 0 && (
+                      <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
+                        <BarChartPanel data={topHoldingsBarData} height={500} />
+                      </div>
+                    )}
+                  </CardControls>
                 </CardHeader>
                 <CardContent>
                   {topHoldingsBarData.length > 0 ? (

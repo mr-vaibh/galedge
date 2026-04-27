@@ -242,7 +242,18 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Cumulative Return (%)</CardTitle>
-                <CardControls />
+                <CardControls>
+                  {returnCurve.length > 1 && (
+                    <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
+                      <TimeSeriesChart
+                        data={returnCurve}
+                        series={[{ key: "portfolio", name: "Portfolio", color: "#f97316" }]}
+                        height={500}
+                        yFormatter={(v) => `${v.toFixed(1)}%`}
+                      />
+                    </div>
+                  )}
+                </CardControls>
               </CardHeader>
               <CardContent className="p-2">
                 {returnCurve.length > 1 ? (
@@ -261,7 +272,17 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Drawdown (%)</CardTitle>
-                <CardControls />
+                <CardControls>
+                  {drawdownCurve.length > 1 && (
+                    <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
+                      <TimeSeriesChart
+                        data={drawdownCurve}
+                        series={[{ key: "drawdown", name: "Drawdown", color: "#ef4444" }]}
+                        height={500}
+                      />
+                    </div>
+                  )}
+                </CardControls>
               </CardHeader>
               <CardContent className="p-2">
                 {drawdownCurve.length > 1 ? (
@@ -279,7 +300,18 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Portfolio Value</CardTitle>
-                <CardControls />
+                <CardControls>
+                  {equityCurve.length > 1 && (
+                    <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
+                      <TimeSeriesChart
+                        data={equityCurve.map((p) => ({ date: p.date, value: p.value }))}
+                        series={[{ key: "value", name: "Value", color: "#10b981" }]}
+                        height={500}
+                        yFormatter={(v) => formatCurrencyCompact(v, "INR")}
+                      />
+                    </div>
+                  )}
+                </CardControls>
               </CardHeader>
               <CardContent className="p-2">
                 {equityCurve.length > 1 ? (

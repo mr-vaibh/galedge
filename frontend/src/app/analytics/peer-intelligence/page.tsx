@@ -175,7 +175,20 @@ export default function PeerIntelligencePage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Cumulative Return (%)</CardTitle>
-                <CardControls />
+                <CardControls>
+                  {returnChartData.length > 1 && (
+                    <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
+                      <TimeSeriesChart
+                        data={returnChartData}
+                        series={[
+                          { key: "portfolio", name: selectedFundName || "Portfolio", color: "#f97316" },
+                        ]}
+                        height={500}
+                        yFormatter={(v) => `${v.toFixed(1)}%`}
+                      />
+                    </div>
+                  )}
+                </CardControls>
               </CardHeader>
               <CardContent className="p-2">
                 {returnChartData.length > 1 ? (
@@ -196,7 +209,13 @@ export default function PeerIntelligencePage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Return Contributions (%)</CardTitle>
-                <CardControls />
+                <CardControls>
+                  {factorBarData.length > 0 && (
+                    <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
+                      <BarChartPanel data={factorBarData} height={500} />
+                    </div>
+                  )}
+                </CardControls>
               </CardHeader>
               <CardContent className="p-2">
                 {factorBarData.length > 0 ? (
