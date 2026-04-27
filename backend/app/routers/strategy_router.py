@@ -87,12 +87,64 @@ def get_strategy(strategy_id: int, user: User = Depends(require_user), db: Sessi
         "id": strategy.id,
         "fund_name": strategy.fund_name,
         "scheme_name": strategy.scheme_name,
+        "iteration_name": strategy.iteration_name,
         "universe": strategy.universe,
         "benchmark": strategy.benchmark,
+        "include_futures": strategy.include_futures,
+        "status": strategy.status,
+        "created_at": str(strategy.created_at),
         "constraints": [{"id": c.id, "type": c.constraint_type, "name": c.name, "active": c.is_active, "params": c.parameters} for c in strategy.constraints],
         "objectives": [{"id": o.id, "type": o.objective_type, "name": o.name, "active": o.is_active, "params": o.parameters} for o in strategy.objectives],
-        "backtests": [{"id": b.id, "start": str(b.start_date), "end": str(b.end_date), "status": b.status} for b in strategy.backtests],
+        "backtests": [{"id": b.id, "start": str(b.start_date), "end": str(b.end_date), "status": b.status,
+                       "frequency": b.rebalance_frequency, "results": b.results} for b in strategy.backtests],
     }
+
+
+@router.put("/{strategy_id}")
+def update_strategy(strategy_id: int, data: StrategyCreate, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    strategy = db.query(Strategy).filter(Strategy.id == strategy_id, Strategy.user_id == user.id).first()
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    strategy.fund_name = data.fund_name
+    strategy.scheme_name = data.scheme_name
+    strategy.iteration_name = data.iteration_name
+    strategy.universe = data.universe
+    strategy.benchmark = data.benchmark
+    strategy.include_futures = data.include_futures
+
+    # Replace constraints: delete old, add new will be done via separate calls
+    db.commit()
+    return {"id": strategy.id, "fund_name": strategy.fund_name}
+
+
+@router.put("/{strategy_id}/constraints")
+def replace_constraints(strategy_id: int, data: list[ConstraintCreate], user: User = Depends(require_user), db: Session = Depends(get_db)):
+    strategy = db.query(Strategy).filter(Strategy.id == strategy_id, Strategy.user_id == user.id).first()
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    # Delete existing constraints
+    for c in strategy.constraints:
+        db.delete(c)
+    # Add new ones
+    for c in data:
+        db.add(StrategyConstraint(strategy_id=strategy_id, constraint_type=c.constraint_type, name=c.name, parameters=c.parameters))
+    db.commit()
+    return {"updated": len(data)}
+
+
+@router.put("/{strategy_id}/objectives")
+def replace_objectives(strategy_id: int, data: list[ObjectiveCreate], user: User = Depends(require_user), db: Session = Depends(get_db)):
+    strategy = db.query(Strategy).filter(Strategy.id == strategy_id, Strategy.user_id == user.id).first()
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    # Delete existing objectives
+    for o in strategy.objectives:
+        db.delete(o)
+    # Add new ones
+    for o in data:
+        db.add(StrategyObjective(strategy_id=strategy_id, objective_type=o.objective_type, name=o.name, parameters=o.parameters))
+    db.commit()
+    return {"updated": len(data)}
 
 
 @router.delete("/{strategy_id}")

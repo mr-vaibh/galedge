@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
@@ -19,28 +19,9 @@ const OVERVIEW_TABS = [
   { label: "Period Analysis", href: "/analytics/overview/period-analysis" },
 ];
 
-function OverviewTabs() {
-  const router = useRouter();
-  const pathname = usePathname();
-  return (
-    <div className="flex gap-1 border-b border-border pb-1 mb-4">
-      {OVERVIEW_TABS.map((tab) => (
-        <Button
-          key={tab.href}
-          variant={pathname === tab.href ? "secondary" : "ghost"}
-          size="sm"
-          className="h-7 text-[10px]"
-          onClick={() => router.push(tab.href)}
-        >
-          {tab.label}
-        </Button>
-      ))}
-    </div>
-  );
-}
-
 export default function PerformanceSummaryPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const { token } = useAuth();
   const { selectedPortfolioId, selectedFundName } = usePortfolio();
 
@@ -65,6 +46,7 @@ export default function PerformanceSummaryPage() {
             setError(data.error);
           } else {
             setMetrics(data);
+            setEquityCurve(data.equity_curve || []);
           }
         }
       } else {
@@ -103,13 +85,12 @@ export default function PerformanceSummaryPage() {
             </p>
           )}
         </div>
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={fetchPerformance}>
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          Refresh
-        </Button>
+        <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
+          {OVERVIEW_TABS.map((tab) => (
+            <Button key={tab.href} variant={pathname === tab.href ? "secondary" : "ghost"} size="sm" className="h-7 text-[10px]" onClick={() => router.push(tab.href)}>{tab.label}</Button>
+          ))}
+        </div>
       </div>
-
-      <OverviewTabs />
 
       {error && (
         <Card className="border-amber-500/30">
@@ -161,9 +142,9 @@ export default function PerformanceSummaryPage() {
                 <tbody>
                   {[
                     ["Max Drawdown", `${metrics.max_drawdown ?? "—"}%`],
-                    ["Avg Turnover", `${metrics.avg_turnover ?? "—"}%`],
-                    ["Tx Cost Drag", `${metrics.transaction_cost_drag ?? "—"}%`],
-                    ["Total Trades", metrics.total_trades ?? "—"],
+                    ["Volatility", `${metrics.volatility ?? "—"}%`],
+                    ["Avg Turnover", metrics.avg_turnover != null ? `${metrics.avg_turnover}%` : "—"],
+                    ["Trading Days", metrics.trading_days ?? metrics.total_trades ?? "—"],
                   ].map(([l, v]) => (
                     <tr key={String(l)} className="border-b border-border/30">
                       <td className="px-2 py-1.5 text-muted-foreground">{String(l)}</td>

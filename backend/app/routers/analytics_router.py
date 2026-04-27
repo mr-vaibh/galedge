@@ -1,6 +1,9 @@
 """Analytics endpoints — Brinson attribution, performance, holdings, return decomposition."""
 
+import logging
 from datetime import date
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -167,25 +170,143 @@ def get_performance_summary(
     # Total AUM
     total_semv = sum(h.semv for h in holdings)
 
-    # Number of trading days
-    unique_dates = {p.date for p in prices}
-    trading_days = len(unique_dates)
+    # Build daily portfolio returns and equity curve
+    import numpy as np
+    import pandas as pd
+
+    # Build price DataFrame: dates x symbols
+    price_records: dict[str, dict] = {}  # date -> {sym: close}
+    for p in prices:
+        d = p.date.isoformat() if hasattr(p.date, 'isoformat') else str(p.date)
+        if d not in price_records:
+            price_records[d] = {}
+        price_records[d][p.symbol] = p.close
+
+    sorted_dates = sorted(price_records.keys())
+    trading_days = len(sorted_dates)
     years = trading_days / 252 if trading_days > 0 else 1.0
     annualised_return = ((1 + total_return) ** (1 / years) - 1) if years > 0 else 0.0
 
-    return {
+    # Compute daily portfolio returns
+    daily_returns = []
+    equity_curve = []
+    initial_value = total_semv * 1e7  # Convert crores to rupees
+    portfolio_value = initial_value
+
+    for i, d in enumerate(sorted_dates):
+        if i == 0:
+            equity_curve.append({"date": d, "value": round(portfolio_value, 2), "drawdown": 0})
+            continue
+
+        day_return = 0.0
+        for sym in symbols:
+            original_sym = symbol_map.get(sym, sym)
+            weight = weight_map.get(original_sym, weight_map.get(sym, 0))
+            prev_price = price_records.get(sorted_dates[i - 1], {}).get(sym)
+            curr_price = price_records.get(d, {}).get(sym)
+            if prev_price and curr_price and prev_price > 0:
+                day_return += weight * (curr_price - prev_price) / prev_price
+
+        daily_returns.append(day_return)
+        portfolio_value *= (1 + day_return)
+        equity_curve.append({"date": d, "value": round(portfolio_value, 2)})
+
+    # Compute risk metrics
+    daily_arr = np.array(daily_returns) if daily_returns else np.array([0.0])
+    volatility = float(daily_arr.std() * np.sqrt(252)) if len(daily_arr) > 1 else 0
+    sharpe = float((daily_arr.mean() / max(daily_arr.std(), 1e-10)) * np.sqrt(252)) if len(daily_arr) > 1 else 0
+
+    # Max drawdown
+    eq_values = [e["value"] for e in equity_curve]
+    if eq_values:
+        cummax = np.maximum.accumulate(eq_values)
+        drawdowns = (np.array(eq_values) - cummax) / np.where(cummax > 0, cummax, 1)
+        max_drawdown = float(drawdowns.min())
+        # Add drawdown to equity curve
+        for i, e in enumerate(equity_curve):
+            e["drawdown"] = round(float(drawdowns[i]) * 100, 2) if i < len(drawdowns) else 0
+    else:
+        max_drawdown = 0
+
+    # ── Benchmark computation ──────────────────────────────────────────────
+    benchmark_metrics: dict = {}
+    benchmark_name = portfolio.benchmark or ""
+    if benchmark_name and sorted_dates:
+        # Map common benchmark names to yfinance ticker symbols
+        BENCHMARK_TICKERS = {
+            "NIFTY 50": "^NSEI",
+            "NIFTY50": "^NSEI",
+            "NIFTY 500": "^CRSLDX",
+            "NIFTY500": "^CRSLDX",
+            "NIFTY BANK": "^NSEBANK",
+            "NIFTYBANK": "^NSEBANK",
+            "NIFTY MIDCAP 100": "^NSEMDCP100",
+            "SENSEX": "^BSESN",
+            "BSE 500": "BSE-500.BO",
+        }
+        bm_ticker = BENCHMARK_TICKERS.get(benchmark_name.upper().strip(), None)
+        if bm_ticker:
+            try:
+                import yfinance as yf
+                bm_data = yf.download(
+                    bm_ticker,
+                    start=sorted_dates[0],
+                    end=sorted_dates[-1],
+                    progress=False,
+                    auto_adjust=True,
+                )
+                if bm_data is not None and len(bm_data) > 1:
+                    # Handle multi-level columns from yf.download
+                    close_col = bm_data["Close"]
+                    if hasattr(close_col, "columns"):
+                        close_col = close_col.iloc[:, 0]
+                    bm_closes = close_col.dropna().values
+                    if len(bm_closes) > 1:
+                        bm_total = (bm_closes[-1] - bm_closes[0]) / bm_closes[0]
+                        bm_daily = np.diff(bm_closes) / bm_closes[:-1]
+                        bm_vol = float(np.std(bm_daily) * np.sqrt(252))
+                        bm_sharpe = float(
+                            (np.mean(bm_daily) / max(np.std(bm_daily), 1e-10)) * np.sqrt(252)
+                        )
+                        # Max drawdown
+                        bm_cummax = np.maximum.accumulate(bm_closes)
+                        bm_dd = (bm_closes - bm_cummax) / np.where(bm_cummax > 0, bm_cummax, 1)
+                        bm_max_dd = float(np.min(bm_dd))
+                        bm_years = len(bm_closes) / 252
+                        bm_cagr = ((1 + bm_total) ** (1 / max(bm_years, 0.01)) - 1)
+
+                        benchmark_metrics = {
+                            "total_return": round(bm_total * 100, 2),
+                            "annualised_return": round(bm_cagr * 100, 2),
+                            "sharpe_ratio": round(bm_sharpe, 2),
+                            "volatility": round(bm_vol * 100, 2),
+                            "max_drawdown": round(bm_max_dd * 100, 2),
+                        }
+            except Exception as e:
+                logger.warning(f"Failed to fetch benchmark data for {bm_ticker}: {e}")
+
+    result = {
         "portfolio_id": portfolio_id,
         "fund_name": portfolio.fund_name,
         "benchmark": portfolio.benchmark,
-        "as_of_date": latest_date.isoformat(),
-        "start_date": portfolio.start_date.isoformat() if portfolio.start_date else None,
-        "end_date": portfolio.end_date.isoformat() if portfolio.end_date else None,
+        "as_of_date": sorted_dates[-1] if sorted_dates else None,
+        "start_date": sorted_dates[0] if sorted_dates else None,
+        "end_date": sorted_dates[-1] if sorted_dates else None,
         "total_aum_cr": round(total_semv, 2),
         "num_holdings": len(holdings),
-        "total_return": round(total_return, 6),
-        "annualised_return": round(annualised_return, 6),
+        "total_return": round(total_return * 100, 2),
+        "annualised_return": round(annualised_return * 100, 2),
+        "sharpe_ratio": round(sharpe, 2),
+        "volatility": round(volatility * 100, 2),
+        "max_drawdown": round(max_drawdown * 100, 2),
         "trading_days": trading_days,
+        "initial_capital": round(initial_value, 2),
+        "final_value": round(portfolio_value, 2),
+        "equity_curve": equity_curve[::max(1, len(equity_curve) // 60)],  # Sample to ~60 points
     }
+    if benchmark_metrics:
+        result["benchmark_metrics"] = benchmark_metrics
+    return result
 
 
 # ── Holdings with Factor Exposures ──────────────────────────────────────────
@@ -256,12 +377,19 @@ def get_holdings_with_exposures(
     info_rows = db.query(StockInfo).filter(StockInfo.symbol.in_(symbols)).all()
     info_map = {i.symbol: i for i in info_rows}
 
-    # Factor exposures for the date
+    # Factor exposures — find nearest available date (exposures may be stored for model end_date)
+    nearest_exposure_date = (
+        db.query(FactorExposure.date)
+        .filter(FactorExposure.symbol.in_(symbols))
+        .order_by(FactorExposure.date.desc())
+        .first()
+    )
+    exposure_date = nearest_exposure_date[0] if nearest_exposure_date else target_date
     exposures = (
         db.query(FactorExposure)
         .filter(
             FactorExposure.symbol.in_(symbols),
-            FactorExposure.date == target_date,
+            FactorExposure.date == exposure_date,
         )
         .all()
     )
@@ -277,15 +405,17 @@ def get_holdings_with_exposures(
 
     result = []
     for h in holdings:
-        info = info_map.get(h.symbol)
+        # Try both raw symbol and mapped symbol for info lookup
+        mapped_sym = next((k for k, v in symbol_map.items() if v == h.symbol), h.symbol)
+        info = info_map.get(mapped_sym) or info_map.get(h.symbol)
         result.append({
             "symbol": h.symbol,
             "weight": round(h.weight, 6),
             "semv": round(h.semv, 2),
             "sector": info.sector if info else "",
             "industry": info.industry if info else "",
-            "market_cap": info.market_cap if info else 0.0,
-            "factor_exposures": exposure_map.get(h.symbol, {}),
+            "market_cap": round(info.market_cap / 1e7, 2) if info and info.market_cap else 0.0,  # Convert to crores
+            "factor_exposures": exposure_map.get(mapped_sym, exposure_map.get(h.symbol, {})),
         })
 
     return {

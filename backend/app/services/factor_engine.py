@@ -260,7 +260,7 @@ def build_factor_model(
     # Compute exposures (latest date)
     exposures = compute_style_exposures(price_matrix, volume_matrix, info_map, end_date)
 
-    # Store exposures
+    # Store style exposures
     for sym in exposures.index:
         for fname in exposures.columns:
             if fname in factor_map:
@@ -271,9 +271,40 @@ def build_factor_model(
                     exposure=float(exposures.loc[sym, fname]),
                 ))
 
+    # Store MARKET exposure (= 1.0 for all stocks by definition)
+    if "MARKET" in factor_map:
+        for sym in exposures.index:
+            db.add(FactorExposure(
+                factor_id=factor_map["MARKET"].id,
+                date=end_date,
+                symbol=sym,
+                exposure=1.0,
+            ))
+
+    # Store industry exposures (1.0 if stock belongs to sector, 0.0 otherwise)
+    for sym in exposures.index:
+        sym_sector = info_map.get(sym, {}).get("sector", "")
+        sym_sector_code = sym_sector.upper().replace(" ", "")[:10] if sym_sector else ""
+        for sector_code, factor in factor_map.items():
+            if factor.factor_type == "Industry":
+                exposure_val = 1.0 if sector_code == sym_sector_code else 0.0
+                db.add(FactorExposure(
+                    factor_id=factor.id,
+                    date=end_date,
+                    symbol=sym,
+                    exposure=exposure_val,
+                ))
+
     # Compute daily factor returns via cross-sectional regression
     returns_matrix = price_matrix.pct_change().dropna()
     cumulative = {}
+
+    # Build sector mapping for industry factor returns
+    sym_to_sector_code: dict[str, str] = {}
+    for sym in symbols:
+        sector = info_map.get(sym, {}).get("sector", "")
+        if sector:
+            sym_to_sector_code[sym] = sector.upper().replace(" ", "")[:10]
 
     dates = returns_matrix.index.tolist()
     batch_size = 50
@@ -292,6 +323,22 @@ def build_factor_model(
                         daily_return=float(ret),
                         cumulative_return=float(cumulative[fname]),
                     ))
+
+            # Compute industry factor returns (equal-weighted average return per sector)
+            for sector_code, factor in factor_map.items():
+                if factor.factor_type != "Industry":
+                    continue
+                sector_syms = [s for s in daily_returns.index if sym_to_sector_code.get(s) == sector_code]
+                if sector_syms:
+                    ind_ret = float(daily_returns.loc[sector_syms].mean())
+                    if np.isfinite(ind_ret):
+                        cumulative[sector_code] = cumulative.get(sector_code, 0) + ind_ret
+                        db.add(FactorReturn(
+                            factor_id=factor.id,
+                            date=dt.date() if hasattr(dt, "date") else dt,
+                            daily_return=ind_ret,
+                            cumulative_return=float(cumulative[sector_code]),
+                        ))
 
     db.commit()
     fm.end_date = end_date

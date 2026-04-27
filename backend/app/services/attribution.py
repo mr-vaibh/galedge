@@ -186,6 +186,28 @@ def return_decomposition(
     symbols = [h.symbol for h in holdings]
     weight_map = {h.symbol: h.weight for h in holdings}
 
+    # Symbol mapping: portfolio uses "HDFCBANK" but exposures may use "HDFCBANK.NS"
+    from app.models.market_data import StockPrice
+    mapped_symbols = []
+    symbol_map: dict[str, str] = {}  # mapped -> original
+    for s in symbols:
+        if "." in s:
+            mapped_symbols.append(s)
+            symbol_map[s] = s
+        else:
+            matched = False
+            for suffix in [".NS", ".BO", ""]:
+                candidate = f"{s}{suffix}" if suffix else s
+                exists = db.query(FactorExposure.id).filter(FactorExposure.symbol == candidate).first()
+                if exists:
+                    mapped_symbols.append(candidate)
+                    symbol_map[candidate] = s
+                    matched = True
+                    break
+            if not matched:
+                mapped_symbols.append(s)
+                symbol_map[s] = s
+
     # Load factors for the model
     factors = (
         db.query(Factor)
@@ -201,29 +223,47 @@ def return_decomposition(
         }
 
     factor_map = {f.id: f for f in factors}
+    factor_ids = [f.id for f in factors]
 
-    # Load factor exposures for each holding on the given date
+    # Find nearest available date for exposures (may not match holdings date exactly)
+    nearest_exp_date_row = (
+        db.query(FactorExposure.date)
+        .filter(FactorExposure.symbol.in_(mapped_symbols))
+        .order_by(FactorExposure.date.desc())
+        .first()
+    )
+    exposure_date = nearest_exp_date_row[0] if nearest_exp_date_row else as_of_date
+
     exposures = (
         db.query(FactorExposure)
         .filter(
-            FactorExposure.symbol.in_(symbols),
-            FactorExposure.date == as_of_date,
-            FactorExposure.factor_id.in_([f.id for f in factors]),
+            FactorExposure.symbol.in_(mapped_symbols),
+            FactorExposure.date == exposure_date,
+            FactorExposure.factor_id.in_(factor_ids),
         )
         .all()
     )
 
-    # Build exposure lookup: symbol -> factor_id -> exposure
+    # Build exposure lookup: original_symbol -> factor_id -> exposure
     exposure_map: dict[str, dict[int, float]] = defaultdict(dict)
     for exp in exposures:
-        exposure_map[exp.symbol][exp.factor_id] = exp.exposure
+        orig = symbol_map.get(exp.symbol, exp.symbol)
+        exposure_map[orig][exp.factor_id] = exp.exposure
 
-    # Load factor returns for the date
+    # Find nearest available date for factor returns
+    nearest_ret_date_row = (
+        db.query(FactorReturn.date)
+        .filter(FactorReturn.factor_id.in_(factor_ids))
+        .order_by(FactorReturn.date.desc())
+        .first()
+    )
+    fret_date = nearest_ret_date_row[0] if nearest_ret_date_row else as_of_date
+
     factor_returns_rows = (
         db.query(FactorReturn)
         .filter(
-            FactorReturn.factor_id.in_([f.id for f in factors]),
-            FactorReturn.date == as_of_date,
+            FactorReturn.factor_id.in_(factor_ids),
+            FactorReturn.date == fret_date,
         )
         .all()
     )
@@ -235,6 +275,11 @@ def return_decomposition(
     total_industry_return = 0.0
     total_factor_return = 0.0
     holding_details = []
+
+    # Also accumulate per-factor weighted contributions for the response
+    per_factor_contrib: dict[int, float] = defaultdict(float)
+    per_factor_risk: dict[int, float] = defaultdict(float)
+    per_factor_exposure: dict[int, float] = defaultdict(float)
 
     for symbol in symbols:
         w = weight_map[symbol]
@@ -250,6 +295,10 @@ def return_decomposition(
                 continue
             f_ret = factor_return_map.get(fid, 0.0)
             contrib = exposure * f_ret
+
+            per_factor_contrib[fid] += w * contrib
+            per_factor_exposure[fid] += w * exposure
+            per_factor_risk[fid] += w * abs(exposure)  # Simplified risk contribution
 
             if factor.factor_type == "Market":
                 market_contrib += contrib
@@ -274,8 +323,18 @@ def return_decomposition(
             "factor_return": round(factor_total, 6),
         })
 
+    # Build per-factor breakdown for frontend charts
+    factor_breakdown = []
+    for fid, factor in factor_map.items():
+        factor_breakdown.append({
+            "factor": factor.name,
+            "factor_type": factor.factor_type or "Style",
+            "return_contribution": round(per_factor_contrib.get(fid, 0.0), 6),
+            "risk_contribution": round(per_factor_risk.get(fid, 0.0), 6),
+            "exposure": round(per_factor_exposure.get(fid, 0.0), 4),
+        })
+
     # Idiosyncratic = total actual - factor (computed externally if actual return available)
-    # For now, we report factor contributions; idiosyncratic needs actual stock returns
     idiosyncratic_return = 0.0  # placeholder — caller can subtract factor from actual
 
     return {
@@ -287,5 +346,6 @@ def return_decomposition(
         "industry_return": round(total_industry_return, 6),
         "factor_return": round(total_factor_return, 6),
         "idiosyncratic_return": round(idiosyncratic_return, 6),
+        "factors": factor_breakdown,
         "holding_details": holding_details,
     }

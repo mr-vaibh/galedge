@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
+import { BarChartPanel } from "@/components/charts/BarChartPanel";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
 import { useAuth } from "@/lib/auth";
@@ -18,7 +18,6 @@ const overviewTabs = [
   { label: "Period Analysis", href: "/analytics/overview/period-analysis" },
 ];
 
-const CHART_COLORS = ["#f97316", "#3b82f6", "#10b981", "#a855f7", "#ef4444", "#06b6d4", "#ec4899", "#84cc16"];
 
 interface Holding {
   symbol: string;
@@ -67,7 +66,10 @@ export default function HoldingsSummaryPage() {
     return (
       <div className="p-4 space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Holdings & Factor Summary</h1>
+          <div>
+            <h1 className="text-xl font-bold">Holdings Summary</h1>
+            <p className="text-xs text-amber-400">No portfolio selected.</p>
+          </div>
           <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
             {overviewTabs.map((tab) => (
               <Button key={tab.href} variant={pathname === tab.href ? "secondary" : "ghost"} size="sm" onClick={() => router.push(tab.href)} className="h-7 text-[10px]">{tab.label}</Button>
@@ -99,31 +101,18 @@ export default function HoldingsSummaryPage() {
     exposure: (v.totalExposure / v.count).toFixed(2),
   }));
 
-  // Build chart series from selected holdings
+  // Build bar chart data from selected holdings
   const chartSymbols = Array.from(selectedSymbols).slice(0, 8);
-  const chartSeries = chartSymbols.map((sym, i) => ({
-    key: sym,
-    name: sym,
-    color: CHART_COLORS[i % CHART_COLORS.length],
-  }));
+  const holdingsBarData = chartSymbols.map((sym) => {
+    const h = holdings.find((x) => x.symbol === sym);
+    return { name: sym, value: h ? parseFloat((h.weight * 100).toFixed(2)) : 0 };
+  });
 
-  // Build a single data point for the chart (no time series from API)
-  const holdingsChartData = chartSymbols.length > 0
-    ? [Object.fromEntries([["date", "Current"], ...chartSymbols.map((sym) => {
-        const h = holdings.find((x) => x.symbol === sym);
-        return [sym, h ? h.weight * 100 : 0];
-      })])]
-    : [];
-
-  // Factor exposure chart data
-  const factorChartSeries = factorSummary.slice(0, 6).map((f, i) => ({
-    key: f.factor,
+  // Factor exposure bar chart data
+  const factorBarData = factorSummary.map((f) => ({
     name: f.factor,
-    color: CHART_COLORS[i % CHART_COLORS.length],
+    value: parseFloat(f.exposure),
   }));
-  const factorChartData = factorSummary.length > 0
-    ? [Object.fromEntries([["date", "Current"], ...factorSummary.slice(0, 6).map((f) => [f.factor, parseFloat(f.exposure)])])]
-    : [];
 
   function toggleSymbol(sym: string) {
     setSelectedSymbols((prev) => {
@@ -137,7 +126,10 @@ export default function HoldingsSummaryPage() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Holdings & Factor Summary{selectedFundName ? ` — ${selectedFundName}` : ""}</h1>
+        <div>
+          <h1 className="text-xl font-bold">Holdings Summary</h1>
+          <p className="text-xs text-muted-foreground">Portfolio: <span className="font-medium text-foreground">{selectedFundName}</span></p>
+        </div>
         <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
           {overviewTabs.map((tab) => (
             <Button key={tab.href} variant={pathname === tab.href ? "secondary" : "ghost"} size="sm" onClick={() => router.push(tab.href)} className="h-7 text-[10px]">{tab.label}</Button>
@@ -189,7 +181,7 @@ export default function HoldingsSummaryPage() {
                       <td className="px-2 py-1 font-medium">{h.symbol}</td>
                       <td className="px-2 py-1 tabular-nums">{(h.weight * 100).toFixed(2)}%</td>
                       <td className="px-2 py-1">{h.sector || "—"}</td>
-                      <td className="px-2 py-1 tabular-nums">{h.market_cap ? `${(h.market_cap / 100).toFixed(0)} Cr` : "—"}</td>
+                      <td className="px-2 py-1 tabular-nums">{h.market_cap ? `₹${h.market_cap.toLocaleString()} Cr` : "—"}</td>
                     </tr>
                   ))}
                   {holdings.length === 0 && (
@@ -243,13 +235,8 @@ export default function HoldingsSummaryPage() {
               <CardControls />
             </CardHeader>
             <CardContent className="p-2">
-              {holdingsChartData.length > 0 && chartSeries.length > 0 ? (
-                <TimeSeriesChart
-                  data={holdingsChartData}
-                  series={chartSeries}
-                  height={200}
-                  yFormatter={(v) => `${v.toFixed(1)}%`}
-                />
+              {holdingsBarData.length > 0 ? (
+                <BarChartPanel data={holdingsBarData} height={200} />
               ) : (
                 <div className="flex items-center justify-center h-[200px] text-muted-foreground text-xs">
                   Select holdings to display chart
@@ -265,13 +252,8 @@ export default function HoldingsSummaryPage() {
               <CardControls />
             </CardHeader>
             <CardContent className="p-2">
-              {factorChartData.length > 0 && factorChartSeries.length > 0 ? (
-                <TimeSeriesChart
-                  data={factorChartData}
-                  series={factorChartSeries}
-                  height={200}
-                  yFormatter={(v) => v.toFixed(2)}
-                />
+              {factorBarData.length > 0 ? (
+                <BarChartPanel data={factorBarData} height={200} />
               ) : (
                 <div className="flex items-center justify-center h-[200px] text-muted-foreground text-xs">
                   No factor exposure data available

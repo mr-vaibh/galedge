@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { BarChartPanel } from "@/components/charts/BarChartPanel";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
@@ -38,7 +37,7 @@ function STable({ title, rows, viewMode = "active" }: { title: string; rows: [st
             {rows.map(([label, active, benchmark], i) => {
               const activeNum = parseFloat(active);
               const benchmarkNum = parseFloat(benchmark);
-              const excess = !isNaN(activeNum) && !isNaN(benchmarkNum) ? `${(activeNum - benchmarkNum).toFixed(2)}%` : "--";
+              const excess = !isNaN(activeNum) && !isNaN(benchmarkNum) ? `${(activeNum - benchmarkNum).toFixed(2)}%` : "—";
               return (
                 <tr key={i} className="border-b border-border/30">
                   <td className="px-2 py-1 text-muted-foreground">{label}</td>
@@ -61,6 +60,14 @@ function STable({ title, rows, viewMode = "active" }: { title: string; rows: [st
   );
 }
 
+interface BenchmarkMetrics {
+  total_return?: number;
+  annualised_return?: number;
+  sharpe_ratio?: number;
+  volatility?: number;
+  max_drawdown?: number;
+}
+
 interface PerformanceData {
   total_return?: number;
   annualised_return?: number;
@@ -70,12 +77,14 @@ interface PerformanceData {
   volatility?: number;
   max_drawdown?: number;
   num_holdings?: number;
-  aum?: number;
+  total_aum_cr?: number;
+  benchmark_metrics?: BenchmarkMetrics;
   [key: string]: unknown;
 }
 
 interface FactorBreakdown {
   factor: string;
+  factor_type?: string;
   return_contribution: number;
   risk_contribution: number;
   exposure: number;
@@ -83,8 +92,11 @@ interface FactorBreakdown {
 
 interface DecompositionData {
   factors?: FactorBreakdown[];
-  total_factor_return?: number;
-  total_idio_return?: number;
+  factor_return?: number;
+  idiosyncratic_return?: number;
+  market_return?: number;
+  style_return?: number;
+  industry_return?: number;
   [key: string]: unknown;
 }
 
@@ -129,7 +141,11 @@ export default function ReturnsAndRiskPage() {
     fetchData();
   }, [fetchData]);
 
+  // Backend performance values are already in % (e.g. -6.62 for -6.62%)
   const pct = (v: number | undefined | null) =>
+    v != null ? `${v.toFixed(2)}%` : "—";
+  // Decomposition values are raw decimals (e.g. 0.0012 for 0.12%)
+  const dpct = (v: number | undefined | null) =>
     v != null ? `${(v * 100).toFixed(2)}%` : "—";
   const raw = (v: number | undefined | null) =>
     v != null ? v.toFixed(2) : "—";
@@ -147,6 +163,9 @@ export default function ReturnsAndRiskPage() {
     );
   }
 
+  // Benchmark metrics (may be undefined if no benchmark data available)
+  const bm = perfData?.benchmark_metrics;
+
   // Build factor-based data for charts and tables
   const factors = decompData?.factors ?? [];
   const topFactors = [...factors].sort((a, b) => b.return_contribution - a.return_contribution).slice(0, 10);
@@ -161,20 +180,23 @@ export default function ReturnsAndRiskPage() {
     value: f.return_contribution * 100,
   }));
 
-  // Return decomposition chart data (single point from API)
-  const returnDecompChartData = perfData ? [{
-    date: "Current",
-    total: (perfData.total_return ?? 0) * 100,
-    factor: (perfData.factor_return ?? decompData?.total_factor_return ?? 0) * 100,
-    idio: (perfData.idiosyncratic_return ?? decompData?.total_idio_return ?? 0) * 100,
-  }] : [];
+  // Return decomposition bar chart data
+  // perfData.total_return is already in % (e.g. -6.62), decomp values are decimals (* 100)
+  const totalRet = perfData?.total_return ?? 0;
+  const factorRet = (decompData?.factor_return ?? 0) * 100;
+  const idioRet = totalRet - factorRet; // idiosyncratic = total - factor
+  const returnDecompBarData = perfData ? [
+    { name: "Total", value: parseFloat(totalRet.toFixed(2)) },
+    { name: "Factor", value: parseFloat(factorRet.toFixed(2)) },
+    { name: "Idiosyncratic", value: parseFloat(idioRet.toFixed(2)) },
+  ] : [];
 
   // Factor contributor rows
   const factorTopRows = topFactors.slice(0, 3).map((f) => [
-    "Style", f.factor, f.exposure.toFixed(2), pct(f.return_contribution), pct(f.risk_contribution),
+    f.factor_type ?? "Style", f.factor, f.exposure.toFixed(2), dpct(f.return_contribution), dpct(f.risk_contribution),
   ]);
   const factorBottomRows = bottomFactors.slice(0, 3).map((f) => [
-    "Style", f.factor, f.exposure.toFixed(2), pct(f.return_contribution), pct(f.risk_contribution),
+    f.factor_type ?? "Style", f.factor, f.exposure.toFixed(2), dpct(f.return_contribution), dpct(f.risk_contribution),
   ]);
 
   const FACTOR_COLS = ["Factor Type", "Factor Name", "Exposure", "Return (%)", "Risk Contrib (%)"];
@@ -207,23 +229,23 @@ export default function ReturnsAndRiskPage() {
           {/* Summary Tables Row */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
             <STable title="Profit and Loss Summary" viewMode={viewMode} rows={[
-              ["Total Return (%)", pct(perfData.total_return), "—"],
-              ["Factor Return (%)", pct(perfData.factor_return ?? decompData?.total_factor_return), "—"],
-              ["Idio Return (%)", pct(perfData.idiosyncratic_return ?? decompData?.total_idio_return), "—"],
-              ["Annualised Return (%)", pct(perfData.annualised_return), "—"],
-              ["Sharpe Ratio", raw(perfData.sharpe_ratio), "—"],
+              ["Total Return (%)", pct(perfData.total_return), pct(bm?.total_return)],
+              ["Factor Return (%)", `${factorRet.toFixed(2)}%`, "—"],
+              ["Idio Return (%)", `${idioRet.toFixed(2)}%`, "—"],
+              ["Annualised Return (%)", pct(perfData.annualised_return), pct(bm?.annualised_return)],
+              ["Sharpe Ratio", raw(perfData.sharpe_ratio), raw(bm?.sharpe_ratio)],
             ]} />
             <STable title="Risk Summary" viewMode={viewMode} rows={[
-              ["Volatility (%)", pct(perfData.volatility), "—"],
-              ["Max Drawdown (%)", pct(perfData.max_drawdown), "—"],
+              ["Volatility (%)", pct(perfData.volatility), pct(bm?.volatility)],
+              ["Max Drawdown (%)", pct(perfData.max_drawdown), pct(bm?.max_drawdown)],
             ]} />
             <STable title="Portfolio Info" viewMode={viewMode} rows={[
               ["Holdings", perfData.num_holdings != null ? String(perfData.num_holdings) : "—", "—"],
-              ["AUM", perfData.aum != null ? `${(perfData.aum / 10000000).toFixed(2)} Cr` : "—", "—"],
+              ["AUM", perfData.total_aum_cr != null ? `₹${perfData.total_aum_cr} Cr` : "—", "—"],
             ]} />
             <STable title="Return Decomposition" viewMode={viewMode} rows={[
-              ["Factor Return", pct(decompData?.total_factor_return), "—"],
-              ["Idio Return", pct(decompData?.total_idio_return), "—"],
+              ["Factor Return", `${factorRet.toFixed(2)}%`, "—"],
+              ["Idio Return", `${idioRet.toFixed(2)}%`, "—"],
             ]} />
           </div>
 
@@ -235,16 +257,8 @@ export default function ReturnsAndRiskPage() {
                 <CardControls />
               </CardHeader>
               <CardContent>
-                {returnDecompChartData.length > 0 ? (
-                  <TimeSeriesChart
-                    data={returnDecompChartData}
-                    series={[
-                      { key: "total", name: "Total", color: "#3b82f6" },
-                      { key: "factor", name: "Factor", color: "#10b981" },
-                      { key: "idio", name: "Idiosyncratic", color: "#f59e0b" },
-                    ]}
-                    height={160}
-                  />
+                {returnDecompBarData.length > 0 ? (
+                  <BarChartPanel data={returnDecompBarData} height={160} />
                 ) : (
                   <div className="flex items-center justify-center h-[160px] text-muted-foreground text-xs">No data</div>
                 )}

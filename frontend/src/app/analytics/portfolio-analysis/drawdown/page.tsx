@@ -124,8 +124,9 @@ export default function DrawdownPage() {
     fetchData();
   }, [fetchData]);
 
+  // Backend returns values already in percentage form (e.g. -19.63 for -19.63%)
   const pct = (v: number | undefined | null) =>
-    v != null ? `${(v * 100).toFixed(2)}%` : "—";
+    v != null ? `${v.toFixed(2)}%` : "—";
 
   if (!selectedPortfolioId) {
     return (

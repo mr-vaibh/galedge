@@ -60,6 +60,7 @@ class RebalanceRecord:
     turnover: float
     n_positions: int
     trades: list[Trade] = field(default_factory=list)
+    target_weights: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -267,6 +268,7 @@ def run_backtest(
                 turnover=turnover,
                 n_positions=len(holdings),
                 trades=trades,
+                target_weights=target_weights,
             ))
 
     # Compute metrics
@@ -308,6 +310,7 @@ def run_backtest(
             "turnover": round(r.turnover * 100, 2),
             "positions": r.n_positions,
             "trades": len(r.trades),
+            "weights": {s: round(w, 4) for s, w in sorted(r.target_weights.items(), key=lambda x: -x[1])},
         } for r in rebalance_records],
         trades=[{
             "date": str(t.date),

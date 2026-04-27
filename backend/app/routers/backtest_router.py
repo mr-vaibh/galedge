@@ -1,7 +1,9 @@
 """Backtest API endpoints."""
 
+import logging
 from datetime import date
 
+import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -11,7 +13,10 @@ from app.models.user import User
 from app.models.strategy import Strategy, Backtest
 from app.auth import require_user
 from app.services.backtester import BacktestConfig, run_backtest
+from app.services.optimizer import PortfolioOptimizer
 from app.services.data_ingestion import ALL_NSE_STOCKS
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/backtest", tags=["backtest"])
 
@@ -27,7 +32,9 @@ class BacktestRequest(BaseModel):
     transaction_cost_bps: float = 30
     slippage_bps: float = 10
     stop_loss_total: float | None = None
-    weight_method: str = "equal"  # equal, market_cap, minimum_variance
+    weight_method: str = "equal"  # equal, momentum, optimizer
+    optimizer_objective: str = "maximize_sharpe"
+    optimizer_constraints: list[dict] = []
 
 
 UNIVERSE_MAP = {
@@ -87,6 +94,79 @@ def _momentum_weight_fn(symbols: list[str]):
     return fn
 
 
+def _optimizer_weight_fn(symbols: list[str], objective: str, constraints: list[dict], risk_free_rate: float = 0.05):
+    """Optimizer-based weight function: runs portfolio optimization at each rebalance."""
+    def fn(dt, prices_df):
+        available = [s for s in symbols if s in prices_df.columns]
+        if len(available) < 3:
+            return {s: 1.0 / len(available) for s in available} if available else {}
+
+        try:
+            # Use last 60 trading days of data up to current date for optimization
+            sub_df = prices_df[available].dropna(axis=1, thresh=int(len(prices_df) * 0.5))
+            valid = sub_df.columns.tolist()
+            if len(valid) < 3:
+                return {s: 1.0 / len(available) for s in available}
+
+            returns = sub_df.pct_change().dropna()
+            if len(returns) < 20:
+                return {s: 1.0 / len(valid) for s in valid}
+
+            mean_ret = returns.mean().values * 252
+            cov_mat = returns.cov().values * 252
+
+            # Compute betas for beta constraints
+            mkt_ret = returns.mean(axis=1)
+            mkt_var = mkt_ret.var()
+            betas = []
+            for sym in valid:
+                if mkt_var > 0:
+                    betas.append(float(returns[sym].cov(mkt_ret) / mkt_var))
+                else:
+                    betas.append(1.0)
+
+            # Filter out max_positions (handle via post-processing)
+            max_pos = None
+            filtered = []
+            for c in constraints:
+                if c.get("type") == "max_positions":
+                    max_pos = int(c.get("value", 50))
+                else:
+                    filtered.append(c)
+
+            opt = PortfolioOptimizer(
+                expected_returns=mean_ret.tolist(),
+                covariance_matrix=cov_mat.tolist(),
+                symbols=valid,
+                risk_free_rate=risk_free_rate,
+            )
+            result = opt.optimize(
+                objective=objective,
+                constraints=filtered,
+                stock_betas=np.array(betas),
+            )
+
+            weights = result.get("weights", {})
+            if not weights or result.get("status") == "infeasible":
+                return {s: 1.0 / len(valid) for s in valid}
+
+            # Post-process max_positions
+            if max_pos and len(weights) > max_pos:
+                sorted_syms = sorted(weights.keys(), key=lambda s: weights[s], reverse=True)
+                kept = sorted_syms[:max_pos]
+                weights = {s: weights[s] for s in kept}
+                total = sum(weights.values())
+                if total > 0:
+                    weights = {s: w / total for s, w in weights.items()}
+
+            return weights
+        except Exception as e:
+            logger.warning("Optimizer failed at %s: %s — falling back to equal weight", dt, e)
+            return {s: 1.0 / len(available) for s in available}
+
+    return fn
+
+
 @router.post("/run")
 def run_strategy_backtest(
     req: BacktestRequest,
@@ -104,8 +184,8 @@ def run_strategy_backtest(
         raise HTTPException(status_code=400, detail="No symbols specified")
 
     # Determine weight function
-    if req.weight_method == "equal":
-        weight_fn = _equal_weight_fn(symbols)
+    if req.weight_method == "optimizer":
+        weight_fn = _optimizer_weight_fn(symbols, req.optimizer_objective, req.optimizer_constraints)
     elif req.weight_method == "momentum":
         weight_fn = _momentum_weight_fn(symbols)
     else:
