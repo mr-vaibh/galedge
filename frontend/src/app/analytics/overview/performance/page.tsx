@@ -212,18 +212,7 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Portfolio Value</CardTitle>
-              <CardControls data={equityCurve as Record<string, unknown>[]} filename="equity_curve">
-                {equityCurve.length > 0 && (
-                  <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
-                    <TimeSeriesChart
-                      data={equityCurve.map(e => ({ date: String(e.date), value: Number(e.value) }))}
-                      series={[{ key: "value", name: "Value", color: "#f97316" }]}
-                      height={500}
-                      yFormatter={(v) => formatCurrencyCompact(v, "INR")}
-                    />
-                  </div>
-                )}
-              </CardControls>
+              <CardControls data={equityCurve as Record<string, unknown>[]} filename="equity_curve" />
             </CardHeader>
             <CardContent className="p-2">
               {equityCurve.length > 0 ? (
@@ -240,17 +229,7 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Drawdown (%)</CardTitle>
-              <CardControls>
-                {equityCurve.length > 0 && (
-                  <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
-                    <TimeSeriesChart
-                      data={equityCurve.filter(e => e.drawdown !== undefined).map(e => ({ date: String(e.date), dd: Number(e.drawdown) }))}
-                      series={[{ key: "dd", name: "Drawdown", color: "#ef4444" }]}
-                      height={500}
-                    />
-                  </div>
-                )}
-              </CardControls>
+              <CardControls />
             </CardHeader>
             <CardContent className="p-2">
               {equityCurve.length > 0 ? (
@@ -266,18 +245,7 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Value Trend</CardTitle>
-              <CardControls>
-                {equityCurve.length > 0 && (
-                  <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
-                    <TimeSeriesChart
-                      data={equityCurve.map(e => ({ date: String(e.date), v: Number(e.value) }))}
-                      series={[{ key: "v", name: "Value", color: "#10b981" }]}
-                      height={500}
-                      yFormatter={(v) => formatCurrencyCompact(v, "INR")}
-                    />
-                  </div>
-                )}
-              </CardControls>
+              <CardControls />
             </CardHeader>
             <CardContent className="p-2">
               {equityCurve.length > 0 ? (

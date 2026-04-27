@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, ReactNode } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Download, Filter, Info, Maximize2, Minimize2, X, Search } from "lucide-react";
@@ -17,15 +17,16 @@ interface Props {
   info?: string;
   onFilter?: (query: string) => void;
   filterable?: boolean;
-  /** Pass React children to render live components in the expand modal */
-  children?: ReactNode;
 }
 
-export function CardControls({ data, filename = "export", info, onFilter, filterable, children }: Props) {
+export function CardControls({ data, filename = "export", info, onFilter, filterable }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
   const [mounted, setMounted] = useState(false);
+  const [clonedNode, setClonedNode] = useState<HTMLElement | null>(null);
+  const [expandTitle, setExpandTitle] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -39,14 +40,63 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
     }
   }
 
-  function handleFilterChange(q: string) {
-    setFilterQuery(q);
-    onFilter?.(q);
+  function handleExpand() {
+    // Find the parent Card via data-slot
+    const el = containerRef.current;
+    if (!el) return;
+    const card = el.closest("[data-slot='card']");
+    if (!card) return;
+
+    // Get title
+    const titleEl = card.querySelector("[data-slot='card-title']");
+    setExpandTitle(titleEl?.textContent || filename);
+
+    // Clone the entire card
+    const clone = card.cloneNode(true) as HTMLElement;
+
+    // Remove all CardControls toolbar divs from clone
+    clone.querySelectorAll("[data-slot='card-header']").forEach((header) => {
+      // Remove the controls div (flex gap-0.5 with buttons)
+      header.querySelectorAll("div").forEach((div) => {
+        if (div.querySelectorAll("button").length >= 3) div.remove();
+      });
+    });
+
+    // Remove height constraints so content can fill modal
+    clone.style.height = "100%";
+    clone.style.maxHeight = "none";
+    clone.style.overflow = "visible";
+
+    // Make tables fill width
+    clone.querySelectorAll("table").forEach((t) => {
+      t.style.width = "100%";
+    });
+
+    // Remove max-height on scrollable containers
+    clone.querySelectorAll("[class*='max-h-']").forEach((el) => {
+      (el as HTMLElement).style.maxHeight = "none";
+    });
+    clone.querySelectorAll("[class*='overflow']").forEach((el) => {
+      (el as HTMLElement).style.overflow = "visible";
+    });
+
+    // Make recharts containers bigger
+    clone.querySelectorAll(".recharts-responsive-container, .recharts-wrapper").forEach((el) => {
+      (el as HTMLElement).style.width = "100%";
+      (el as HTMLElement).style.height = "calc(88vh - 120px)";
+    });
+    clone.querySelectorAll("svg.recharts-surface").forEach((svg) => {
+      svg.setAttribute("width", "100%");
+      svg.setAttribute("height", "100%");
+    });
+
+    setClonedNode(clone);
+    setExpanded(true);
   }
 
   return (
     <>
-      <div className="flex items-center gap-0.5">
+      <div ref={containerRef} className="flex items-center gap-0.5">
         {/* Filter */}
         {(onFilter || filterable) ? (
           <Tooltip>
@@ -78,7 +128,7 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
         {/* Expand */}
         <Tooltip>
           <TooltipTrigger>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setExpanded(true)}>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleExpand}>
               <Maximize2 className="h-3 w-3" />
             </Button>
           </TooltipTrigger>
@@ -106,46 +156,53 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
       {showFilter && onFilter && (
         <div className="absolute top-12 right-3 z-20 flex items-center gap-1 bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1 shadow-lg">
           <Search className="h-3 w-3 text-muted-foreground" />
-          <input autoFocus type="text" value={filterQuery} onChange={(e) => handleFilterChange(e.target.value)} placeholder="Filter..."
+          <input autoFocus type="text" value={filterQuery} onChange={(e) => { setFilterQuery(e.target.value); onFilter(e.target.value); }} placeholder="Filter..."
             className="bg-transparent border-none outline-none text-[11px] w-[140px] text-foreground placeholder:text-muted-foreground" />
           <button onClick={handleFilterToggle} className="p-0.5 hover:bg-neutral-800 rounded"><X className="h-3 w-3 text-muted-foreground" /></button>
         </div>
       )}
 
       {/* Expand Modal */}
-      {expanded && mounted && createPortal(
+      {expanded && mounted && clonedNode && createPortal(
         <ExpandModal
-          title={filename.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase())}
+          title={expandTitle}
+          clonedNode={clonedNode}
           data={data}
           filename={filename}
-          onClose={() => setExpanded(false)}
-        >
-          {children}
-        </ExpandModal>,
+          onClose={() => { setExpanded(false); setClonedNode(null); }}
+        />,
         document.body
       )}
     </>
   );
 }
 
-/** Fullscreen modal that renders live React children or a data table fallback */
-function ExpandModal({ title, data, filename, onClose, children }: {
+function ExpandModal({ title, clonedNode, data, filename, onClose }: {
   title: string;
+  clonedNode: HTMLElement;
   data?: Record<string, unknown>[];
   filename: string;
   onClose: () => void;
-  children?: ReactNode;
 }) {
-  // Prevent body scroll while open
+  const contentRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, []);
 
+  // Mount cloned DOM node
+  useEffect(() => {
+    if (contentRef.current && clonedNode) {
+      contentRef.current.innerHTML = "";
+      contentRef.current.appendChild(clonedNode);
+    }
+  }, [clonedNode]);
+
   return (
     <div className="fixed inset-0 z-40 bg-black/85 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl flex flex-col w-[92vw] h-[88vh]"
+        className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl flex flex-col w-[94vw] h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -163,42 +220,8 @@ function ExpandModal({ title, data, filename, onClose, children }: {
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 min-h-0 flex flex-col overflow-auto">
-          {children ? (
-            <div className="flex-1 min-h-0 w-full p-5">{children}</div>
-          ) : data && data.length > 0 ? (
-            <div className="p-4 overflow-auto">
-              <table className="w-full text-[11px]">
-                <thead className="sticky top-0 bg-neutral-900 z-10">
-                  <tr className="border-b border-neutral-700">
-                    {Object.keys(data[0]).filter(k => typeof data[0][k] !== "object").map((key) => (
-                      <th key={key} className="px-3 py-2 text-left text-muted-foreground font-medium whitespace-nowrap">
-                        {key.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase())}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.map((row, i) => (
-                    <tr key={i} className="border-b border-neutral-800 hover:bg-neutral-800/30">
-                      {Object.entries(row).filter(([, v]) => typeof v !== "object").map(([, val], j) => {
-                        const str = val == null ? "—" : String(val);
-                        return (
-                          <td key={j} className="px-3 py-1.5 tabular-nums whitespace-nowrap">{str}</td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-              No data available
-            </div>
-          )}
-        </div>
+        {/* Cloned content */}
+        <div ref={contentRef} className="flex-1 min-h-0 overflow-auto p-2" />
       </div>
     </div>
   );

@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2, Download } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend } from "recharts";
+
 import { api, FactorSummaryRow } from "@/lib/api";
 import { CardControls } from "@/components/CardControls";
 
@@ -214,36 +214,7 @@ export default function FactorSummaryPage() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Correlation</CardTitle>
-            <CardControls>
-              {corrFactors.length > 0 ? (
-                <div className="w-full h-full" style={{ minHeight: "calc(88vh - 100px)" }}>
-                  <table className="w-full h-full text-[10px] border-collapse" style={{ tableLayout: "fixed" }}>
-                    <colgroup>
-                      <col style={{ width: "80px" }} />
-                      {corrFactors.map((f) => <col key={f} />)}
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th className="p-0" />
-                        {corrFactors.map((f) => (
-                          <th key={f} className="p-0 text-center font-medium text-muted-foreground" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: "70px" }}>{f}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {corrMatrix.map((row, i) => (
-                        <tr key={corrFactors[i]} style={{ height: `${(100 / corrMatrix.length).toFixed(1)}%` }}>
-                          <td className="p-0 pr-1 font-medium text-muted-foreground whitespace-nowrap text-right text-[9px]">{corrFactors[i]}</td>
-                          {row.map((val, j) => (
-                            <td key={j} className="text-center tabular-nums" style={{ backgroundColor: corrColor(val) }}>{val.toFixed(2)}</td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
-            </CardControls>
+            <CardControls />
           </CardHeader>
           <CardContent className="p-2">
             {corrFactors.length > 0 ? (
@@ -289,24 +260,7 @@ export default function FactorSummaryPage() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Returns Time Series</CardTitle>
-            <CardControls>
-              {factorReturnsData.length > 0 ? (
-                <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={factorReturnsData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                      <XAxis dataKey="date" tick={{ fill: "#71717a", fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} />
-                      <YAxis tick={{ fill: "#71717a", fontSize: 10 }} width={45} tickFormatter={(v: number) => v.toFixed(0)} />
-                      <RechartsTooltip contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: "8px", fontSize: "11px" }} />
-                      <Legend wrapperStyle={{ fontSize: "10px" }} />
-                      {factorSeries.map((s) => (
-                        <Line key={s.key} type="monotone" dataKey={s.key} stroke={s.color} name={s.name} dot={false} strokeWidth={1.5} />
-                      ))}
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : null}
-            </CardControls>
+            <CardControls />
           </CardHeader>
           <CardContent className="p-2">
             {factorReturnsData.length > 0 ? (
@@ -328,33 +282,7 @@ export default function FactorSummaryPage() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Correlation Time Series</CardTitle>
-            <CardControls>
-              <div className="space-y-4">
-                <div className="flex gap-2 items-center">
-                  <Select value={corrPair[0]} onValueChange={(v) => { if (typeof v === "string") setCorrPair([v, corrPair[1]]); }}>
-                    <SelectTrigger className="h-9 w-[140px] text-xs"><SelectValue placeholder="Factor 1" /></SelectTrigger>
-                    <SelectContent>{corrFactors.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
-                  </Select>
-                  <span className="text-xs text-muted-foreground">vs</span>
-                  <Select value={corrPair[1]} onValueChange={(v) => { if (typeof v === "string") setCorrPair([corrPair[0], v]); }}>
-                    <SelectTrigger className="h-9 w-[140px] text-xs"><SelectValue placeholder="Factor 2" /></SelectTrigger>
-                    <SelectContent>{corrFactors.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                {corrPair[0] && corrPair[1] && corrMatrix.length > 0 ? (() => {
-                  const f1 = corrFactors.indexOf(corrPair[0]);
-                  const f2 = corrFactors.indexOf(corrPair[1]);
-                  const cv = (f1 >= 0 && f2 >= 0 && corrMatrix[f1]) ? corrMatrix[f1][f2] : 0;
-                  return (
-                    <div className="flex flex-col items-center justify-center py-12">
-                      <div className="text-sm text-muted-foreground mb-3">{corrPair[0]} vs {corrPair[1]}</div>
-                      <div className={`text-6xl font-bold tabular-nums ${cv >= 0 ? "text-emerald-400" : "text-red-400"}`}>{cv.toFixed(4)}</div>
-                      <div className="text-sm text-muted-foreground mt-3">{Math.abs(cv) > 0.7 ? "Strong" : Math.abs(cv) > 0.3 ? "Moderate" : "Weak"} {cv >= 0 ? "positive" : "negative"} correlation</div>
-                    </div>
-                  );
-                })() : null}
-              </div>
-            </CardControls>
+            <CardControls />
           </CardHeader>
           <CardContent className="p-2 space-y-2">
             <div className="flex gap-2 items-center">

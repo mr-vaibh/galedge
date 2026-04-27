@@ -259,13 +259,7 @@ export default function PeerBreakdownPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Weight by {dimension} (%)</CardTitle>
-                <CardControls>
-                  {breakdownBarData.length > 0 && (
-                    <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
-                      <BarChartPanel data={breakdownBarData} height={500} />
-                    </div>
-                  )}
-                </CardControls>
+                <CardControls />
               </CardHeader>
               <CardContent className="p-2">
                 {breakdownBarData.length > 0 ? (
@@ -338,13 +332,7 @@ export default function PeerBreakdownPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Top Holdings Weight (%)</CardTitle>
-                <CardControls>
-                  {holdingsBarData.length > 0 && (
-                    <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
-                      <BarChartPanel data={holdingsBarData} height={500} />
-                    </div>
-                  )}
-                </CardControls>
+                <CardControls />
               </CardHeader>
               <CardContent className="p-2">
                 {holdingsBarData.length > 0 ? (

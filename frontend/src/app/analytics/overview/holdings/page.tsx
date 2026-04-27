@@ -234,13 +234,7 @@ export default function HoldingsSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Holdings (%)</CardTitle>
-              <CardControls>
-                {holdingsBarData.length > 0 && (
-                  <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
-                    <BarChartPanel data={holdingsBarData} height={500} />
-                  </div>
-                )}
-              </CardControls>
+              <CardControls />
             </CardHeader>
             <CardContent className="p-2">
               {holdingsBarData.length > 0 ? (
@@ -257,13 +251,7 @@ export default function HoldingsSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Factor Exposure</CardTitle>
-              <CardControls>
-                {factorBarData.length > 0 && (
-                  <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
-                    <BarChartPanel data={factorBarData} height={500} />
-                  </div>
-                )}
-              </CardControls>
+              <CardControls />
             </CardHeader>
             <CardContent className="p-2">
               {factorBarData.length > 0 ? (

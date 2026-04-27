@@ -275,19 +275,7 @@ export default function StockSummaryPage() {
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Exposures — {selected[0]?.symbol.replace(".NS", "") || "Select stock"}</CardTitle>
-            <CardControls>
-              {selected.length > 0 && exposures[selected[0].symbol] && (
-                <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
-                  <BarChartPanel
-                    data={Object.entries(exposures[selected[0].symbol] || {}).map(([f, v]) => ({
-                      name: f,
-                      value: parseFloat(v.toFixed(2)),
-                    }))}
-                    height={500}
-                  />
-                </div>
-              )}
-            </CardControls>
+            <CardControls />
           </CardHeader>
           <CardContent className="p-2">
             {selected.length > 0 && exposures[selected[0].symbol] ? (
