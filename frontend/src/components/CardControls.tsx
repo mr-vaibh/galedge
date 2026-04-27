@@ -31,31 +31,27 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
 
   function handleExpand(e: React.MouseEvent) {
     const btn = e.currentTarget as HTMLElement;
-    // Find the parent Card
-    let card = btn.parentElement;
-    while (card && !card.classList.contains("rounded-lg")) {
-      card = card.parentElement;
-    }
-    if (!card) { card = btn.closest("div[class*='border']"); }
+
+    // Find parent Card using data-slot="card"
+    const card = btn.closest("[data-slot='card']") || btn.closest("[class*='rounded-xl']") || btn.closest("[class*='rounded-lg']");
     if (!card) return;
 
-    // Get title
-    const titleEl = card.querySelector("div[class*='CardTitle'], p[class*='font-semibold'], div[class*='text-sm'][class*='font-']");
+    // Get title from data-slot="card-title"
+    const titleEl = card.querySelector("[data-slot='card-title']");
     setExpandTitle(titleEl?.textContent || filename.replace(/_/g, " "));
 
-    // Clone card, remove all toolbar button groups (the controls themselves)
-    const clone = card.cloneNode(true) as HTMLElement;
-    // Remove toolbar icons (our own component renders as flex gap-0.5)
-    clone.querySelectorAll("div").forEach((div) => {
-      const classes = div.className || "";
-      if (classes.includes("gap-0.5") && div.querySelectorAll("button").length >= 3) {
-        div.remove();
-      }
-    });
-    // Remove any tooltips/portals that got cloned
-    clone.querySelectorAll("[data-radix-popper-content-wrapper]").forEach((el) => el.remove());
+    // Get content from data-slot="card-content"
+    const contentEl = card.querySelector("[data-slot='card-content']");
+    if (contentEl) {
+      setExpandHtml(contentEl.innerHTML);
+    } else {
+      // Fallback: clone entire card, strip header
+      const clone = card.cloneNode(true) as HTMLElement;
+      const header = clone.querySelector("[data-slot='card-header']");
+      if (header) header.remove();
+      setExpandHtml(clone.innerHTML);
+    }
 
-    setExpandHtml(clone.innerHTML);
     setExpanded(true);
   }
 
