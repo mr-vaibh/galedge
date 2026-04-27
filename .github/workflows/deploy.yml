@@ -42,8 +42,6 @@ jobs:
             pip install --no-build-isolation --no-cache-dir -e /opt/galedge/packages/galedge-core -q
             pip install --no-build-isolation --no-cache-dir -e /opt/galedge/packages/galedge-ml -q
 
-            # Update systemd to use new app.main:app entry point
-            sudo sed -i 's|main:app|app.main:app|g' /etc/systemd/system/galedge-api.service 2>/dev/null || true
             sudo systemctl daemon-reload
             sudo systemctl restart galedge-api
 
