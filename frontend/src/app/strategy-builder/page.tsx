@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, Plus, Loader2, Rocket, ArrowDown, Trash2 } from "lucide-react";
+import { RefreshCw, Plus, Loader2, Rocket, ArrowDown, Trash2, Zap, X, Download } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
@@ -22,6 +23,26 @@ interface StrategyItem {
   created_at?: string;
 }
 
+interface Trade {
+  symbol: string;
+  action: string;
+  target_weight: number;
+  current_weight: number;
+  delta_weight: number;
+  latest_price: number;
+}
+
+interface RebalanceResult {
+  strategy_id: number;
+  strategy_name: string;
+  rebalance_date: string;
+  positions: number;
+  expected_return: number;
+  expected_risk: number;
+  sharpe_ratio: number;
+  trades: Trade[];
+}
+
 export default function StrategyBuilderPage() {
   const router = useRouter();
   const { token } = useAuth();
@@ -29,13 +50,17 @@ export default function StrategyBuilderPage() {
   const [strategies, setStrategies] = useState<StrategyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [rebalanceResult, setRebalanceResult] = useState<RebalanceResult | null>(null);
+  const [rebalanceLoading, setRebalanceLoading] = useState(false);
+
+  const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("galedge_auth_token") : null);
 
   async function fetchStrategies() {
-    if (!token) { setLoading(false); return; }
+    if (!authToken) { setLoading(false); return; }
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/strategies/`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${authToken}` },
       });
       if (res.ok) {
         const data = await res.json();
@@ -45,9 +70,7 @@ export default function StrategyBuilderPage() {
     setLoading(false);
   }
 
-  useEffect(() => { fetchStrategies(); }, [token]);
-
-  const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("galedge_auth_token") : null);
+  useEffect(() => { fetchStrategies(); }, [authToken]);
 
   async function promoteStrategy(e: React.MouseEvent, id: number) {
     e.stopPropagation();
@@ -100,6 +123,43 @@ export default function StrategyBuilderPage() {
     setActionLoading(null);
   }
 
+  async function runRebalance(e: React.MouseEvent, id: number) {
+    e.stopPropagation();
+    if (!authToken) return;
+    setRebalanceLoading(true);
+    setRebalanceResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/strategies/${id}/rebalance`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRebalanceResult(data);
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Rebalance failed");
+      }
+    } catch {
+      alert("Failed to connect to API");
+    }
+    setRebalanceLoading(false);
+  }
+
+  function downloadTradeList() {
+    if (!rebalanceResult) return;
+    const header = "Symbol,Action,Target Weight (%),Current Weight (%),Delta (%),Latest Price";
+    const rows = rebalanceResult.trades.map((t) =>
+      `${t.symbol},${t.action},${t.target_weight},${t.current_weight},${t.delta_weight},${t.latest_price}`
+    );
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `rebalance_${rebalanceResult.strategy_name}_${rebalanceResult.rebalance_date}.csv`;
+    a.click();
+  }
+
   const backtestStrategies = strategies.filter((s) => s.status !== "production");
   const productionStrategies = strategies.filter((s) => s.status === "production");
 
@@ -145,15 +205,27 @@ export default function StrategyBuilderPage() {
                       {actionLoading === s.id ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : isProduction ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-6 text-[9px] gap-1 text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
-                          onClick={(e) => demoteStrategy(e, s.id)}
-                        >
-                          <ArrowDown className="h-3 w-3" />
-                          Demote
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 text-[9px] gap-1 text-blue-400 border-blue-500/30 hover:bg-blue-500/10"
+                            onClick={(e) => runRebalance(e, s.id)}
+                            disabled={rebalanceLoading}
+                          >
+                            {rebalanceLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                            Rebalance
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 text-[9px] gap-1 text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                            onClick={(e) => demoteStrategy(e, s.id)}
+                          >
+                            <ArrowDown className="h-3 w-3" />
+                            Demote
+                          </Button>
+                        </>
                       ) : (
                         <>
                           <Button
@@ -229,6 +301,79 @@ export default function StrategyBuilderPage() {
           <StrategyTable items={productionStrategies} isProduction={true} />
         </TabsContent>
       </Tabs>
+
+      {/* Rebalance Results Modal */}
+      {rebalanceResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setRebalanceResult(null)}>
+          <div className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl w-[90vw] max-w-[800px] max-h-[85vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-700">
+              <div>
+                <h2 className="text-sm font-bold">Live Rebalance — {rebalanceResult.strategy_name}</h2>
+                <p className="text-[10px] text-muted-foreground">As of {rebalanceResult.rebalance_date}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={downloadTradeList}>
+                  <Download className="h-3 w-3" /> Download CSV
+                </Button>
+                <button onClick={() => setRebalanceResult(null)} className="p-1 rounded hover:bg-neutral-800">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Summary metrics */}
+            <div className="grid grid-cols-4 gap-3 px-5 py-3 border-b border-neutral-800">
+              {[
+                ["Positions", String(rebalanceResult.positions)],
+                ["Exp. Return", `${rebalanceResult.expected_return}%`],
+                ["Exp. Risk", `${rebalanceResult.expected_risk}%`],
+                ["Sharpe", String(rebalanceResult.sharpe_ratio)],
+              ].map(([label, val]) => (
+                <div key={label} className="text-center">
+                  <div className="text-[9px] text-muted-foreground">{label}</div>
+                  <div className={`text-sm font-bold tabular-nums ${String(val).startsWith("-") ? "text-red-400" : "text-emerald-400"}`}>{val}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Trade list */}
+            <div className="overflow-y-auto max-h-[55vh]">
+              <table className="w-full text-[10px]">
+                <thead className="sticky top-0 bg-neutral-900">
+                  <tr className="border-b border-neutral-700">
+                    {["#", "Symbol", "Action", "Target %", "Delta %", "Price (₹)"].map((h) => (
+                      <th key={h} className="px-3 py-2 text-left text-muted-foreground font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rebalanceResult.trades.map((t, i) => (
+                    <tr key={t.symbol} className="border-b border-neutral-800 hover:bg-neutral-800/50">
+                      <td className="px-3 py-1.5 text-muted-foreground">{i + 1}</td>
+                      <td className="px-3 py-1.5 font-medium">{t.symbol}</td>
+                      <td className="px-3 py-1.5">
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
+                          t.action === "BUY" ? "bg-emerald-500/20 text-emerald-400" :
+                          t.action === "SELL" ? "bg-red-500/20 text-red-400" :
+                          "bg-neutral-700 text-neutral-400"
+                        }`}>
+                          {t.action}
+                        </span>
+                      </td>
+                      <td className="px-3 py-1.5 tabular-nums">{t.target_weight}%</td>
+                      <td className={`px-3 py-1.5 tabular-nums ${t.delta_weight > 0 ? "text-emerald-400" : t.delta_weight < 0 ? "text-red-400" : ""}`}>
+                        {t.delta_weight > 0 ? "+" : ""}{t.delta_weight}%
+                      </td>
+                      <td className="px-3 py-1.5 tabular-nums">₹{t.latest_price.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

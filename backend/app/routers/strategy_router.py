@@ -1,13 +1,31 @@
 """Strategy Builder CRUD endpoints."""
 
+import logging
+from datetime import date, datetime
+
+import numpy as np
+import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
+from app.models.market_data import StockPrice
 from app.models.strategy import Strategy, StrategyConstraint, StrategyObjective, Backtest
 from app.auth import require_user
+from app.services.optimizer import PortfolioOptimizer
+from app.services.data_ingestion import ALL_NSE_STOCKS
+
+logger = logging.getLogger(__name__)
+
+UNIVERSE_MAP = {
+    "NIFTY 50": ALL_NSE_STOCKS[:50],
+    "NIFTY 100": ALL_NSE_STOCKS[:100],
+    "NIFTY NEXT 50": ALL_NSE_STOCKS[50:100],
+    "NIFTY 500": ALL_NSE_STOCKS,
+    "NIFTY": ALL_NSE_STOCKS[:50],
+}
 
 router = APIRouter(prefix="/api/strategies", tags=["strategies"])
 
@@ -171,6 +189,155 @@ def demote_strategy(strategy_id: int, user: User = Depends(require_user), db: Se
     strategy.is_production = False
     db.commit()
     return {"id": strategy.id, "status": "draft"}
+
+
+@router.post("/{strategy_id}/rebalance")
+def generate_rebalance(strategy_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Generate a live rebalance trade list using current market data."""
+    strategy = db.query(Strategy).filter(Strategy.id == strategy_id, Strategy.user_id == user.id).first()
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    if not strategy.is_production:
+        raise HTTPException(status_code=400, detail="Only production strategies can generate rebalance trades")
+
+    # Get universe symbols
+    symbols = UNIVERSE_MAP.get(strategy.universe, ALL_NSE_STOCKS[:50])
+
+    # Fetch prices
+    prices = (
+        db.query(StockPrice.symbol, StockPrice.date, StockPrice.close)
+        .filter(StockPrice.symbol.in_(symbols))
+        .order_by(StockPrice.date)
+        .all()
+    )
+    if not prices:
+        raise HTTPException(status_code=404, detail="No price data available")
+
+    # Build price matrix
+    records: dict[str, dict] = {}
+    for sym, dt, close in prices:
+        d = dt.isoformat() if hasattr(dt, "isoformat") else str(dt)
+        if d not in records:
+            records[d] = {}
+        records[d][sym] = close
+
+    df = pd.DataFrame.from_dict(records, orient="index").sort_index()
+    df = df.dropna(axis=1, thresh=int(len(df) * 0.8))
+    valid_symbols = df.columns.tolist()
+
+    if len(valid_symbols) < 3:
+        raise HTTPException(status_code=422, detail="Not enough stocks with price data")
+
+    returns = df.pct_change().dropna()
+    mean_ret = returns.mean().values * 252
+    cov_mat = returns.cov().values * 252
+
+    # Compute betas
+    mkt_ret = returns.mean(axis=1)
+    mkt_var = mkt_ret.var()
+    betas = [float(returns[s].cov(mkt_ret) / mkt_var) if mkt_var > 0 else 1.0 for s in valid_symbols]
+
+    # Map constraints from strategy
+    max_positions = None
+    opt_constraints = []
+    for c in strategy.constraints:
+        if not c.is_active:
+            continue
+        params = c.parameters or {}
+        ctype = c.constraint_type or c.name
+        if "Position Size" in ctype or "position_size" in ctype:
+            opt_constraints.append({"type": "position_size_bound", "min": float(params.get("min_weight", 0)), "max": float(params.get("max_weight", 1))})
+        elif "Maximum Number" in ctype or "max_positions" in ctype:
+            max_positions = int(params.get("max_positions", 50))
+        elif "Maximum Capital" in ctype:
+            opt_constraints.append({"type": "max_total_weight", "value": float(params.get("max_capital", 1))})
+        elif "Beta" in ctype or "beta_exposure" in ctype:
+            opt_constraints.append({"type": "beta_exposure", "lower": float(params.get("min_beta", 0)), "upper": float(params.get("max_beta", 2))})
+
+    # Map objective
+    objective = "maximize_sharpe"
+    for o in strategy.objectives:
+        if not o.is_active:
+            continue
+        otype = o.objective_type or o.name
+        if "Risk Minimization" in otype:
+            objective = "minimize_risk"
+        elif "Return Maximization" in otype:
+            objective = "maximize_return"
+        elif "Tracking Error" in otype:
+            objective = "minimize_tracking_error"
+
+    # Run optimizer
+    try:
+        opt = PortfolioOptimizer(
+            expected_returns=mean_ret.tolist(),
+            covariance_matrix=cov_mat.tolist(),
+            symbols=valid_symbols,
+            risk_free_rate=0.05,
+        )
+        result = opt.optimize(
+            objective=objective,
+            constraints=opt_constraints,
+            stock_betas=np.array(betas),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Optimizer failed: {e}")
+
+    weights = result.get("weights", {})
+    if not weights or result.get("status") == "infeasible":
+        raise HTTPException(status_code=422, detail="Optimizer could not find a feasible portfolio")
+
+    # Post-process max_positions
+    if max_positions and len(weights) > max_positions:
+        sorted_syms = sorted(weights.keys(), key=lambda s: weights[s], reverse=True)
+        kept = sorted_syms[:max_positions]
+        weights = {s: weights[s] for s in kept}
+        total = sum(weights.values())
+        if total > 0:
+            weights = {s: w / total for s, w in weights.items()}
+
+    # Get previous weights from last backtest rebalance (if any)
+    prev_weights: dict[str, float] = {}
+    latest_bt = db.query(Backtest).filter(Backtest.strategy_id == strategy_id).order_by(Backtest.created_at.desc()).first()
+    if latest_bt and latest_bt.results:
+        # Try to get last rebalance weights from results
+        pass  # We don't store per-rebalance weights in the DB yet
+
+    # Build trade list
+    trades = []
+    latest_date = df.index[-1]
+    for sym, target_w in sorted(weights.items(), key=lambda x: -x[1]):
+        prev_w = prev_weights.get(sym, 0)
+        delta = target_w - prev_w
+        action = "BUY" if delta > 0 else ("SELL" if delta < 0 else "HOLD")
+        latest_price = float(df.loc[latest_date, sym]) if sym in df.columns else 0
+
+        trades.append({
+            "symbol": sym,
+            "action": action,
+            "target_weight": round(target_w * 100, 2),
+            "current_weight": round(prev_w * 100, 2),
+            "delta_weight": round(delta * 100, 2),
+            "latest_price": round(latest_price, 2),
+        })
+
+    # Recompute metrics for the new portfolio
+    idx = [valid_symbols.index(s) for s in weights if s in valid_symbols]
+    w_arr = np.array([weights[s] for s in weights if s in valid_symbols])
+    exp_ret = float(mean_ret[idx] @ w_arr)
+    exp_risk = float(np.sqrt(w_arr @ cov_mat[np.ix_(idx, idx)] @ w_arr))
+    sharpe = (exp_ret - 0.05) / max(exp_risk, 1e-10)
+
+    return {
+        "strategy_id": strategy_id,
+        "strategy_name": strategy.fund_name,
+        "rebalance_date": str(latest_date) if hasattr(latest_date, "isoformat") else str(latest_date)[:10],
+        "positions": len(weights),
+        "expected_return": round(exp_ret * 100, 2),
+        "expected_risk": round(exp_risk * 100, 2),
+        "sharpe_ratio": round(sharpe, 2),
+        "trades": trades,
+    }
 
 
 @router.delete("/{strategy_id}")
