@@ -189,13 +189,29 @@ _SAFE_BUILTINS = {
     "map": map, "filter": filter, "abs": abs, "max": max, "min": min,
     "sum": sum, "round": round, "type": type, "isinstance": isinstance,
     "hasattr": hasattr, "getattr": getattr, "bool": bool, "True": True,
-    "False": False, "None": None, "__import__": None,  # block __import__
+    "False": False, "None": None,
 }
+
+# Available library names for the error message
+_AVAILABLE_LIBS = [
+    "pandas/pd", "numpy/np", "math", "statistics", "datetime", "json", "re",
+    "collections", "itertools", "functools", "time", "random", "string",
+    "decimal", "fractions", "copy", "textwrap", "csv", "io",
+]
+
+def _safe_import(name, *args, **kwargs):
+    """Custom __import__ that gives a clear error message."""
+    raise ImportError(
+        f"Cannot import '{name}' — custom imports are disabled in the sandbox.\n"
+        f"Pre-imported libraries (use directly, no import needed): {', '.join(_AVAILABLE_LIBS)}"
+    )
+
+_SAFE_BUILTINS["__import__"] = _safe_import
 
 
 def _build_restricted_globals() -> dict:
     """Build globals dict with safe builtins and pre-imported libraries."""
-    import math, statistics, datetime, json, re, collections, itertools, functools
+    import math, statistics, datetime, json, re, collections, itertools, functools, time, random, string, decimal, fractions, copy, textwrap, csv, io
 
     restricted = {"__builtins__": _SAFE_BUILTINS}
 
@@ -204,6 +220,9 @@ def _build_restricted_globals() -> dict:
         "math": math, "statistics": statistics, "datetime": datetime,
         "json": json, "re": re, "collections": collections,
         "itertools": itertools, "functools": functools,
+        "time": time, "random": random, "string": string,
+        "decimal": decimal, "fractions": fractions, "copy": copy,
+        "textwrap": textwrap, "csv": csv, "io": io,
     }
 
     # Optional heavy libs — skip if not installed
