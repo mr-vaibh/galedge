@@ -370,7 +370,7 @@ export default function PeerComparisonPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Side-by-Side Comparison</CardTitle>
-              <CardControls title="Side-by-Side Comparison" fullscreen expandContent={
+              <CardControls title="Side-by-Side Comparison" expandContent={
                 <div className="overflow-auto">
                   <table className="w-full text-[10px]">
                     <thead>
