@@ -23,6 +23,43 @@ interface Props {
 }
 
 async function downloadCardAsImage(cardEl: HTMLElement, filename: string) {
+  // Convert all SVGs in the card to canvas elements first (html2canvas can't handle SVGs well)
+  const svgs = cardEl.querySelectorAll("svg");
+  const replacements: { svg: SVGElement; canvas: HTMLCanvasElement }[] = [];
+
+  for (const svg of Array.from(svgs)) {
+    try {
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(svgBlob);
+      const img = new Image();
+
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = svg.clientWidth * 2;
+          canvas.height = svg.clientHeight * 2;
+          canvas.style.width = svg.clientWidth + "px";
+          canvas.style.height = svg.clientHeight + "px";
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.scale(2, 2);
+            ctx.drawImage(img, 0, 0, svg.clientWidth, svg.clientHeight);
+          }
+          svg.parentNode?.insertBefore(canvas, svg);
+          svg.style.display = "none";
+          replacements.push({ svg: svg as SVGElement, canvas });
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        img.onerror = reject;
+        img.src = url;
+      });
+    } catch {
+      // Skip SVGs that can't be converted
+    }
+  }
+
   try {
     const mod = await import("html2canvas");
     const html2canvas = mod.default || mod;
@@ -30,8 +67,6 @@ async function downloadCardAsImage(cardEl: HTMLElement, filename: string) {
       backgroundColor: "#0a0a0a",
       scale: 2,
       logging: false,
-      useCORS: true,
-      allowTaint: true,
     });
     const link = document.createElement("a");
     link.download = `${filename}.png`;
@@ -41,19 +76,13 @@ async function downloadCardAsImage(cardEl: HTMLElement, filename: string) {
     document.body.removeChild(link);
   } catch (err) {
     console.error("Image download failed:", err);
-    // Fallback: use native browser screenshot
-    try {
-      const range = document.createRange();
-      range.selectNode(cardEl);
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-      document.execCommand("copy");
-      selection?.removeAllRanges();
-      alert("Card copied to clipboard. Paste into an image editor.");
-    } catch {
-      alert("Image export failed. Try right-clicking the card and selecting 'Inspect' → 'Capture screenshot'.");
-    }
+    alert("Image export failed. Check console for details.");
+  }
+
+  // Restore SVGs
+  for (const { svg, canvas } of replacements) {
+    svg.style.display = "";
+    canvas.parentNode?.removeChild(canvas);
   }
 }
 
