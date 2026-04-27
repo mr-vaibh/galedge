@@ -213,9 +213,9 @@ export default function OptimizerPage() {
               {UNIVERSES.map((u) => (
                 <Button
                   key={u}
-                  variant={universe === u ? "secondary" : "outline"}
+                  variant="outline"
                   size="sm"
-                  className="h-7 text-[10px]"
+                  className={`h-7 text-[10px] transition-all ${universe === u ? "border-emerald-500 bg-emerald-500/10 text-emerald-400" : ""}`}
                   onClick={() => setUniverse(u)}
                 >
                   {u}
