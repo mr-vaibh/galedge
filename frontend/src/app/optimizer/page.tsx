@@ -97,60 +97,37 @@ export default function OptimizerPage() {
     setResult(null);
 
     try {
-      // Generate sample expected returns and covariance from random data
-      // In production, these come from the factor model
-      const n = symbols.length;
-      const expectedReturns = symbols.map(() => 0.05 + Math.random() * 0.15);
-      const covMatrix = Array.from({ length: n }, (_, i) =>
-        Array.from({ length: n }, (_, j) => {
-          if (i === j) return 0.02 + Math.random() * 0.04;
-          const cov = (0.005 + Math.random() * 0.01) * (Math.random() > 0.3 ? 1 : -1);
-          return cov;
-        })
-      );
-      // Make symmetric
-      for (let i = 0; i < n; i++) {
-        for (let j = i + 1; j < n; j++) {
-          covMatrix[j][i] = covMatrix[i][j];
+      // Map constraints to backend format
+      const mappedConstraints = constraints.map(c => {
+        const flat: Record<string, unknown> = { type: c.type };
+        const p = c.params;
+        if (c.type === "position_size_bound") {
+          flat.min = Number(p.min_weight) || 0;
+          flat.max = Number(p.max_weight) || 1;
+        } else if (c.type === "max_positions") {
+          flat.value = Number(p.max_positions) || 10;
+        } else if (c.type === "beta_exposure") {
+          flat.lower = Number(p.min_beta) || 0;
+          flat.upper = Number(p.max_beta) || 2;
+        } else if (c.type === "turnover") {
+          flat.value = Number(p.max_turnover) || 0.5;
+        } else if (c.type === "sector_constraint") {
+          flat.sector = p.sector || "";
+          flat.min = Number(p.min_weight) || 0;
+          flat.max = Number(p.max_weight) || 1;
         }
-      }
+        return flat;
+      });
 
-      // Benchmark weights (equal-weight) — needed for tracking error
-      const benchmarkWeights = symbols.map(() => 1.0 / symbols.length);
-
-      const body: Record<string, unknown> = {
-        symbols,
-        expected_returns: expectedReturns,
-        covariance_matrix: covMatrix,
-        objective,
-        benchmark_weights: objective === "minimize_tracking_error" ? benchmarkWeights : undefined,
-        constraints: constraints.map(c => {
-          const flat: Record<string, unknown> = { type: c.type };
-          // Map frontend param names to backend ConstraintSpec fields
-          const p = c.params;
-          if (c.type === "position_size_bound") {
-            flat.min = Number(p.min_weight) || 0;
-            flat.max = Number(p.max_weight) || 1;
-          } else if (c.type === "max_positions") {
-            flat.value = Number(p.max_positions) || 10;
-          } else if (c.type === "beta_exposure") {
-            flat.min = Number(p.min_beta) || 0;
-            flat.max = Number(p.max_beta) || 2;
-          } else if (c.type === "turnover") {
-            flat.value = Number(p.max_turnover) || 0.5;
-          } else if (c.type === "sector_constraint") {
-            flat.sector = p.sector || "";
-            flat.min = Number(p.min_weight) || 0;
-            flat.max = Number(p.max_weight) || 1;
-          }
-          return flat;
-        }),
-      };
-
-      const res = await fetch(`${API_BASE}/api/optimize`, {
+      // Use smart endpoint — computes real returns/covariance from DB prices
+      const res = await fetch(`${API_BASE}/api/optimize/smart`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          universe: "NIFTY 50",
+          objective,
+          constraints: mappedConstraints,
+        }),
       });
 
       if (!res.ok) {
@@ -160,19 +137,7 @@ export default function OptimizerPage() {
 
       const data = await res.json();
       setResult(data);
-
-      // Also compute efficient frontier
-      setFrontierLoading(true);
-      const frontierRes = await fetch(`${API_BASE}/api/optimize/efficient-frontier`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...body, n_points: 20 }),
-      });
-      if (frontierRes.ok) {
-        const fData = await frontierRes.json();
-        setFrontier(fData.frontier || []);
-      }
-      setFrontierLoading(false);
+      setFrontier([]);
 
     } catch (e) {
       setError(e instanceof Error ? e.message : "Optimization failed");
