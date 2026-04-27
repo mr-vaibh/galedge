@@ -54,16 +54,11 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
     const content = card.querySelector("[data-slot='card-content']");
     if (!content) return;
 
-    // Check if content has charts (SVG/recharts) — skip expand for charts
+    // Charts can't be expanded (SVGs don't clone properly)
     const hasChart = content.querySelector(".recharts-wrapper, .recharts-responsive-container, svg.recharts-surface");
-    if (hasChart) {
-      // For charts: just use the data table if data is available
-      setExpandHtml("");
-      setExpanded(true);
-      return;
-    }
+    if (hasChart) return;
 
-    // For tables/text: clone the content
+    // Clone table/text content
     const clone = content.cloneNode(true) as HTMLElement;
     // Remove max-height constraints
     clone.querySelectorAll("[class*='max-h-']").forEach((el) => {
@@ -171,39 +166,9 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
               </div>
             </div>
 
-            {/* Content */}
+            {/* Content — cloned DOM from the card */}
             <div className="overflow-auto flex-1 min-h-0">
-              {expandHtml ? (
-                <div className="w-full h-full p-1 [&_table]:h-full [&_table]:w-full [&>div]:h-full [&>div]:w-full [&_*]:max-h-none" dangerouslySetInnerHTML={{ __html: expandHtml }} />
-              ) : data && data.length > 0 ? (
-                <table className="w-full text-[11px]">
-                  <thead className="sticky top-0 bg-neutral-900 z-10">
-                    <tr className="border-b border-neutral-700">
-                      {Object.keys(data[0]).filter(k => {
-                        const v = data[0][k];
-                        return v === null || v === undefined || typeof v !== "object";
-                      }).map((key) => (
-                        <th key={key} className="px-3 py-2 text-left text-muted-foreground font-medium whitespace-nowrap">
-                          {key.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase())}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.map((row, i) => (
-                      <tr key={i} className="border-b border-neutral-800 hover:bg-neutral-800/30">
-                        {Object.entries(row).filter(([, v]) => v === null || v === undefined || typeof v !== "object").map(([, val], j) => (
-                          <td key={j} className="px-3 py-1.5 tabular-nums whitespace-nowrap">{val == null ? "—" : String(val)}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="text-center text-muted-foreground py-12 text-sm">
-                  No data available for this card.
-                </div>
-              )}
+              <div className="w-full h-full p-1 [&_table]:h-full [&_table]:w-full [&>div]:h-full [&>div]:w-full [&_*]:max-h-none" dangerouslySetInnerHTML={{ __html: expandHtml }} />
             </div>
           </div>
         </div>,
