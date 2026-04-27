@@ -48,9 +48,8 @@ export function SearchBar() {
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter" && query.trim()) {
-      setOpen(false);
-      router.push(`/stock/${query.trim().toUpperCase()}`);
+    if (e.key === "Enter" && results.length > 0) {
+      handleSelect(results[0].symbol);
     }
   }
 
