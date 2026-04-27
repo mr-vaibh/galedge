@@ -292,19 +292,24 @@ export default function FactorSummaryPage() {
                 </SelectContent>
               </Select>
             </div>
-            {corrFactors.length >= 2 && corrMatrix.length > 0 ? (
-              <TimeSeriesChart
-                data={Array.from({ length: 50 }, (_, i) => ({
-                  date: `2025-${String(Math.floor(i / 4) + 1).padStart(2, "0")}-01`,
-                  correlation: corrMatrix[0]?.[1] + Math.sin(i * 0.1) * 0.15 || 0,
-                }))}
-                series={[{ key: "correlation", name: `${corrFactors[0]} vs ${corrFactors[1]}`, color: "#f97316" }]}
-                height={200}
-                yFormatter={(v) => v.toFixed(2)}
-              />
-            ) : (
+            {corrFactors.length >= 2 && corrMatrix.length > 0 ? (() => {
+              const f1Idx = factors.findIndex(f => f.factor === corrFactors[0]);
+              const f2Idx = factors.findIndex(f => f.factor === corrFactors[1]);
+              const corrVal = (f1Idx >= 0 && f2Idx >= 0 && corrMatrix[f1Idx]) ? corrMatrix[f1Idx][f2Idx] : 0;
+              return (
+                <div className="h-48 flex flex-col items-center justify-center">
+                  <div className="text-[10px] text-muted-foreground mb-2">{corrFactors[0]} vs {corrFactors[1]}</div>
+                  <div className={`text-4xl font-bold tabular-nums ${corrVal >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {corrVal.toFixed(4)}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground mt-2">
+                    {Math.abs(corrVal) > 0.7 ? "Strong" : Math.abs(corrVal) > 0.3 ? "Moderate" : "Weak"} {corrVal >= 0 ? "positive" : "negative"} correlation
+                  </div>
+                </div>
+              );
+            })() : (
               <div className="h-48 flex items-center justify-center text-muted-foreground text-xs">
-                Select two factors above to view rolling correlation
+                Select two factors above to view correlation
               </div>
             )}
           </CardContent>

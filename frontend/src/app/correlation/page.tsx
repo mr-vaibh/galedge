@@ -24,7 +24,7 @@ function corrColor(val: number): string {
 }
 
 export default function CorrelationPage() {
-  const [symbols, setSymbols] = useState<string[]>(["AAPL", "MSFT", "GOOGL", "AMZN"]);
+  const [symbols, setSymbols] = useState<string[]>(["RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS"]);
   const [period, setPeriod] = useState("1y");
   const [data, setData] = useState<CorrelationResponse | null>(null);
   const [loading, setLoading] = useState(false);

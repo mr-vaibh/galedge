@@ -37,7 +37,7 @@ const FUND_METRICS = [
 ];
 
 export default function ComparePage() {
-  const [symbols, setSymbols] = useState<string[]>(["AAPL", "MSFT"]);
+  const [symbols, setSymbols] = useState<string[]>(["RELIANCE.NS", "HDFCBANK.NS"]);
   const [activePeriod, setActivePeriod] = useState(2);
   const [data, setData] = useState<CompareResponse | null>(null);
   const [loading, setLoading] = useState(false);

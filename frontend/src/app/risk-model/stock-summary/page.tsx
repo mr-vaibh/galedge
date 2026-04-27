@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { X, Search, Loader2, Download } from "lucide-react";
-import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
+import { BarChartPanel } from "@/components/charts/BarChartPanel";
 import { api } from "@/lib/api";
 import { CardControls } from "@/components/CardControls";
 
@@ -55,21 +55,8 @@ export default function StockSummaryPage() {
   };
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && search.trim()) {
-      // If there are search results, add the first one
-      if (searchResults.length > 0) {
-        addStock(searchResults[0]);
-      } else {
-        // Try adding directly by symbol
-        const symbol = search.trim().toUpperCase();
-        const alreadyExists = selected.some((s) => s.symbol === symbol || s.symbol === `${symbol}.NS`);
-        if (!alreadyExists) {
-          const color = CHART_COLORS[selected.length % CHART_COLORS.length];
-          setSelected([...selected, { symbol: `${symbol}.NS`, name: symbol, color }]);
-        }
-        setSearch("");
-        setSearchResults([]);
-      }
+    if (e.key === "Enter" && searchResults.length > 0) {
+      addStock(searchResults[0]);
     }
   };
 
@@ -265,14 +252,14 @@ export default function StockSummaryPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {["MARKET", "BETA", "SIZE", "LTMOM", "EARNYILD", "VALUE", "TOTAL"].map((f) => (
+                  {factorNames.slice(0, 7).map((f) => (
                     <tr key={f} className="border-b border-border/30 hover:bg-muted/30">
                       <td className="px-2 py-1.5 font-medium text-muted-foreground">{f}</td>
                       {selected.slice(0, 3).map((s) => {
-                        const v = (Math.sin(f.length * s.symbol.length * 0.7) * 5).toFixed(2);
+                        const v = exposures[s.symbol]?.[f] ?? 0;
                         return (
-                          <td key={s.symbol} className={`px-2 py-1.5 text-right tabular-nums ${parseFloat(v) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                            {v}%
+                          <td key={s.symbol} className={`px-2 py-1.5 text-right tabular-nums ${v >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                            {v.toFixed(2)}
                           </td>
                         );
                       })}
@@ -284,29 +271,26 @@ export default function StockSummaryPage() {
           </CardContent>
         </Card>
 
-        {/* Return Decomposition Chart */}
+        {/* Factor Exposure Chart */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2 flex-row items-center justify-between">
-            <CardTitle className="text-sm">Return Decomposition — {selected[0]?.symbol.replace(".NS", "") || "Select stock"}</CardTitle>
+            <CardTitle className="text-sm">Factor Exposures — {selected[0]?.symbol.replace(".NS", "") || "Select stock"}</CardTitle>
             <CardControls />
           </CardHeader>
           <CardContent className="p-2">
-            <TimeSeriesChart
-              data={Array.from({ length: 100 }, (_, i) => ({
-                date: `2025-${String(Math.floor(i / 8) + 1).padStart(2, "0")}-${String((i % 8) * 3 + 1).padStart(2, "0")}`,
-                MARKET: 5 + Math.sin(i * 0.1) * 8,
-                BETA: -2 + Math.cos(i * 0.15) * 3,
-                LTMOM: 3 + Math.cos(i * 0.08) * 5,
-                TOTAL: 8 + Math.sin(i * 0.05) * 15,
-              }))}
-              series={[
-                { key: "MARKET", name: "MARKET", color: "#3b82f6" },
-                { key: "BETA", name: "BETA", color: "#10b981" },
-                { key: "LTMOM", name: "LTMOM", color: "#a855f7" },
-                { key: "TOTAL", name: "TOTAL", color: "#ef4444" },
-              ]}
-              height={250}
-            />
+            {selected.length > 0 && exposures[selected[0].symbol] ? (
+              <BarChartPanel
+                data={Object.entries(exposures[selected[0].symbol] || {}).map(([f, v]) => ({
+                  name: f,
+                  value: parseFloat(v.toFixed(2)),
+                }))}
+                height={250}
+              />
+            ) : (
+              <div className="h-[250px] flex items-center justify-center text-muted-foreground text-xs">
+                Select stocks and load exposures to view chart
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
