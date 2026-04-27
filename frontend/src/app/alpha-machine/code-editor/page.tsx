@@ -497,7 +497,7 @@ export default function CodeEditorPage() {
             <span className="text-[10px] text-muted-foreground font-medium">OUTPUT</span>
             {running && <Loader2 className="h-3 w-3 animate-spin text-emerald-400" />}
           </div>
-          <pre className="p-3 text-[11px] font-mono text-emerald-400 overflow-auto" style={{ height: outputHeight - 28 - 22 }}>
+          <pre className="p-3 text-[11px] font-mono text-emerald-400 overflow-auto whitespace-pre-wrap break-words" style={{ height: outputHeight - 28 - 22 }}>
             {output || "Click Run to execute your code..."}
           </pre>
           {/* Security notice */}

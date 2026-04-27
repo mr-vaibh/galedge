@@ -194,7 +194,7 @@ _SAFE_BUILTINS = {
 
 # Available library names for the error message
 _AVAILABLE_LIBS = [
-    "pandas/pd", "numpy/np", "math", "statistics", "datetime", "json", "re",
+    "pandas (as pd)", "numpy (as np)", "math", "statistics", "datetime", "json", "re",
     "collections", "itertools", "functools", "time", "random", "string",
     "decimal", "fractions", "copy", "textwrap", "csv", "io",
 ]
