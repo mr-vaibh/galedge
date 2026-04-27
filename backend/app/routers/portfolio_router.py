@@ -2,18 +2,63 @@
 
 import csv
 import io
+import logging
+import threading
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.models.user import User
 from app.models.portfolio import Portfolio, PortfolioHolding
+from app.models.market_data import StockPrice
 from app.auth import require_user, get_current_user
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/portfolios", tags=["portfolios"])
+
+
+def _auto_ingest_missing(raw_symbols: list[str], db: Session):
+    """Check which symbols need price data and ingest in background thread."""
+    # Map bare symbols to .NS suffix candidates
+    symbols_to_check = []
+    for s in raw_symbols:
+        if "." in s:
+            symbols_to_check.append(s)
+        else:
+            symbols_to_check.append(f"{s}.NS")
+
+    # Check which are missing from DB
+    missing = []
+    for sym in symbols_to_check:
+        exists = db.query(StockPrice.id).filter(StockPrice.symbol == sym).first()
+        if not exists:
+            missing.append(sym)
+
+    if not missing:
+        logger.info("All %d symbols already have price data", len(symbols_to_check))
+        return
+
+    logger.info("Auto-ingesting price data for %d missing symbols: %s", len(missing), missing)
+
+    def _ingest_in_background(syms: list[str]):
+        try:
+            from app.services.data_ingestion import ingest_prices, ingest_stock_info
+            bg_db = SessionLocal()
+            try:
+                ingest_prices(bg_db, syms, period="2y")
+                ingest_stock_info(bg_db, syms)
+                logger.info("Auto-ingestion complete for %d symbols", len(syms))
+            finally:
+                bg_db.close()
+        except Exception as e:
+            logger.error("Auto-ingestion failed: %s", e)
+
+    thread = threading.Thread(target=_ingest_in_background, args=(missing,), daemon=True)
+    thread.start()
 
 
 class PortfolioCreate(BaseModel):
@@ -135,6 +180,10 @@ async def upload_holdings(
     portfolio.start_date = portfolio.start_date or date.fromisoformat(holding_date)
     portfolio.end_date = date.fromisoformat(holding_date)
     db.commit()
+
+    # Auto-ingest missing price and info data in background
+    raw_symbols = [h.symbol for h in holdings]
+    _auto_ingest_missing(raw_symbols, db)
 
     return {"uploaded": len(holdings), "total_semv": total_semv}
 
