@@ -37,7 +37,13 @@ export default function UploadPortfolioPage() {
   const [fund, setFund] = useState("");
   const [scheme, setScheme] = useState("");
   const [benchmark, setBenchmark] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(() => {
+    const d = new Date();
+    const day = d.getDay();
+    if (day === 0) d.setDate(d.getDate() - 2); // Sunday → Friday
+    else if (day === 6) d.setDate(d.getDate() - 1); // Saturday → Friday
+    return d.toISOString().split("T")[0];
+  });
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
