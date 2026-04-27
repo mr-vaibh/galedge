@@ -5,16 +5,21 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Code2, Terminal, ExternalLink, RefreshCw } from "lucide-react";
 
-// HTTPS: use code.galedge subdomain. HTTP/local: use port 8080.
-const CODE_SERVER_URL = process.env.NEXT_PUBLIC_CODE_SERVER_URL || (typeof window !== "undefined"
-  ? window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-    ? "http://localhost:8080"
-    : `https://code.${window.location.hostname.replace(/^www\./, "")}`
-  : "http://localhost:8080");
+function getCodeServerUrl() {
+  if (process.env.NEXT_PUBLIC_codeServerUrl) return process.env.NEXT_PUBLIC_codeServerUrl;
+  if (typeof window === "undefined") return "";
+  const h = window.location.hostname;
+  if (h === "localhost" || h === "127.0.0.1") return "http://localhost:8080";
+  return `https://code.${h.replace(/^www\./, "")}`;
+}
 
 export default function CodeEditorPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [codeServerUrl, setCodeServerUrl] = useState("");
+
+  // Resolve URL only on client to avoid SSR hydration mismatch
+  useState(() => { setCodeServerUrl(getCodeServerUrl()); });
 
   return (
     <div className="flex flex-col h-[calc(100vh-48px)]">
@@ -39,7 +44,7 @@ export default function CodeEditorPage() {
             variant="outline"
             size="sm"
             className="h-7 text-[10px] gap-1"
-            onClick={() => window.open(CODE_SERVER_URL, "_blank")}
+            onClick={() => window.open(codeServerUrl, "_blank")}
           >
             <ExternalLink className="h-3 w-3" /> Open in New Tab
           </Button>
@@ -71,7 +76,7 @@ export default function CodeEditorPage() {
                 <p>code-server --bind-addr 0.0.0.0:8080 --auth none</p>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Or set <code className="text-[10px] bg-neutral-800 px-1 py-0.5 rounded">NEXT_PUBLIC_CODE_SERVER_URL</code> environment variable.
+                Or set <code className="text-[10px] bg-neutral-800 px-1 py-0.5 rounded">NEXT_PUBLIC_codeServerUrl</code> environment variable.
               </p>
               <Button size="sm" className="mt-3" onClick={() => { setError(false); setLoading(true); }}>
                 <RefreshCw className="h-3.5 w-3.5 mr-1" /> Retry
@@ -80,14 +85,14 @@ export default function CodeEditorPage() {
           </div>
         )}
 
-        <iframe
-          src={CODE_SERVER_URL}
+        {codeServerUrl && <iframe
+          src={codeServerUrl}
           className="w-full h-full border-0"
           onLoad={() => setLoading(false)}
           onError={() => { setLoading(false); setError(true); }}
           allow="clipboard-read; clipboard-write"
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
-        />
+        />}
       </div>
     </div>
   );
