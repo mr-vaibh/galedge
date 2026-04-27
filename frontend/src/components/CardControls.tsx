@@ -22,23 +22,39 @@ interface Props {
   fullscreen?: boolean;
 }
 
-function downloadCardAsImage(cardEl: HTMLElement, filename: string) {
-  // Use html2canvas dynamically
-  import("html2canvas").then(({ default: html2canvas }) => {
-    html2canvas(cardEl, {
+async function downloadCardAsImage(cardEl: HTMLElement, filename: string) {
+  try {
+    const mod = await import("html2canvas");
+    const html2canvas = mod.default || mod;
+    const canvas = await html2canvas(cardEl, {
       backgroundColor: "#0a0a0a",
-      scale: 2, // 2x resolution
+      scale: 2,
       logging: false,
       useCORS: true,
-    }).then((canvas) => {
-      const a = document.createElement("a");
-      a.href = canvas.toDataURL("image/png");
-      a.download = `${filename}.png`;
-      a.click();
+      allowTaint: true,
     });
-  }).catch(() => {
-    alert("Image export requires html2canvas. Install it with: npm install html2canvas");
-  });
+    const link = document.createElement("a");
+    link.download = `${filename}.png`;
+    link.href = canvas.toDataURL("image/png", 1.0);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (err) {
+    console.error("Image download failed:", err);
+    // Fallback: use native browser screenshot
+    try {
+      const range = document.createRange();
+      range.selectNode(cardEl);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      document.execCommand("copy");
+      selection?.removeAllRanges();
+      alert("Card copied to clipboard. Paste into an image editor.");
+    } catch {
+      alert("Image export failed. Try right-clicking the card and selecting 'Inspect' → 'Capture screenshot'.");
+    }
+  }
 }
 
 export function CardControls({ data, filename = "export", info, onFilter, filterable, title, expandContent, fullscreen }: Props) {
