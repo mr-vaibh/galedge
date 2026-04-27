@@ -30,7 +30,7 @@ async function downloadCardAsImage(cardEl: HTMLElement, filename: string) {
       backgroundColor: "#0a0a0a",
     });
     const link = document.createElement("a");
-    link.download = makeFilename(filename, "png");
+    link.download = filename;
     link.href = dataUrl;
     document.body.appendChild(link);
     link.click();
@@ -64,16 +64,15 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
   }
 
   function handleDownload() {
+    const name = title || filename;
     if (data && data.length > 0) {
-      // Table data → CSV
-      downloadCSV(data, makeFilename(filename, "csv"));
+      downloadCSV(data, makeFilename(name, "csv"));
     } else {
-      // Chart/heatmap → capture as image
       const el = containerRef.current;
       if (!el) return;
       const card = el.closest("[data-slot='card']") as HTMLElement | null;
       if (card) {
-        downloadCardAsImage(card, filename);
+        downloadCardAsImage(card, makeFilename(name, "png"));
       }
     }
   }
