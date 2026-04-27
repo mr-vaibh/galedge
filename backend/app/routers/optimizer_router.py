@@ -167,6 +167,7 @@ def efficient_frontier(body: EfficientFrontierRequest) -> list[OptimizeResponse]
 class SmartOptimizeRequest(BaseModel):
     """Universe-based optimization — server computes returns & covariance."""
     universe: str = "NIFTY 50"
+    symbols: list[str] | None = None  # Custom symbols override universe
     objective: str = "maximize_sharpe"
     constraints: list[ConstraintSpec] = Field(default_factory=list)
     risk_free_rate: float = 0.05
@@ -177,7 +178,11 @@ def smart_optimize(body: SmartOptimizeRequest, db: Session = Depends(get_db)):
     """Run optimization using DB price data — no client-side matrix needed."""
     import pandas as pd
 
-    symbols = UNIVERSE_MAP.get(body.universe, ALL_NSE_STOCKS[:50])
+    # Use custom symbols if provided, otherwise use universe
+    if body.symbols and len(body.symbols) >= 2:
+        symbols = body.symbols
+    else:
+        symbols = UNIVERSE_MAP.get(body.universe, ALL_NSE_STOCKS[:50])
 
     # Fetch prices from DB
     prices = (

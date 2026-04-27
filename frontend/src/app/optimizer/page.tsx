@@ -73,7 +73,10 @@ const DEFAULT_SYMBOLS = [
   "BAJFINANCE.NS", "MARUTI.NS", "HCLTECH.NS", "AXISBANK.NS", "TATAMOTORS.NS",
 ];
 
+const UNIVERSES = ["NIFTY 50", "NIFTY 100", "NIFTY NEXT 50", "NIFTY 500", "Custom"];
+
 export default function OptimizerPage() {
+  const [universe, setUniverse] = useState("NIFTY 50");
   const [symbols, setSymbols] = useState<string[]>(DEFAULT_SYMBOLS.slice(0, 8));
   const [objective, setObjective] = useState("minimize_risk");
   const [constraints, setConstraints] = useState<Constraint[]>([
@@ -132,14 +135,20 @@ export default function OptimizerPage() {
       });
 
       // Use smart endpoint — computes real returns/covariance from DB prices
+      const payload: Record<string, unknown> = {
+        objective,
+        constraints: mappedConstraints,
+      };
+      if (universe === "Custom") {
+        payload.symbols = symbols;
+      } else {
+        payload.universe = universe;
+      }
+
       const res = await fetch(`${API_BASE}/api/optimize/smart`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          universe: "NIFTY 50",
-          objective,
-          constraints: mappedConstraints,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -194,13 +203,32 @@ export default function OptimizerPage() {
 
       {/* Configuration */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Symbols */}
+        {/* Universe */}
         <Card className="lg:col-span-2 overflow-visible">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Stock Universe</CardTitle>
           </CardHeader>
-          <CardContent className="overflow-visible">
-            <SymbolMultiSelect value={symbols} onChange={setSymbols} max={20} placeholder="Add stocks to optimize..." />
+          <CardContent className="overflow-visible space-y-3">
+            <div className="flex gap-1.5 flex-wrap">
+              {UNIVERSES.map((u) => (
+                <Button
+                  key={u}
+                  variant={universe === u ? "secondary" : "outline"}
+                  size="sm"
+                  className="h-7 text-[10px]"
+                  onClick={() => setUniverse(u)}
+                >
+                  {u}
+                </Button>
+              ))}
+            </div>
+            {universe === "Custom" ? (
+              <SymbolMultiSelect value={symbols} onChange={setSymbols} max={30} placeholder="Add stocks to optimize..." />
+            ) : (
+              <p className="text-[10px] text-muted-foreground">
+                Optimizing across all {universe} stocks using real historical price data.
+              </p>
+            )}
           </CardContent>
         </Card>
 
