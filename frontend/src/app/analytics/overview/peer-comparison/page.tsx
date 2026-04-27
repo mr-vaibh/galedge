@@ -9,6 +9,7 @@ import { BarChartPanel } from "@/components/charts/BarChartPanel";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
 import { useAuth } from "@/lib/auth";
+import { useCurrency } from "@/lib/currency";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
@@ -53,22 +54,26 @@ interface PerfMetrics {
 const pct = (v: number | undefined | null) => (v != null ? `${v.toFixed(2)}%` : "—");
 const raw = (v: number | undefined | null) => (v != null ? v.toFixed(2) : "—");
 
-const METRICS_CONFIG = [
-  { label: "Total Return (%)", key: "total_return", format: pct },
-  { label: "CAGR (%)", key: "annualised_return", format: pct },
-  { label: "Sharpe Ratio", key: "sharpe_ratio", format: raw },
-  { label: "Volatility (%)", key: "volatility", format: pct },
-  { label: "Max Drawdown (%)", key: "max_drawdown", format: pct },
-  { label: "Holdings", key: "num_holdings", format: (v: number | undefined | null) => (v != null ? String(v) : "—") },
-  { label: "AUM", key: "total_aum_cr", format: (v: number | undefined | null) => (v != null ? `₹${v} Cr` : "—") },
-  { label: "Trading Days", key: "trading_days", format: (v: number | undefined | null) => (v != null ? String(v) : "—") },
-] as const;
+function getMetricsConfig(formatCurrencyCompact: (v: number, from?: string) => string) {
+  return [
+    { label: "Total Return (%)", key: "total_return", format: pct },
+    { label: "CAGR (%)", key: "annualised_return", format: pct },
+    { label: "Sharpe Ratio", key: "sharpe_ratio", format: raw },
+    { label: "Volatility (%)", key: "volatility", format: pct },
+    { label: "Max Drawdown (%)", key: "max_drawdown", format: pct },
+    { label: "Holdings", key: "num_holdings", format: (v: number | undefined | null) => (v != null ? String(v) : "—") },
+    { label: "AUM", key: "total_aum_cr", format: (v: number | undefined | null) => (v != null ? formatCurrencyCompact(v * 1e7, "INR") : "—") },
+    { label: "Trading Days", key: "trading_days", format: (v: number | undefined | null) => (v != null ? String(v) : "—") },
+  ] as const;
+}
 
 export default function PeerComparisonPage() {
   const router = useRouter();
   const pathname = usePathname();
   const { selectedPortfolioId, selectedFundName } = usePortfolio();
   const { token } = useAuth();
+  const { formatCurrencyCompact } = useCurrency();
+  const METRICS_CONFIG = getMetricsConfig(formatCurrencyCompact);
 
   const [availablePortfolios, setAvailablePortfolios] = useState<PortfolioSummary[]>([]);
   const [perfCache, setPerfCache] = useState<Record<number, PerfMetrics>>({});

@@ -9,6 +9,7 @@ import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
 import { useAuth } from "@/lib/auth";
+import { useCurrency } from "@/lib/currency";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
@@ -25,6 +26,7 @@ export default function PerformanceSummaryPage() {
   const { token } = useAuth();
   const { selectedPortfolioId, selectedFundName } = usePortfolio();
 
+  const { formatCurrencyCompact, symbol } = useCurrency();
   const portfolioId = selectedPortfolioId;
 
   const [metrics, setMetrics] = useState<Record<string, unknown> | null>(null);
@@ -191,8 +193,8 @@ export default function PerformanceSummaryPage() {
               <table className="w-full text-[10px]">
                 <tbody>
                   {[
-                    ["Initial Capital", metrics.initial_capital ? `₹${(Number(metrics.initial_capital) / 1e7).toFixed(2)} Cr` : metrics.aum ? `₹${metrics.aum} Cr` : "—"],
-                    ["Final Value", metrics.final_value ? `₹${(Number(metrics.final_value) / 1e7).toFixed(2)} Cr` : "—"],
+                    ["Initial Capital", metrics.initial_capital ? formatCurrencyCompact(Number(metrics.initial_capital), "INR") : metrics.aum ? formatCurrencyCompact(Number(metrics.aum) * 1e7, "INR") : "—"],
+                    ["Final Value", metrics.final_value ? formatCurrencyCompact(Number(metrics.final_value), "INR") : "—"],
                     ["Rebalances", metrics.total_rebalances ?? "—"],
                     ["Fund", metrics.fund_name ?? selectedFundName ?? "Demo"],
                   ].map(([l, v]) => (
@@ -215,10 +217,10 @@ export default function PerformanceSummaryPage() {
             <CardContent className="p-2">
               {equityCurve.length > 0 ? (
                 <TimeSeriesChart
-                  data={equityCurve.map(e => ({ date: String(e.date), value: Number(e.value) / 1e5 }))}
-                  series={[{ key: "value", name: "Value (₹L)", color: "#f97316" }]}
+                  data={equityCurve.map(e => ({ date: String(e.date), value: Number(e.value) }))}
+                  series={[{ key: "value", name: "Value", color: "#f97316" }]}
                   height={180}
-                  yFormatter={(v) => `${v.toFixed(0)}L`}
+                  yFormatter={(v) => formatCurrencyCompact(v, "INR")}
                 />
               ) : <div className="h-44 flex items-center justify-center text-[10px] text-muted-foreground">No equity curve — select a portfolio and run backtest</div>}
             </CardContent>
@@ -249,9 +251,9 @@ export default function PerformanceSummaryPage() {
               {equityCurve.length > 0 ? (
                 <TimeSeriesChart
                   data={equityCurve.map(e => ({ date: String(e.date), v: Number(e.value) }))}
-                  series={[{ key: "v", name: "₹", color: "#10b981" }]}
+                  series={[{ key: "v", name: "Value", color: "#10b981" }]}
                   height={180}
-                  yFormatter={(v) => `${(v / 1e7).toFixed(2)}Cr`}
+                  yFormatter={(v) => formatCurrencyCompact(v, "INR")}
                 />
               ) : <div className="h-44 flex items-center justify-center text-[10px] text-muted-foreground">No data</div>}
             </CardContent>

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RefreshCw, Plus, Loader2, Rocket, ArrowDown, Trash2, Zap, X, Download } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { useCurrency } from "@/lib/currency";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
@@ -52,6 +53,7 @@ interface RebalanceResult {
 export default function StrategyBuilderPage() {
   const router = useRouter();
   const { token } = useAuth();
+  const { formatCurrencyCompact, formatCurrency, symbol } = useCurrency();
   const [tab, setTab] = useState("backtest");
   const [strategies, setStrategies] = useState<StrategyItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -154,7 +156,7 @@ export default function StrategyBuilderPage() {
 
   function downloadTradeList() {
     if (!rebalanceResult) return;
-    const header = "Symbol,Action,Current Weight (%),Target Weight (%),Delta (%),Quantity,Trade Value (\u20B9),Latest Price (\u20B9)";
+    const header = `Symbol,Action,Current Weight (%),Target Weight (%),Delta (%),Quantity,Trade Value (${symbol}),Latest Price (${symbol})`;
     const rows = rebalanceResult.trades.map((t) =>
       `${t.symbol},${t.action},${t.current_weight},${t.target_weight},${t.delta_weight},${t.trade_qty},${t.trade_value},${t.latest_price}`
     );
@@ -344,10 +346,10 @@ export default function StrategyBuilderPage() {
             </div>
             <div className="grid grid-cols-4 gap-3 px-5 py-2 border-b border-neutral-800 bg-neutral-800/30">
               {[
-                ["Portfolio", `₹${(rebalanceResult.portfolio_value / 1e7).toFixed(2)} Cr`],
-                ["Total Buy", `₹${(rebalanceResult.total_buy_value / 1e5).toFixed(1)} L`],
-                ["Total Sell", `₹${(rebalanceResult.total_sell_value / 1e5).toFixed(1)} L`],
-                ["Net Flow", `₹${(rebalanceResult.net_investment / 1e5).toFixed(1)} L`],
+                ["Portfolio", formatCurrencyCompact(rebalanceResult.portfolio_value, "INR")],
+                ["Total Buy", formatCurrencyCompact(rebalanceResult.total_buy_value, "INR")],
+                ["Total Sell", formatCurrencyCompact(rebalanceResult.total_sell_value, "INR")],
+                ["Net Flow", formatCurrencyCompact(rebalanceResult.net_investment, "INR")],
               ].map(([label, val]) => (
                 <div key={label} className="text-center">
                   <div className="text-[9px] text-muted-foreground">{label}</div>
@@ -361,7 +363,7 @@ export default function StrategyBuilderPage() {
               <table className="w-full text-[10px]">
                 <thead className="sticky top-0 bg-neutral-900">
                   <tr className="border-b border-neutral-700">
-                    {["#", "Symbol", "Action", "Current %", "Target %", "Delta %", "Qty", "Value (₹)", "Price (₹)"].map((h) => (
+                    {["#", "Symbol", "Action", "Current %", "Target %", "Delta %", "Qty", `Value (${symbol})`, `Price (${symbol})`].map((h) => (
                       <th key={h} className="px-3 py-2 text-left text-muted-foreground font-medium">{h}</th>
                     ))}
                   </tr>
@@ -391,9 +393,9 @@ export default function StrategyBuilderPage() {
                         {t.trade_qty > 0 ? t.trade_qty.toLocaleString() : "—"}
                       </td>
                       <td className={`px-3 py-1.5 tabular-nums ${t.delta_weight > 0 ? "text-emerald-400" : t.delta_weight < 0 ? "text-red-400" : "text-muted-foreground"}`}>
-                        {t.trade_value > 0 ? `₹${(t.trade_value / 1e5).toFixed(2)}L` : "—"}
+                        {t.trade_value > 0 ? formatCurrencyCompact(t.trade_value, "INR") : "—"}
                       </td>
-                      <td className="px-3 py-1.5 tabular-nums">₹{t.latest_price.toLocaleString()}</td>
+                      <td className="px-3 py-1.5 tabular-nums">{formatCurrency(t.latest_price, "INR")}</td>
                     </tr>
                   ))}
                 </tbody>

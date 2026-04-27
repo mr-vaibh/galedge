@@ -7,6 +7,7 @@ import { BarChartPanel } from "@/components/charts/BarChartPanel";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
 import { useAuth } from "@/lib/auth";
+import { useCurrency } from "@/lib/currency";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
@@ -105,6 +106,7 @@ export default function ReturnsAndRiskPage() {
   const [viewMode, setViewMode] = useState("active");
   const { selectedPortfolioId, selectedFundName } = usePortfolio();
   const { token } = useAuth();
+  const { formatCurrencyCompact } = useCurrency();
 
   const [perfData, setPerfData] = useState<PerformanceData | null>(null);
   const [decompData, setDecompData] = useState<DecompositionData | null>(null);
@@ -241,7 +243,7 @@ export default function ReturnsAndRiskPage() {
             ]} />
             <STable title="Portfolio Info" viewMode={viewMode} rows={[
               ["Holdings", perfData.num_holdings != null ? String(perfData.num_holdings) : "—", "—"],
-              ["AUM", perfData.total_aum_cr != null ? `₹${perfData.total_aum_cr} Cr` : "—", "—"],
+              ["AUM", perfData.total_aum_cr != null ? formatCurrencyCompact(Number(perfData.total_aum_cr) * 1e7, "INR") : "—", "—"],
             ]} />
             <STable title="Return Decomposition" viewMode={viewMode} rows={[
               ["Factor Return", `${factorRet.toFixed(2)}%`, "—"],

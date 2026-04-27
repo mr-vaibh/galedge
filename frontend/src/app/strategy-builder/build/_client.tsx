@@ -6,6 +6,7 @@ import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { Loader2, Plus, Upload, Download, Trash2, Pencil, ChevronDown, Search } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePortfolio } from "@/lib/portfolio-context";
+import { useCurrency } from "@/lib/currency";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -123,6 +124,7 @@ export default function BuildStrategyPageInner() {
   const editId = searchParams.get("id");
   const { token } = useAuth();
   const { selectPortfolio } = usePortfolio();
+  const { formatCurrencyCompact } = useCurrency();
   const [fundName, setFundName] = useState("");
   const [backtestError, setBacktestError] = useState<string | null>(null);
   const [schemeName, setSchemeName] = useState("");
@@ -716,7 +718,7 @@ export default function BuildStrategyPageInner() {
                 ["Sharpe", `${(backtestResults as Record<string,unknown>).sharpe_ratio}`],
                 ["Max DD", `${(backtestResults as Record<string,unknown>).max_drawdown}%`],
                 ["Trades", `${(backtestResults as Record<string,unknown>).total_trades}`],
-                ["Final Value", `\u20B9${(Number((backtestResults as Record<string,unknown>).final_value) / 1e7).toFixed(2)} Cr`],
+                ["Final Value", formatCurrencyCompact(Number((backtestResults as Record<string,unknown>).final_value), "INR")],
               ].map(([label, val]) => (
                 <div key={label as string} className="bg-muted/30 rounded-lg p-2">
                   <div className="text-[10px] text-muted-foreground">{label}</div>
@@ -726,10 +728,10 @@ export default function BuildStrategyPageInner() {
             </div>
             {backtestEquity.length > 0 && (
               <TimeSeriesChart
-                data={backtestEquity.map(e => ({ date: String(e.date), value: Number(e.value) / 1e7 }))}
-                series={[{ key: "value", name: "Portfolio (\u20B9 Cr)", color: "#f97316" }]}
+                data={backtestEquity.map(e => ({ date: String(e.date), value: Number(e.value) }))}
+                series={[{ key: "value", name: "Portfolio", color: "#f97316" }]}
                 height={200}
-                yFormatter={(v) => `${v.toFixed(2)}Cr`}
+                yFormatter={(v) => formatCurrencyCompact(v, "INR")}
               />
             )}
 
@@ -752,7 +754,7 @@ export default function BuildStrategyPageInner() {
                       {backtestRebalances.map((r, i) => (
                         <tr key={i} className="border-b border-border/30 hover:bg-muted/10">
                           <td className="px-2 py-1 font-medium">{String(r.date)}</td>
-                          <td className="px-2 py-1 tabular-nums">{`₹${(Number(r.value) / 1e7).toFixed(2)} Cr`}</td>
+                          <td className="px-2 py-1 tabular-nums">{formatCurrencyCompact(Number(r.value), "INR")}</td>
                           <td className="px-2 py-1 tabular-nums">{String(r.positions)}</td>
                           <td className="px-2 py-1 tabular-nums">{String(r.turnover)}%</td>
                           <td className="px-2 py-1 tabular-nums">{String(r.trades)}</td>

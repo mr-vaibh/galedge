@@ -8,6 +8,7 @@ import { BarChartPanel } from "@/components/charts/BarChartPanel";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
 import { useAuth } from "@/lib/auth";
+import { useCurrency } from "@/lib/currency";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
@@ -32,6 +33,7 @@ export default function HoldingsSummaryPage() {
   const pathname = usePathname();
   const { selectedPortfolioId, selectedFundName } = usePortfolio();
   const { token } = useAuth();
+  const { formatCurrencyCompact } = useCurrency();
 
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [loading, setLoading] = useState(false);
@@ -181,7 +183,7 @@ export default function HoldingsSummaryPage() {
                       <td className="px-2 py-1 font-medium">{h.symbol}</td>
                       <td className="px-2 py-1 tabular-nums">{(h.weight * 100).toFixed(2)}%</td>
                       <td className="px-2 py-1">{h.sector || "—"}</td>
-                      <td className="px-2 py-1 tabular-nums">{h.market_cap ? `₹${h.market_cap.toLocaleString()} Cr` : "—"}</td>
+                      <td className="px-2 py-1 tabular-nums">{h.market_cap ? formatCurrencyCompact(h.market_cap * 1e7, "INR") : "—"}</td>
                     </tr>
                   ))}
                   {holdings.length === 0 && (

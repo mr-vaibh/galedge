@@ -9,6 +9,7 @@ import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
 import { useAuth } from "@/lib/auth";
+import { useCurrency } from "@/lib/currency";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
@@ -19,6 +20,7 @@ export default function LiteAnalyticsPage() {
   const router = useRouter();
   const { selectedPortfolioId, selectedFundName } = usePortfolio();
   const { token } = useAuth();
+  const { formatCurrencyCompact } = useCurrency();
 
   const [metrics, setMetrics] = useState<Record<string, unknown> | null>(null);
   const [equityCurve, setEquityCurve] = useState<EquityPoint[]>([]);
@@ -179,7 +181,7 @@ export default function LiteAnalyticsPage() {
                       ["Volatility", `${metrics.volatility ?? "—"}%`],
                       ["Max Drawdown", `${metrics.max_drawdown ?? "—"}%`],
                       ["Trading Days", metrics.trading_days ?? "—"],
-                      ["AUM", metrics.total_aum_cr ? `₹${metrics.total_aum_cr} Cr` : "—"],
+                      ["AUM", metrics.total_aum_cr ? formatCurrencyCompact(Number(metrics.total_aum_cr) * 1e7, "INR") : "—"],
                     ].map(([l, v]) => (
                       <tr key={String(l)} className="border-b border-border/30">
                         <td className="px-2 py-1.5 text-muted-foreground">{String(l)}</td>
@@ -282,10 +284,10 @@ export default function LiteAnalyticsPage() {
               <CardContent className="p-2">
                 {equityCurve.length > 1 ? (
                   <TimeSeriesChart
-                    data={equityCurve.map((p) => ({ date: p.date, value: p.value / 1e7 }))}
-                    series={[{ key: "value", name: "₹ Cr", color: "#10b981" }]}
+                    data={equityCurve.map((p) => ({ date: p.date, value: p.value }))}
+                    series={[{ key: "value", name: "Value", color: "#10b981" }]}
                     height={200}
-                    yFormatter={(v) => `${v.toFixed(2)} Cr`}
+                    yFormatter={(v) => formatCurrencyCompact(v, "INR")}
                   />
                 ) : (
                   <div className="h-[200px] flex items-center justify-center text-muted-foreground text-xs">No data</div>
