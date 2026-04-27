@@ -20,8 +20,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/portfolios", tags=["portfolios"])
 
+# Track ingestion status per portfolio
+_ingestion_status: dict[int, dict] = {}  # portfolio_id -> {"status": "pending"|"ingesting"|"ready", "missing": [...]}
 
-def _auto_ingest_missing(raw_symbols: list[str], db: Session):
+
+def _auto_ingest_missing(raw_symbols: list[str], db: Session, portfolio_id: int | None = None):
     """Check which symbols need price data and ingest in background thread."""
     # Map bare symbols to .NS suffix candidates
     symbols_to_check = []
@@ -40,11 +43,15 @@ def _auto_ingest_missing(raw_symbols: list[str], db: Session):
 
     if not missing:
         logger.info("All %d symbols already have price data", len(symbols_to_check))
+        if portfolio_id:
+            _ingestion_status[portfolio_id] = {"status": "ready", "missing": []}
         return
 
     logger.info("Auto-ingesting price data for %d missing symbols: %s", len(missing), missing)
+    if portfolio_id:
+        _ingestion_status[portfolio_id] = {"status": "ingesting", "missing": missing, "total": len(missing)}
 
-    def _ingest_in_background(syms: list[str]):
+    def _ingest_in_background(syms: list[str], pid: int | None):
         try:
             from app.services.data_ingestion import ingest_prices, ingest_stock_info
             bg_db = SessionLocal()
@@ -52,12 +59,16 @@ def _auto_ingest_missing(raw_symbols: list[str], db: Session):
                 ingest_prices(bg_db, syms, period="2y")
                 ingest_stock_info(bg_db, syms)
                 logger.info("Auto-ingestion complete for %d symbols", len(syms))
+                if pid:
+                    _ingestion_status[pid] = {"status": "ready", "missing": []}
             finally:
                 bg_db.close()
         except Exception as e:
             logger.error("Auto-ingestion failed: %s", e)
+            if pid:
+                _ingestion_status[pid] = {"status": "error", "error": str(e)}
 
-    thread = threading.Thread(target=_ingest_in_background, args=(missing,), daemon=True)
+    thread = threading.Thread(target=_ingest_in_background, args=(missing, portfolio_id), daemon=True)
     thread.start()
 
 
@@ -183,9 +194,25 @@ async def upload_holdings(
 
     # Auto-ingest missing price and info data in background
     raw_symbols = [h.symbol for h in holdings]
-    _auto_ingest_missing(raw_symbols, db)
+    _auto_ingest_missing(raw_symbols, db, portfolio_id=portfolio_id)
 
-    return {"uploaded": len(holdings), "total_semv": total_semv}
+    ingestion_needed = portfolio_id in _ingestion_status and _ingestion_status[portfolio_id]["status"] == "ingesting"
+    return {
+        "uploaded": len(holdings),
+        "total_semv": total_semv,
+        "data_status": "ingesting" if ingestion_needed else "ready",
+    }
+
+
+@router.get("/{portfolio_id}/data-status")
+def get_data_status(
+    portfolio_id: int,
+    user: User | None = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Check if price data ingestion is complete for this portfolio."""
+    status = _ingestion_status.get(portfolio_id, {"status": "ready"})
+    return status
 
 
 @router.get("/{portfolio_id}/holdings")

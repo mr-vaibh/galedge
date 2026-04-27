@@ -31,12 +31,29 @@ export default function PerformanceSummaryPage() {
   const [equityCurve, setEquityCurve] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [dataIngesting, setDataIngesting] = useState(false);
 
   async function fetchPerformance() {
     setLoading(true);
     setError(null);
+    setDataIngesting(false);
     try {
       if (portfolioId && token) {
+        // Check if data is still being ingested
+        const statusRes = await fetch(`${API_BASE}/api/portfolios/${portfolioId}/data-status`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (statusRes.ok) {
+          const status = await statusRes.json();
+          if (status.status === "ingesting") {
+            setDataIngesting(true);
+            setLoading(false);
+            // Retry in 5 seconds
+            setTimeout(fetchPerformance, 5000);
+            return;
+          }
+        }
+
         const res = await fetch(`${API_BASE}/api/analytics/performance/${portfolioId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -101,7 +118,16 @@ export default function PerformanceSummaryPage() {
         </Card>
       )}
 
-      {loading ? (
+      {dataIngesting ? (
+        <Card className="border-blue-500/30">
+          <CardContent className="py-8 flex flex-col items-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+            <p className="text-sm font-medium text-blue-400">Fetching market data for your portfolio...</p>
+            <p className="text-xs text-muted-foreground">Downloading historical prices from Yahoo Finance. This takes 30-60 seconds on first upload.</p>
+            <p className="text-[10px] text-muted-foreground">Analytics will load automatically when ready.</p>
+          </CardContent>
+        </Card>
+      ) : loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           <span className="ml-2 text-sm text-muted-foreground">Loading analytics...</span>
