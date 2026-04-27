@@ -370,7 +370,64 @@ export default function PeerComparisonPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Side-by-Side Comparison</CardTitle>
-              <CardControls />
+              <CardControls title="Side-by-Side Comparison" expandContent={
+                <div className="overflow-auto">
+                  <table className="w-full text-[10px]">
+                    <thead>
+                      <tr className="border-b border-border/50">
+                        <th className="px-3 py-2 text-left text-muted-foreground font-medium sticky left-0 bg-card z-10">Metric</th>
+                        {comparedPerf.map((p, i) => (
+                          <th key={p.portfolio_id} className="px-3 py-2 text-right font-medium" style={{ color: COLORS[i % COLORS.length] }}>
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                              {p.fund_name}
+                            </div>
+                          </th>
+                        ))}
+                        {includeBenchmark && benchmarkMetrics && (
+                          <th className="px-3 py-2 text-right font-medium text-blue-400">
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="w-2 h-2 rounded-full bg-blue-500" />
+                              {benchmarkName}
+                            </div>
+                          </th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {METRICS_CONFIG.map(({ label, key, format }) => {
+                        const vals = comparedPerf.map((p) => p[key as keyof PerfMetrics] as number | undefined).filter((v): v is number => v != null);
+                        const isHigherBetter = key !== "volatility" && key !== "max_drawdown";
+                        const bestVal = vals.length > 0 ? (isHigherBetter ? Math.max(...vals) : Math.min(...vals)) : null;
+                        return (
+                          <tr key={label} className="border-b border-border/30 hover:bg-muted/10">
+                            <td className="px-3 py-1.5 text-muted-foreground sticky left-0 bg-card z-10">{label}</td>
+                            {comparedPerf.map((p) => {
+                              const val = p[key as keyof PerfMetrics] as number | undefined;
+                              const formatted = format(val ?? null);
+                              const isNeg = typeof formatted === "string" && formatted.startsWith("-");
+                              const isBest = val != null && bestVal != null && val === bestVal && comparedPerf.length > 1;
+                              return (
+                                <td key={p.portfolio_id} className={`px-3 py-1.5 text-right tabular-nums font-medium ${isNeg ? "text-red-400" : ""} ${isBest ? "bg-emerald-500/10" : ""}`}>
+                                  {formatted}
+                                  {isBest && <span className="text-[7px] text-emerald-400 ml-1">best</span>}
+                                </td>
+                              );
+                            })}
+                            {includeBenchmark && benchmarkMetrics && (
+                              <td className="px-3 py-1.5 text-right tabular-nums text-blue-400/80">
+                                {key === "num_holdings" || key === "total_aum_cr" || key === "trading_days"
+                                  ? "—"
+                                  : format((benchmarkMetrics as Record<string, number>)[key] ?? null)}
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              } />
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -439,7 +496,9 @@ export default function PeerComparisonPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Total Return (%)</CardTitle>
-                <CardControls data={returnBarData as Record<string, unknown>[]} filename="return_comparison" />
+                <CardControls data={returnBarData as Record<string, unknown>[]} filename="return_comparison" title="Total Return (%)" expandContent={
+                  <BarChartPanel data={returnBarData} height={600} />
+                } />
               </CardHeader>
               <CardContent className="p-2">
                 <BarChartPanel data={returnBarData} height={200} />
@@ -449,7 +508,9 @@ export default function PeerComparisonPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Sharpe Ratio</CardTitle>
-                <CardControls data={sharpeBarData as Record<string, unknown>[]} filename="sharpe_comparison" />
+                <CardControls data={sharpeBarData as Record<string, unknown>[]} filename="sharpe_comparison" title="Sharpe Ratio" expandContent={
+                  <BarChartPanel data={sharpeBarData} height={600} />
+                } />
               </CardHeader>
               <CardContent className="p-2">
                 <BarChartPanel data={sharpeBarData} height={200} />
@@ -459,7 +520,9 @@ export default function PeerComparisonPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Volatility (%)</CardTitle>
-                <CardControls data={volBarData as Record<string, unknown>[]} filename="volatility_comparison" />
+                <CardControls data={volBarData as Record<string, unknown>[]} filename="volatility_comparison" title="Volatility (%)" expandContent={
+                  <BarChartPanel data={volBarData} height={600} />
+                } />
               </CardHeader>
               <CardContent className="p-2">
                 <BarChartPanel data={volBarData} height={200} />
@@ -472,7 +535,44 @@ export default function PeerComparisonPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Rankings by Total Return</CardTitle>
-                <CardControls />
+                <CardControls title="Rankings by Total Return" expandContent={
+                  <table className="w-full text-[10px]">
+                    <thead>
+                      <tr className="border-b border-border/50">
+                        {["#", "Portfolio", "Return", "Sharpe", "Vol", "Max DD", "Holdings"].map((h) => (
+                          <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...comparedPerf]
+                        .sort((a, b) => (b.total_return ?? 0) - (a.total_return ?? 0))
+                        .map((p, i) => {
+                          const colorIdx = comparedPerf.indexOf(p);
+                          return (
+                            <tr key={p.portfolio_id} className="border-b border-border/30 hover:bg-muted/10">
+                              <td className="px-2 py-1.5">
+                                <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[9px] font-bold ${
+                                  i === 0 ? "bg-amber-500/20 text-amber-400" : i === 1 ? "bg-gray-400/20 text-gray-400" : i === 2 ? "bg-orange-800/20 text-orange-600" : "text-muted-foreground"
+                                }`}>{i + 1}</span>
+                              </td>
+                              <td className="px-2 py-1.5 font-medium">
+                                <span className="inline-flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[colorIdx % COLORS.length] }} />
+                                  {p.fund_name}
+                                </span>
+                              </td>
+                              <td className={`px-2 py-1.5 tabular-nums font-medium ${(p.total_return ?? 0) < 0 ? "text-red-400" : "text-emerald-400"}`}>{pct(p.total_return)}</td>
+                              <td className="px-2 py-1.5 tabular-nums">{raw(p.sharpe_ratio)}</td>
+                              <td className="px-2 py-1.5 tabular-nums">{pct(p.volatility)}</td>
+                              <td className="px-2 py-1.5 tabular-nums text-red-400">{pct(p.max_drawdown)}</td>
+                              <td className="px-2 py-1.5 tabular-nums">{p.num_holdings ?? "—"}</td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                } />
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full text-[10px]">

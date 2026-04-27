@@ -184,7 +184,41 @@ export default function StockSummaryPage() {
         <Card>
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Stock Factor Exposures</CardTitle>
-            <CardControls />
+            <CardControls title="Stock Factor Exposures" expandContent={
+              selected.length > 0 ? (
+                <table className="w-full text-[11px]">
+                  <thead className="sticky top-0 bg-card z-10">
+                    <tr className="border-b border-border/50">
+                      <th className="px-2 py-2 text-left font-medium text-muted-foreground whitespace-nowrap">Factor</th>
+                      {selected.map((s) => (
+                        <th key={s.symbol} className="px-2 py-2 text-right font-medium text-[10px] whitespace-nowrap" style={{ color: s.color }}>
+                          {s.symbol.replace(".NS", "")}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {factorNames.length > 0 ? factorNames.map((f) => (
+                      <tr key={f} className="border-b border-border/30 hover:bg-muted/30">
+                        <td className="px-2 py-1.5 font-medium text-muted-foreground whitespace-nowrap">{f}</td>
+                        {selected.map((s) => {
+                          const v = exposures[s.symbol]?.[f] ?? 0;
+                          return (
+                            <td key={s.symbol} className={`px-2 py-1.5 text-right tabular-nums whitespace-nowrap ${v >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                              {v.toFixed(2)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    )) : (
+                      <tr><td colSpan={selected.length + 1} className="px-2 py-8 text-center text-muted-foreground text-xs">
+                        {loading ? "Loading exposures..." : "No exposure data. Build factor model first."}
+                      </td></tr>
+                    )}
+                  </tbody>
+                </table>
+              ) : undefined
+            } />
           </CardHeader>
           <CardContent className="p-0">
             {selected.length === 0 ? (
@@ -236,7 +270,35 @@ export default function StockSummaryPage() {
         <Card>
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Return Decomposition</CardTitle>
-            <CardControls />
+            <CardControls title="Return Decomposition" expandContent={
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="border-b border-border/50">
+                    <th className="px-2 py-2 text-left font-medium text-muted-foreground">Factor</th>
+                    {selected.slice(0, 3).map((s) => (
+                      <th key={s.symbol} className="px-2 py-2 text-right font-medium text-[10px]" style={{ color: s.color }}>
+                        {s.symbol.replace(".NS", "")}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {factorNames.slice(0, 7).map((f) => (
+                    <tr key={f} className="border-b border-border/30 hover:bg-muted/30">
+                      <td className="px-2 py-1.5 font-medium text-muted-foreground">{f}</td>
+                      {selected.slice(0, 3).map((s) => {
+                        const v = exposures[s.symbol]?.[f] ?? 0;
+                        return (
+                          <td key={s.symbol} className={`px-2 py-1.5 text-right tabular-nums ${v >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                            {v.toFixed(2)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            } />
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -275,7 +337,17 @@ export default function StockSummaryPage() {
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Exposures — {selected[0]?.symbol.replace(".NS", "") || "Select stock"}</CardTitle>
-            <CardControls />
+            <CardControls title={`Factor Exposures — ${selected[0]?.symbol.replace(".NS", "") || "Select stock"}`} expandContent={
+              selected.length > 0 && exposures[selected[0].symbol] ? (
+                <BarChartPanel
+                  data={Object.entries(exposures[selected[0].symbol] || {}).map(([f, v]) => ({
+                    name: f,
+                    value: parseFloat(v.toFixed(2)),
+                  }))}
+                  height={600}
+                />
+              ) : undefined
+            } />
           </CardHeader>
           <CardContent className="p-2">
             {selected.length > 0 && exposures[selected[0].symbol] ? (

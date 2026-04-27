@@ -139,7 +139,23 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Profit and Loss Summary</CardTitle>
-              <CardControls data={[{total_return: `${metrics.total_return ?? "—"}%`, cagr: `${metrics.annualised_return ?? "—"}%`, sharpe: metrics.sharpe_ratio ?? "—", holdings: metrics.num_holdings ?? "—"}]} filename="pnl" />
+              <CardControls data={[{total_return: `${metrics.total_return ?? "—"}%`, cagr: `${metrics.annualised_return ?? "—"}%`, sharpe: metrics.sharpe_ratio ?? "—", holdings: metrics.num_holdings ?? "—"}]} filename="pnl" title="Profit and Loss Summary" expandContent={
+                <table className="w-full text-[10px]">
+                  <tbody>
+                    {[
+                      ["Total Return", `${metrics.total_return ?? metrics.total_portfolio_return ?? "—"}%`],
+                      ["CAGR", `${metrics.cagr ?? metrics.annualised_return ?? "—"}%`],
+                      ["Sharpe Ratio", metrics.sharpe_ratio ?? metrics.sharpe ?? "—"],
+                      ["Positions", metrics.avg_positions ?? metrics.num_holdings ?? "—"],
+                    ].map(([l, v]) => (
+                      <tr key={String(l)} className="border-b border-border/30">
+                        <td className="px-2 py-1.5 text-muted-foreground">{String(l)}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums font-medium">{String(v)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              } />
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full text-[10px]">
@@ -163,7 +179,23 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Risk Summary</CardTitle>
-              <CardControls data={metrics ? [{max_drawdown: metrics.max_drawdown, volatility: metrics.volatility, avg_turnover: metrics.avg_turnover, trading_days: metrics.trading_days ?? metrics.total_trades}] : []} filename="risk" />
+              <CardControls data={metrics ? [{max_drawdown: metrics.max_drawdown, volatility: metrics.volatility, avg_turnover: metrics.avg_turnover, trading_days: metrics.trading_days ?? metrics.total_trades}] : []} filename="risk" title="Risk Summary" expandContent={
+                <table className="w-full text-[10px]">
+                  <tbody>
+                    {[
+                      ["Max Drawdown", `${metrics.max_drawdown ?? "—"}%`],
+                      ["Volatility", `${metrics.volatility ?? "—"}%`],
+                      ["Avg Turnover", metrics.avg_turnover != null ? `${metrics.avg_turnover}%` : "—"],
+                      ["Trading Days", metrics.trading_days ?? metrics.total_trades ?? "—"],
+                    ].map(([l, v]) => (
+                      <tr key={String(l)} className="border-b border-border/30">
+                        <td className="px-2 py-1.5 text-muted-foreground">{String(l)}</td>
+                        <td className={`px-2 py-1.5 text-right tabular-nums font-medium ${String(v).startsWith("-") ? "text-red-400" : ""}`}>{String(v)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              } />
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full text-[10px]">
@@ -187,7 +219,23 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Portfolio Summary</CardTitle>
-              <CardControls data={metrics ? [{initial_capital: metrics.initial_capital, final_value: metrics.final_value, total_rebalances: metrics.total_rebalances, fund_name: metrics.fund_name ?? selectedFundName}] : []} filename="portfolio" />
+              <CardControls data={metrics ? [{initial_capital: metrics.initial_capital, final_value: metrics.final_value, total_rebalances: metrics.total_rebalances, fund_name: metrics.fund_name ?? selectedFundName}] : []} filename="portfolio" title="Portfolio Summary" expandContent={
+                <table className="w-full text-[10px]">
+                  <tbody>
+                    {[
+                      ["Initial Capital", metrics.initial_capital ? formatCurrencyCompact(Number(metrics.initial_capital), "INR") : metrics.aum ? formatCurrencyCompact(Number(metrics.aum) * 1e7, "INR") : "—"],
+                      ["Final Value", metrics.final_value ? formatCurrencyCompact(Number(metrics.final_value), "INR") : "—"],
+                      ["Rebalances", metrics.total_rebalances ?? "—"],
+                      ["Fund", metrics.fund_name ?? selectedFundName ?? "Demo"],
+                    ].map(([l, v]) => (
+                      <tr key={String(l)} className="border-b border-border/30">
+                        <td className="px-2 py-1.5 text-muted-foreground">{String(l)}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums font-medium">{String(v)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              } />
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full text-[10px]">
@@ -212,7 +260,16 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Portfolio Value</CardTitle>
-              <CardControls data={equityCurve as Record<string, unknown>[]} filename="equity_curve" />
+              <CardControls data={equityCurve as Record<string, unknown>[]} filename="equity_curve" title="Portfolio Value" expandContent={
+                equityCurve.length > 0 ? (
+                  <TimeSeriesChart
+                    data={equityCurve.map(e => ({ date: String(e.date), value: Number(e.value) }))}
+                    series={[{ key: "value", name: "Value", color: "#f97316" }]}
+                    height={600}
+                    yFormatter={(v) => formatCurrencyCompact(v, "INR")}
+                  />
+                ) : undefined
+              } />
             </CardHeader>
             <CardContent className="p-2">
               {equityCurve.length > 0 ? (
@@ -229,7 +286,15 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Drawdown (%)</CardTitle>
-              <CardControls data={equityCurve.filter(e => e.drawdown !== undefined).map(e => ({date: String(e.date), drawdown: Number(e.drawdown)}))} filename="drawdown" />
+              <CardControls data={equityCurve.filter(e => e.drawdown !== undefined).map(e => ({date: String(e.date), drawdown: Number(e.drawdown)}))} filename="drawdown" title="Drawdown (%)" expandContent={
+                equityCurve.length > 0 ? (
+                  <TimeSeriesChart
+                    data={equityCurve.filter(e => e.drawdown !== undefined).map(e => ({ date: String(e.date), dd: Number(e.drawdown) }))}
+                    series={[{ key: "dd", name: "Drawdown", color: "#ef4444" }]}
+                    height={600}
+                  />
+                ) : undefined
+              } />
             </CardHeader>
             <CardContent className="p-2">
               {equityCurve.length > 0 ? (
@@ -245,7 +310,16 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Value Trend</CardTitle>
-              <CardControls data={equityCurve.map(e => ({date: String(e.date), value: Number(e.value)}))} filename="value_trend" />
+              <CardControls data={equityCurve.map(e => ({date: String(e.date), value: Number(e.value)}))} filename="value_trend" title="Value Trend" expandContent={
+                equityCurve.length > 0 ? (
+                  <TimeSeriesChart
+                    data={equityCurve.map(e => ({ date: String(e.date), v: Number(e.value) }))}
+                    series={[{ key: "v", name: "Value", color: "#10b981" }]}
+                    height={600}
+                    yFormatter={(v) => formatCurrencyCompact(v, "INR")}
+                  />
+                ) : undefined
+              } />
             </CardHeader>
             <CardContent className="p-2">
               {equityCurve.length > 0 ? (

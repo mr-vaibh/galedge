@@ -16,7 +16,45 @@ function STable({ title, rows, viewMode = "active" }: { title: string; rows: [st
     <Card>
       <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
         <CardTitle className="text-[11px]">{title}</CardTitle>
-        <CardControls />
+        <CardControls title={title} expandContent={
+          <table className="w-full text-[10px]">
+            <thead>
+              <tr className="border-b border-border/50">
+                <th className="px-2 py-1.5 text-left font-medium text-muted-foreground" />
+                {(viewMode === "active" || viewMode === "excess") && (
+                  <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Active</th>
+                )}
+                {(viewMode === "benchmark" || viewMode === "excess") && (
+                  <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Benchmark</th>
+                )}
+                {viewMode === "excess" && (
+                  <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Excess</th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(([label, active, benchmark], i) => {
+                const activeNum = parseFloat(active);
+                const benchmarkNum = parseFloat(benchmark);
+                const excess = !isNaN(activeNum) && !isNaN(benchmarkNum) ? `${(activeNum - benchmarkNum).toFixed(2)}%` : "—";
+                return (
+                  <tr key={i} className="border-b border-border/30">
+                    <td className="px-2 py-1 text-muted-foreground">{label}</td>
+                    {(viewMode === "active" || viewMode === "excess") && (
+                      <td className="px-2 py-1 text-right tabular-nums">{active}</td>
+                    )}
+                    {(viewMode === "benchmark" || viewMode === "excess") && (
+                      <td className="px-2 py-1 text-right tabular-nums">{benchmark}</td>
+                    )}
+                    {viewMode === "excess" && (
+                      <td className={`px-2 py-1 text-right tabular-nums ${parseFloat(excess) >= 0 ? "text-emerald-400" : "text-red-400"}`}>{excess}</td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        } />
       </CardHeader>
       <CardContent className="p-0">
         <table className="w-full text-[10px]">
@@ -256,7 +294,11 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Return Decomposition (%)</CardTitle>
-                <CardControls data={returnDecompBarData as Record<string, unknown>[]} filename="return_decomposition" />
+                <CardControls data={returnDecompBarData as Record<string, unknown>[]} filename="return_decomposition" title="Return Decomposition (%)" expandContent={
+                  returnDecompBarData.length > 0 ? (
+                    <BarChartPanel data={returnDecompBarData} height={600} />
+                  ) : undefined
+                } />
               </CardHeader>
               <CardContent>
                 {returnDecompBarData.length > 0 ? (
@@ -269,7 +311,11 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Returns (%)</CardTitle>
-                <CardControls data={topBarData as Record<string, unknown>[]} filename="factor_returns" />
+                <CardControls data={topBarData as Record<string, unknown>[]} filename="factor_returns" title="Factor Returns (%)" expandContent={
+                  topBarData.length > 0 ? (
+                    <BarChartPanel data={topBarData} height={600} color="#10b981" showNegativeColors={false} />
+                  ) : undefined
+                } />
               </CardHeader>
               <CardContent>
                 {topBarData.length > 0 ? (
@@ -282,7 +328,16 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Risk Contrib (%)</CardTitle>
-                <CardControls data={factors.map(f => ({name: f.factor, value: f.risk_contribution * 100})) as Record<string, unknown>[]} filename="factor_risk" />
+                <CardControls data={factors.map(f => ({name: f.factor, value: f.risk_contribution * 100})) as Record<string, unknown>[]} filename="factor_risk" title="Factor Risk Contrib (%)" expandContent={
+                  factors.length > 0 ? (
+                    <BarChartPanel
+                      data={factors.map((f) => ({ name: f.factor, value: f.risk_contribution * 100 }))}
+                      height={600}
+                      color="#3b82f6"
+                      showNegativeColors={false}
+                    />
+                  ) : undefined
+                } />
               </CardHeader>
               <CardContent>
                 {factors.length > 0 ? (
@@ -300,7 +355,14 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Exposure</CardTitle>
-                <CardControls data={factors.map(f => ({name: f.factor, value: f.exposure})) as Record<string, unknown>[]} filename="factor_exposure" />
+                <CardControls data={factors.map(f => ({name: f.factor, value: f.exposure})) as Record<string, unknown>[]} filename="factor_exposure" title="Factor Exposure" expandContent={
+                  factors.length > 0 ? (
+                    <BarChartPanel
+                      data={factors.map((f) => ({ name: f.factor, value: f.exposure }))}
+                      height={600}
+                    />
+                  ) : undefined
+                } />
               </CardHeader>
               <CardContent>
                 {factors.length > 0 ? (
@@ -328,9 +390,23 @@ export default function ReturnsAndRiskPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
               <Card>
-                <CardHeader className="pb-1 py-2 px-3"><CardTitle className="text-[11px]">
+                <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between"><CardTitle className="text-[11px]">
                   {contributorTab === "factor" ? "Top Factors" : "Top Contributors"}
-                </CardTitle></CardHeader>
+                </CardTitle><CardControls title={contributorTab === "factor" ? "Top Factors" : "Top Contributors"} expandContent={
+                  <table className="w-full text-[10px]">
+                    <thead><tr className="border-b border-border/50">
+                      {FACTOR_COLS.map(h => <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>)}
+                    </tr></thead>
+                    <tbody>
+                      {factorTopRows.map((r, i) => (
+                        <tr key={i} className="border-b border-border/30">{r.map((c, j) => <td key={j} className="px-2 py-1 tabular-nums">{c}</td>)}</tr>
+                      ))}
+                      {factorTopRows.length === 0 && (
+                        <tr><td colSpan={5} className="px-2 py-4 text-center text-muted-foreground">No data</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                } /></CardHeader>
                 <CardContent className="p-0">
                   <table className="w-full text-[10px]">
                     <thead><tr className="border-b border-border/50">
@@ -348,9 +424,23 @@ export default function ReturnsAndRiskPage() {
                 </CardContent>
               </Card>
               <Card>
-                <CardHeader className="pb-1 py-2 px-3"><CardTitle className="text-[11px]">
+                <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between"><CardTitle className="text-[11px]">
                   {contributorTab === "factor" ? "Bottom Factors" : "Bottom Detractors"}
-                </CardTitle></CardHeader>
+                </CardTitle><CardControls title={contributorTab === "factor" ? "Bottom Factors" : "Bottom Detractors"} expandContent={
+                  <table className="w-full text-[10px]">
+                    <thead><tr className="border-b border-border/50">
+                      {FACTOR_COLS.map(h => <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>)}
+                    </tr></thead>
+                    <tbody>
+                      {factorBottomRows.map((r, i) => (
+                        <tr key={i} className="border-b border-border/30">{r.map((c, j) => <td key={j} className={`px-2 py-1 tabular-nums ${c.startsWith("-") ? "text-red-400" : ""}`}>{c}</td>)}</tr>
+                      ))}
+                      {factorBottomRows.length === 0 && (
+                        <tr><td colSpan={5} className="px-2 py-4 text-center text-muted-foreground">No data</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                } /></CardHeader>
                 <CardContent className="p-0">
                   <table className="w-full text-[10px]">
                     <thead><tr className="border-b border-border/50">
@@ -370,7 +460,11 @@ export default function ReturnsAndRiskPage() {
               <Card>
                 <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                   <CardTitle className="text-[11px]">Top Factor Returns (%)</CardTitle>
-                  <CardControls data={topHoldingsBarData as Record<string, unknown>[]} filename="top_factor_returns" />
+                  <CardControls data={topHoldingsBarData as Record<string, unknown>[]} filename="top_factor_returns" title="Top Factor Returns (%)" expandContent={
+                    topHoldingsBarData.length > 0 ? (
+                      <BarChartPanel data={topHoldingsBarData} height={600} />
+                    ) : undefined
+                  } />
                 </CardHeader>
                 <CardContent>
                   {topHoldingsBarData.length > 0 ? (

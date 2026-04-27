@@ -147,7 +147,23 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Profit and Loss Summary</CardTitle>
-                <CardControls data={metrics ? [{total_return: `${metrics.total_return}%`, cagr: `${metrics.annualised_return}%`, sharpe: metrics.sharpe_ratio, holdings: metrics.num_holdings}] : []} filename="pnl" />
+                <CardControls data={metrics ? [{total_return: `${metrics.total_return}%`, cagr: `${metrics.annualised_return}%`, sharpe: metrics.sharpe_ratio, holdings: metrics.num_holdings}] : []} filename="pnl" title="Profit and Loss Summary" expandContent={
+                  <table className="w-full text-[10px]">
+                    <tbody>
+                      {[
+                        ["Total Return", `${metrics.total_return ?? "—"}%`],
+                        ["CAGR", `${metrics.annualised_return ?? "—"}%`],
+                        ["Sharpe Ratio", metrics.sharpe_ratio ?? "—"],
+                        ["Holdings", metrics.num_holdings ?? "—"],
+                      ].map(([l, v]) => (
+                        <tr key={String(l)} className="border-b border-border/30">
+                          <td className="px-2 py-1.5 text-muted-foreground">{String(l)}</td>
+                          <td className={`px-2 py-1.5 text-right tabular-nums font-medium ${String(v).startsWith("-") ? "text-red-400" : ""}`}>{String(v)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                } />
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full text-[10px]">
@@ -172,7 +188,23 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Risk Summary</CardTitle>
-                <CardControls data={metrics ? [{volatility: `${metrics.volatility}%`, max_drawdown: `${metrics.max_drawdown}%`, trading_days: metrics.trading_days, aum: metrics.total_aum_cr}] : []} filename="risk" />
+                <CardControls data={metrics ? [{volatility: `${metrics.volatility}%`, max_drawdown: `${metrics.max_drawdown}%`, trading_days: metrics.trading_days, aum: metrics.total_aum_cr}] : []} filename="risk" title="Risk Summary" expandContent={
+                  <table className="w-full text-[10px]">
+                    <tbody>
+                      {[
+                        ["Volatility", `${metrics.volatility ?? "—"}%`],
+                        ["Max Drawdown", `${metrics.max_drawdown ?? "—"}%`],
+                        ["Trading Days", metrics.trading_days ?? "—"],
+                        ["AUM", metrics.total_aum_cr ? formatCurrencyCompact(Number(metrics.total_aum_cr) * 1e7, "INR") : "—"],
+                      ].map(([l, v]) => (
+                        <tr key={String(l)} className="border-b border-border/30">
+                          <td className="px-2 py-1.5 text-muted-foreground">{String(l)}</td>
+                          <td className={`px-2 py-1.5 text-right tabular-nums font-medium ${String(v).startsWith("-") ? "text-red-400" : ""}`}>{String(v)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                } />
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full text-[10px]">
@@ -197,7 +229,36 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Weighted Factor Exposure</CardTitle>
-                <CardControls data={factorNames.map(f => ({factor: f, contribution: factorContributions[f]}))} filename="factor_exposures" />
+                <CardControls data={factorNames.map(f => ({factor: f, contribution: factorContributions[f]}))} filename="factor_exposures" title="Weighted Factor Exposure" expandContent={
+                  factorNames.length > 0 ? (
+                    <div>
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {factorNames.map((f) => (
+                          <label key={f} className="flex items-center gap-1 text-[9px] cursor-pointer">
+                            <input type="checkbox" className="h-3 w-3" checked={selectedFactors.has(f)} onChange={() => {
+                              const next = new Set(selectedFactors);
+                              if (next.has(f)) next.delete(f); else next.add(f);
+                              setSelectedFactors(next);
+                            }} />
+                            {f}
+                          </label>
+                        ))}
+                      </div>
+                      <table className="w-full text-[10px] mt-1">
+                        <tbody>
+                          {factorNames.filter((f) => selectedFactors.has(f)).map((f) => (
+                            <tr key={f} className="border-b border-border/30">
+                              <td className="px-1 py-0.5">{f}</td>
+                              <td className={`px-1 py-0.5 text-right tabular-nums ${factorContributions[f] < 0 ? "text-red-400" : "text-green-400"}`}>
+                                {factorContributions[f].toFixed(4)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : undefined
+                } />
               </CardHeader>
               <CardContent className="p-2">
                 <div className="flex flex-wrap gap-1.5 mb-2">
@@ -242,7 +303,16 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Cumulative Return (%)</CardTitle>
-                <CardControls data={returnCurve as Record<string, unknown>[]} filename="cumulative_return" />
+                <CardControls data={returnCurve as Record<string, unknown>[]} filename="cumulative_return" title="Cumulative Return (%)" expandContent={
+                  returnCurve.length > 1 ? (
+                    <TimeSeriesChart
+                      data={returnCurve}
+                      series={[{ key: "portfolio", name: "Portfolio", color: "#f97316" }]}
+                      height={600}
+                      yFormatter={(v) => `${v.toFixed(1)}%`}
+                    />
+                  ) : undefined
+                } />
               </CardHeader>
               <CardContent className="p-2">
                 {returnCurve.length > 1 ? (
@@ -261,7 +331,15 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Drawdown (%)</CardTitle>
-                <CardControls data={drawdownCurve as Record<string, unknown>[]} filename="drawdown" />
+                <CardControls data={drawdownCurve as Record<string, unknown>[]} filename="drawdown" title="Drawdown (%)" expandContent={
+                  drawdownCurve.length > 1 ? (
+                    <TimeSeriesChart
+                      data={drawdownCurve}
+                      series={[{ key: "drawdown", name: "Drawdown", color: "#ef4444" }]}
+                      height={600}
+                    />
+                  ) : undefined
+                } />
               </CardHeader>
               <CardContent className="p-2">
                 {drawdownCurve.length > 1 ? (
@@ -279,7 +357,16 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Portfolio Value</CardTitle>
-                <CardControls data={equityCurve.map(p => ({date: p.date, value: p.value})) as Record<string, unknown>[]} filename="portfolio_value" />
+                <CardControls data={equityCurve.map(p => ({date: p.date, value: p.value})) as Record<string, unknown>[]} filename="portfolio_value" title="Portfolio Value" expandContent={
+                  equityCurve.length > 1 ? (
+                    <TimeSeriesChart
+                      data={equityCurve.map((p) => ({ date: p.date, value: p.value }))}
+                      series={[{ key: "value", name: "Value", color: "#10b981" }]}
+                      height={600}
+                      yFormatter={(v) => formatCurrencyCompact(v, "INR")}
+                    />
+                  ) : undefined
+                } />
               </CardHeader>
               <CardContent className="p-2">
                 {equityCurve.length > 1 ? (

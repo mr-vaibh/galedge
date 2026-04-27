@@ -1,0 +1,70 @@
+"use client";
+
+import { createContext, useContext, useState, ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { Button } from "@/components/ui/button";
+import { Minimize2, Download } from "lucide-react";
+import { downloadCSV } from "@/lib/csv";
+
+interface ExpandState {
+  open: (title: string, content: ReactNode, data?: Record<string, unknown>[], filename?: string) => void;
+}
+
+const ExpandContext = createContext<ExpandState>({ open: () => {} });
+
+export function useExpand() {
+  return useContext(ExpandContext);
+}
+
+export function ExpandProvider({ children }: { children: ReactNode }) {
+  const [visible, setVisible] = useState(false);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState<ReactNode>(null);
+  const [data, setData] = useState<Record<string, unknown>[] | undefined>();
+  const [filename, setFilename] = useState("export");
+
+  function open(t: string, c: ReactNode, d?: Record<string, unknown>[], f?: string) {
+    setTitle(t);
+    setContent(c);
+    setData(d);
+    setFilename(f || "export");
+    setVisible(true);
+  }
+
+  function close() {
+    setVisible(false);
+    setContent(null);
+  }
+
+  return (
+    <ExpandContext.Provider value={{ open }}>
+      {children}
+      {visible && typeof window !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[60] bg-black/85 flex items-center justify-center p-4" onClick={close}>
+          <div
+            className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl flex flex-col w-[94vw] h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-700 shrink-0">
+              <span className="text-sm font-semibold">{title}</span>
+              <div className="flex items-center gap-2">
+                {data && data.length > 0 && (
+                  <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={() => downloadCSV(data, filename)}>
+                    <Download className="h-3 w-3" /> Download CSV
+                  </Button>
+                )}
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={close}>
+                  <Minimize2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 overflow-auto p-4">
+              {content}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </ExpandContext.Provider>
+  );
+}

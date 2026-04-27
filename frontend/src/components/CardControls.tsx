@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Filter, Info, Maximize2, X, Search } from "lucide-react";
 import {
@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { downloadCSV } from "@/lib/csv";
+import { useExpand } from "@/lib/expand-context";
 
 interface Props {
   data?: Record<string, unknown>[];
@@ -16,11 +17,16 @@ interface Props {
   info?: string;
   onFilter?: (query: string) => void;
   filterable?: boolean;
+  /** Title shown in expand modal header */
+  title?: string;
+  /** Content rendered in expand modal — pass same JSX as in the card but bigger */
+  expandContent?: ReactNode;
 }
 
-export function CardControls({ data, filename = "export", info, onFilter, filterable }: Props) {
+export function CardControls({ data, filename = "export", info, onFilter, filterable, title, expandContent }: Props) {
   const [showFilter, setShowFilter] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
+  const { open } = useExpand();
 
   function handleFilterToggle() {
     if (showFilter) {
@@ -31,6 +37,14 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
       setShowFilter(true);
     }
   }
+
+  function handleExpand() {
+    if (expandContent) {
+      open(title || filename, expandContent, data, filename);
+    }
+  }
+
+  const canExpand = !!expandContent;
 
   return (
     <>
@@ -63,10 +77,21 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
           </TooltipContent>
         </Tooltip>
 
-        {/* Expand — removed, caused too many issues with SVG cloning */}
-        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-20 cursor-default">
-          <Maximize2 className="h-3 w-3" />
-        </Button>
+        {/* Expand */}
+        {canExpand ? (
+          <Tooltip>
+            <TooltipTrigger>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleExpand}>
+                <Maximize2 className="h-3 w-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom"><p className="text-[10px]">Expand</p></TooltipContent>
+          </Tooltip>
+        ) : (
+          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-20 cursor-default">
+            <Maximize2 className="h-3 w-3" />
+          </Button>
+        )}
 
         {/* Download */}
         <Tooltip>

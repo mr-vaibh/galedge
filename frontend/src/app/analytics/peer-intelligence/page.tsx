@@ -175,7 +175,18 @@ export default function PeerIntelligencePage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Cumulative Return (%)</CardTitle>
-                <CardControls data={returnChartData as Record<string, unknown>[]} filename="peer_return" />
+                <CardControls data={returnChartData as Record<string, unknown>[]} filename="peer_return" title="Cumulative Return (%)" expandContent={
+                  returnChartData.length > 1 ? (
+                    <TimeSeriesChart
+                      data={returnChartData}
+                      series={[
+                        { key: "portfolio", name: selectedFundName || "Portfolio", color: "#f97316" },
+                      ]}
+                      height={600}
+                      yFormatter={(v) => `${v.toFixed(1)}%`}
+                    />
+                  ) : undefined
+                } />
               </CardHeader>
               <CardContent className="p-2">
                 {returnChartData.length > 1 ? (
@@ -196,7 +207,11 @@ export default function PeerIntelligencePage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Return Contributions (%)</CardTitle>
-                <CardControls data={factorBarData as Record<string, unknown>[]} filename="factor_contributions" />
+                <CardControls data={factorBarData as Record<string, unknown>[]} filename="factor_contributions" title="Factor Return Contributions (%)" expandContent={
+                  factorBarData.length > 0 ? (
+                    <BarChartPanel data={factorBarData} height={600} />
+                  ) : undefined
+                } />
               </CardHeader>
               <CardContent className="p-2">
                 {factorBarData.length > 0 ? (
@@ -230,7 +245,30 @@ export default function PeerIntelligencePage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Top Contributors</CardTitle>
-                <CardControls />
+                <CardControls title="Top Contributors" expandContent={
+                  <table className="w-full text-[10px]">
+                    <thead>
+                      <tr className="border-b border-border/50">
+                        {["Factor Type", "Factor Name", "Exposure", "Return Contrib (%)"].map(h => (
+                          <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topContributors.map((f, i) => (
+                        <tr key={i} className="border-b border-border/30">
+                          <td className="px-2 py-1 tabular-nums">{f.factor_type ?? "Style"}</td>
+                          <td className="px-2 py-1 tabular-nums font-medium">{f.factor}</td>
+                          <td className="px-2 py-1 tabular-nums">{f.exposure.toFixed(2)}</td>
+                          <td className="px-2 py-1 tabular-nums text-emerald-400">{(f.return_contribution * 100).toFixed(2)}%</td>
+                        </tr>
+                      ))}
+                      {topContributors.length === 0 && (
+                        <tr><td colSpan={4} className="px-2 py-4 text-center text-muted-foreground">No contributors</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                } />
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full text-[10px]">
@@ -261,7 +299,30 @@ export default function PeerIntelligencePage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Top Detractors</CardTitle>
-                <CardControls />
+                <CardControls title="Top Detractors" expandContent={
+                  <table className="w-full text-[10px]">
+                    <thead>
+                      <tr className="border-b border-border/50">
+                        {["Factor Type", "Factor Name", "Exposure", "Return Contrib (%)"].map(h => (
+                          <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detractors.map((f, i) => (
+                        <tr key={i} className="border-b border-border/30">
+                          <td className="px-2 py-1 tabular-nums">{f.factor_type ?? "Style"}</td>
+                          <td className="px-2 py-1 tabular-nums font-medium">{f.factor}</td>
+                          <td className="px-2 py-1 tabular-nums">{f.exposure.toFixed(2)}</td>
+                          <td className="px-2 py-1 tabular-nums text-red-400">{(f.return_contribution * 100).toFixed(2)}%</td>
+                        </tr>
+                      ))}
+                      {detractors.length === 0 && (
+                        <tr><td colSpan={4} className="px-2 py-4 text-center text-muted-foreground">No detractors</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                } />
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full text-[10px]">

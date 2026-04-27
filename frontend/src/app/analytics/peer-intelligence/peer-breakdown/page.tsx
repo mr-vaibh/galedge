@@ -229,7 +229,29 @@ export default function PeerBreakdownPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Breakdown by {dimension}</CardTitle>
-                <CardControls data={groupedRows.map(r => ({[dimension]: r[0], weight: r[1], count: r[2], symbols: r[3]}))} filename="breakdown" />
+                <CardControls data={groupedRows.map(r => ({[dimension]: r[0], weight: r[1], count: r[2], symbols: r[3]}))} filename="breakdown" title={`Breakdown by ${dimension}`} expandContent={
+                  <table className="w-full text-[10px]">
+                    <thead>
+                      <tr className="border-b border-border/50">
+                        {[dimension, "Weight", "Count", "Top Symbols"].map((h) => (
+                          <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {groupedRows.map((row, i) => (
+                        <tr key={i} className="border-b border-border/30">
+                          {row.map((cell, j) => (
+                            <td key={j} className="px-2 py-1 tabular-nums">{cell}</td>
+                          ))}
+                        </tr>
+                      ))}
+                      {groupedRows.length === 0 && (
+                        <tr><td colSpan={4} className="px-2 py-4 text-center text-muted-foreground">No data</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                } />
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full text-[10px]">
@@ -259,7 +281,11 @@ export default function PeerBreakdownPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Weight by {dimension} (%)</CardTitle>
-                <CardControls data={breakdownBarData as Record<string, unknown>[]} filename="breakdown" />
+                <CardControls data={breakdownBarData as Record<string, unknown>[]} filename="breakdown" title={`Weight by ${dimension} (%)`} expandContent={
+                  breakdownBarData.length > 0 ? (
+                    <BarChartPanel data={breakdownBarData} height={600} />
+                  ) : undefined
+                } />
               </CardHeader>
               <CardContent className="p-2">
                 {breakdownBarData.length > 0 ? (
@@ -276,7 +302,27 @@ export default function PeerBreakdownPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Top Holdings by Weight</CardTitle>
-                <CardControls />
+                <CardControls title="Top Holdings by Weight" expandContent={
+                  <table className="w-full text-[10px]">
+                    <thead>
+                      <tr className="border-b border-border/50">
+                        {["Symbol", "Weight", "Sector", "Market Cap"].map((h) => (
+                          <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topHoldings.map((h) => (
+                        <tr key={h.symbol} className="border-b border-border/30">
+                          <td className="px-2 py-1 font-medium">{h.symbol}</td>
+                          <td className="px-2 py-1 tabular-nums">{(h.weight * 100).toFixed(2)}%</td>
+                          <td className="px-2 py-1">{h.sector}</td>
+                          <td className="px-2 py-1 tabular-nums">{h.market_cap ? formatCurrencyCompact(h.market_cap * 1e7, "INR") : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                } />
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full text-[10px]">
@@ -304,7 +350,27 @@ export default function PeerBreakdownPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Bottom Holdings by Weight</CardTitle>
-                <CardControls />
+                <CardControls title="Bottom Holdings by Weight" expandContent={
+                  <table className="w-full text-[10px]">
+                    <thead>
+                      <tr className="border-b border-border/50">
+                        {["Symbol", "Weight", "Sector", "Market Cap"].map((h) => (
+                          <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bottomHoldings.map((h) => (
+                        <tr key={h.symbol} className="border-b border-border/30">
+                          <td className="px-2 py-1 font-medium">{h.symbol}</td>
+                          <td className="px-2 py-1 tabular-nums">{(h.weight * 100).toFixed(2)}%</td>
+                          <td className="px-2 py-1">{h.sector}</td>
+                          <td className="px-2 py-1 tabular-nums">{h.market_cap ? formatCurrencyCompact(h.market_cap * 1e7, "INR") : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                } />
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full text-[10px]">
@@ -332,7 +398,11 @@ export default function PeerBreakdownPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Top Holdings Weight (%)</CardTitle>
-                <CardControls data={holdingsBarData as Record<string, unknown>[]} filename="top_holdings" />
+                <CardControls data={holdingsBarData as Record<string, unknown>[]} filename="top_holdings" title="Top Holdings Weight (%)" expandContent={
+                  holdingsBarData.length > 0 ? (
+                    <BarChartPanel data={holdingsBarData} height={600} />
+                  ) : undefined
+                } />
               </CardHeader>
               <CardContent className="p-2">
                 {holdingsBarData.length > 0 ? (
@@ -364,7 +434,30 @@ export default function PeerBreakdownPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Card>
-              <CardHeader className="pb-1 py-2 px-3"><CardTitle className="text-[11px]">Top Contributors</CardTitle></CardHeader>
+              <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between"><CardTitle className="text-[11px]">Top Contributors</CardTitle><CardControls title="Top Contributors" expandContent={
+                <table className="w-full text-[10px]">
+                  <thead>
+                    <tr className="border-b border-border/50">
+                      {["Type", "Factor", "Exposure", "Return (%)"].map((h) => (
+                        <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topFactors.filter((f) => f.return_contribution > 0).length > 0
+                      ? topFactors.filter((f) => f.return_contribution > 0).map((f, i) => (
+                          <tr key={i} className="border-b border-border/30">
+                            <td className="px-2 py-1">{f.factor_type}</td>
+                            <td className="px-2 py-1 font-medium">{f.factor}</td>
+                            <td className="px-2 py-1 tabular-nums">{f.exposure.toFixed(2)}</td>
+                            <td className="px-2 py-1 tabular-nums text-emerald-400">{(f.return_contribution * 100).toFixed(2)}%</td>
+                          </tr>
+                        ))
+                      : <tr><td colSpan={4} className="px-2 py-4 text-center text-muted-foreground">No positive contributors</td></tr>
+                    }
+                  </tbody>
+                </table>
+              } /></CardHeader>
               <CardContent className="p-0">
                 <table className="w-full text-[10px]">
                   <thead>
@@ -392,7 +485,30 @@ export default function PeerBreakdownPage() {
             </Card>
 
             <Card>
-              <CardHeader className="pb-1 py-2 px-3"><CardTitle className="text-[11px]">Top Detractors</CardTitle></CardHeader>
+              <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between"><CardTitle className="text-[11px]">Top Detractors</CardTitle><CardControls title="Top Detractors" expandContent={
+                <table className="w-full text-[10px]">
+                  <thead>
+                    <tr className="border-b border-border/50">
+                      {["Type", "Factor", "Exposure", "Return (%)"].map((h) => (
+                        <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bottomFactors.filter((f) => f.return_contribution < 0).length > 0
+                      ? bottomFactors.filter((f) => f.return_contribution < 0).map((f, i) => (
+                          <tr key={i} className="border-b border-border/30">
+                            <td className="px-2 py-1">{f.factor_type}</td>
+                            <td className="px-2 py-1 font-medium">{f.factor}</td>
+                            <td className="px-2 py-1 tabular-nums">{f.exposure.toFixed(2)}</td>
+                            <td className="px-2 py-1 tabular-nums text-red-400">{(f.return_contribution * 100).toFixed(2)}%</td>
+                          </tr>
+                        ))
+                      : <tr><td colSpan={4} className="px-2 py-4 text-center text-muted-foreground">No negative detractors</td></tr>
+                    }
+                  </tbody>
+                </table>
+              } /></CardHeader>
               <CardContent className="p-0">
                 <table className="w-full text-[10px]">
                   <thead>

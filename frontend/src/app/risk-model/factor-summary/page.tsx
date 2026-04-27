@@ -175,7 +175,35 @@ export default function FactorSummaryPage() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Performance Summary</CardTitle>
-            <CardControls data={factors.map(f => ({...f}))} filename="factors" />
+            <CardControls data={factors.map(f => ({...f}))} filename="factors" title="Factor Performance Summary" expandContent={
+              <table className="w-full text-[11px]">
+                <thead className="sticky top-0 bg-card z-10">
+                  <tr className="border-b border-border/50">
+                    {["Factor Type", "Factor", "CAGR", "Cum. Return", "Sharpe", "Daily Ret", "Max DD", "Start Date", "End Date"].map((h) => (
+                      <th key={h} className="px-2 py-2 text-left font-medium text-muted-foreground whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {factors.map((f, i) => (
+                    <tr key={f.factor} className={`border-b border-border/30 hover:bg-muted/30 cursor-pointer ${i === 0 ? "bg-muted/20" : ""}`}>
+                      <td className="px-2 py-1.5 text-muted-foreground">{f.factor_type}</td>
+                      <td className="px-2 py-1.5 font-medium">{f.factor}</td>
+                      <td className={`px-2 py-1.5 tabular-nums ${f.cagr >= 0 ? "text-emerald-400" : "text-red-400"}`}>{f.cagr.toFixed(2)}%</td>
+                      <td className={`px-2 py-1.5 tabular-nums ${f.cumulative_return >= 0 ? "text-emerald-400" : "text-red-400"}`}>{f.cumulative_return.toFixed(2)}%</td>
+                      <td className="px-2 py-1.5 tabular-nums">{f.sharpe.toFixed(2)}</td>
+                      <td className="px-2 py-1.5 tabular-nums">{f.daily_return.toFixed(4)}%</td>
+                      <td className="px-2 py-1.5 tabular-nums text-red-400">{f.max_drawdown.toFixed(2)}%</td>
+                      <td className="px-2 py-1.5 text-muted-foreground text-[10px]">{f.start_date}</td>
+                      <td className="px-2 py-1.5 text-muted-foreground text-[10px]">{f.end_date}</td>
+                    </tr>
+                  ))}
+                  {factors.length === 0 && !loading && (
+                    <tr><td colSpan={9} className="px-2 py-8 text-center text-muted-foreground text-xs">No factor data yet. Upload a portfolio first — the risk model builds automatically.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            } />
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
@@ -214,7 +242,36 @@ export default function FactorSummaryPage() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Correlation</CardTitle>
-            <CardControls />
+            <CardControls title="Factor Correlation" expandContent={
+              corrFactors.length > 0 ? (
+                <div className="overflow-auto">
+                  <table className="text-[9px]">
+                    <thead>
+                      <tr>
+                        <th className="p-1" />
+                        {corrFactors.map((f) => (
+                          <th key={f} className="p-1 text-center font-medium text-muted-foreground" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: "60px" }}>
+                            {f}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {corrMatrix.map((row, i) => (
+                        <tr key={corrFactors[i]}>
+                          <td className="p-1 font-medium text-muted-foreground whitespace-nowrap text-right pr-2">{corrFactors[i]}</td>
+                          {row.map((val, j) => (
+                            <td key={j} className="p-0.5 text-center tabular-nums" style={{ backgroundColor: corrColor(val), minWidth: "28px" }}>
+                              {val.toFixed(2)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : undefined
+            } />
           </CardHeader>
           <CardContent className="p-2">
             {corrFactors.length > 0 ? (
@@ -260,7 +317,16 @@ export default function FactorSummaryPage() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Returns Time Series</CardTitle>
-            <CardControls data={factorReturnsData as Record<string, unknown>[]} filename="factor_returns_ts" />
+            <CardControls data={factorReturnsData as Record<string, unknown>[]} filename="factor_returns_ts" title="Factor Returns Time Series" expandContent={
+              factorReturnsData.length > 0 ? (
+                <TimeSeriesChart
+                  data={factorReturnsData}
+                  series={factorSeries}
+                  height={600}
+                  yFormatter={(v) => v.toFixed(0)}
+                />
+              ) : undefined
+            } />
           </CardHeader>
           <CardContent className="p-2">
             {factorReturnsData.length > 0 ? (
@@ -282,7 +348,45 @@ export default function FactorSummaryPage() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Correlation Time Series</CardTitle>
-            <CardControls />
+            <CardControls title="Factor Correlation Time Series" expandContent={
+              <div className="space-y-2">
+                <div className="flex gap-2 items-center">
+                  <Select value={corrPair[0]} onValueChange={(v) => { if (typeof v === "string") setCorrPair([v, corrPair[1]]); }}>
+                    <SelectTrigger className="h-7 w-[120px] text-[10px]"><SelectValue placeholder="Factor 1" /></SelectTrigger>
+                    <SelectContent>
+                      {corrFactors.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-[10px] text-muted-foreground">vs</span>
+                  <Select value={corrPair[1]} onValueChange={(v) => { if (typeof v === "string") setCorrPair([corrPair[0], v]); }}>
+                    <SelectTrigger className="h-7 w-[120px] text-[10px]"><SelectValue placeholder="Factor 2" /></SelectTrigger>
+                    <SelectContent>
+                      {corrFactors.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {corrPair[0] && corrPair[1] && corrMatrix.length > 0 ? (() => {
+                  const f1Idx = corrFactors.indexOf(corrPair[0]);
+                  const f2Idx = corrFactors.indexOf(corrPair[1]);
+                  const corrVal = (f1Idx >= 0 && f2Idx >= 0 && corrMatrix[f1Idx]) ? corrMatrix[f1Idx][f2Idx] : 0;
+                  return (
+                    <div className="h-48 flex flex-col items-center justify-center">
+                      <div className="text-[10px] text-muted-foreground mb-2">{corrPair[0]} vs {corrPair[1]}</div>
+                      <div className={`text-4xl font-bold tabular-nums ${corrVal >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                        {corrVal.toFixed(4)}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-2">
+                        {Math.abs(corrVal) > 0.7 ? "Strong" : Math.abs(corrVal) > 0.3 ? "Moderate" : "Weak"} {corrVal >= 0 ? "positive" : "negative"} correlation
+                      </div>
+                    </div>
+                  );
+                })() : (
+                  <div className="h-48 flex items-center justify-center text-muted-foreground text-xs">
+                    Select two factors above to view correlation
+                  </div>
+                )}
+              </div>
+            } />
           </CardHeader>
           <CardContent className="p-2 space-y-2">
             <div className="flex gap-2 items-center">

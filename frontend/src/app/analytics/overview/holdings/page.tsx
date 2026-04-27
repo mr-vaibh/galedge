@@ -158,7 +158,33 @@ export default function HoldingsSummaryPage() {
                 <CardTitle className="text-[11px]">Holdings Summary</CardTitle>
                 <span className="text-[9px] text-muted-foreground">{selectedSymbols.size}/{holdings.length} Selected</span>
               </div>
-              <CardControls data={holdings.map(h => ({symbol: h.symbol, weight: (h.weight*100).toFixed(2)+'%', sector: h.sector, market_cap: h.market_cap || 0}))} filename="holdings" />
+              <CardControls data={holdings.map(h => ({symbol: h.symbol, weight: (h.weight*100).toFixed(2)+'%', sector: h.sector, market_cap: h.market_cap || 0}))} filename="holdings" title="Holdings Summary" expandContent={
+                <table className="w-full text-[10px]">
+                  <thead>
+                    <tr className="border-b border-border/50">
+                      {["", "Symbol", "Weight", "Sector", "Market Cap"].map(h => (
+                        <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {holdings.map((h) => (
+                      <tr key={h.symbol} className="border-b border-border/30 hover:bg-muted/20">
+                        <td className="px-2 py-1">
+                          <input type="checkbox" checked={selectedSymbols.has(h.symbol)} onChange={() => toggleSymbol(h.symbol)} className="h-3 w-3" />
+                        </td>
+                        <td className="px-2 py-1 font-medium">{h.symbol}</td>
+                        <td className="px-2 py-1 tabular-nums">{(h.weight * 100).toFixed(2)}%</td>
+                        <td className="px-2 py-1">{h.sector || "—"}</td>
+                        <td className="px-2 py-1 tabular-nums">{h.market_cap ? formatCurrencyCompact(h.market_cap * 1e7, "INR") : "—"}</td>
+                      </tr>
+                    ))}
+                    {holdings.length === 0 && (
+                      <tr><td colSpan={5} className="px-2 py-4 text-center text-muted-foreground">No holdings data available</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              } />
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full text-[10px]">
@@ -204,7 +230,28 @@ export default function HoldingsSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Factor Summary</CardTitle>
-              <CardControls data={factorSummary.map(f => ({factor: f.factor, exposure: f.exposure}))} filename="factor_exposures" />
+              <CardControls data={factorSummary.map(f => ({factor: f.factor, exposure: f.exposure}))} filename="factor_exposures" title="Factor Summary" expandContent={
+                <table className="w-full text-[10px]">
+                  <thead>
+                    <tr className="border-b border-border/50">
+                      {["Factor", "Avg Exposure"].map(h => (
+                        <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {factorSummary.map((f) => (
+                      <tr key={f.factor} className="border-b border-border/30 hover:bg-muted/20">
+                        <td className="px-2 py-1 font-medium">{f.factor}</td>
+                        <td className="px-2 py-1 tabular-nums">{f.exposure}</td>
+                      </tr>
+                    ))}
+                    {factorSummary.length === 0 && (
+                      <tr><td colSpan={2} className="px-2 py-4 text-center text-muted-foreground">No factor data available</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              } />
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full text-[10px]">
@@ -234,7 +281,11 @@ export default function HoldingsSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Holdings (%)</CardTitle>
-              <CardControls data={holdingsBarData as Record<string, unknown>[]} filename="holdings_chart" />
+              <CardControls data={holdingsBarData as Record<string, unknown>[]} filename="holdings_chart" title="Holdings (%)" expandContent={
+                holdingsBarData.length > 0 ? (
+                  <BarChartPanel data={holdingsBarData} height={600} />
+                ) : undefined
+              } />
             </CardHeader>
             <CardContent className="p-2">
               {holdingsBarData.length > 0 ? (
@@ -251,7 +302,11 @@ export default function HoldingsSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Factor Exposure</CardTitle>
-              <CardControls data={factorBarData as Record<string, unknown>[]} filename="factor_chart" />
+              <CardControls data={factorBarData as Record<string, unknown>[]} filename="factor_chart" title="Factor Exposure" expandContent={
+                factorBarData.length > 0 ? (
+                  <BarChartPanel data={factorBarData} height={600} />
+                ) : undefined
+              } />
             </CardHeader>
             <CardContent className="p-2">
               {factorBarData.length > 0 ? (
