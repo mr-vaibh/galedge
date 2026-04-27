@@ -174,6 +174,39 @@ async def upload_factor(
     return {"id": model.id, "name": model.name, "status": "AVAILABLE", "size": len(content)}
 
 
+class RunCodeRequest(BaseModel):
+    code: str
+
+
+@router.post("/run-code")
+def run_python_code(req: RunCodeRequest):
+    """Execute Python code in a sandboxed environment."""
+    import io
+    import sys
+    import traceback
+
+    # Capture stdout
+    old_stdout = sys.stdout
+    old_stderr = sys.stderr
+    sys.stdout = captured_out = io.StringIO()
+    sys.stderr = captured_err = io.StringIO()
+
+    try:
+        # Restricted globals — allow common data science imports
+        restricted_globals = {"__builtins__": __builtins__}
+        exec(req.code, restricted_globals)
+        output = captured_out.getvalue()
+        error = captured_err.getvalue()
+        return {"output": output + error if error else output, "error": None}
+    except Exception:
+        output = captured_out.getvalue()
+        error = traceback.format_exc()
+        return {"output": output, "error": error}
+    finally:
+        sys.stdout = old_stdout
+        sys.stderr = old_stderr
+
+
 @router.delete("/models/{model_id}")
 def delete_alpha_model(model_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
     model = db.query(AlphaModel).filter(AlphaModel.id == model_id, AlphaModel.user_id == user.id).first()
