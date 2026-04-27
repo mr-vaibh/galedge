@@ -22,30 +22,70 @@ interface Props {
   fullscreen?: boolean;
 }
 
-async function downloadCardAsImage(cardEl: HTMLElement, filename: string) {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const domtoimage: any = await import("dom-to-image-more");
-    const scale = 2;
-    const dataUrl = await domtoimage.toPng(cardEl, {
-      width: cardEl.offsetWidth * scale,
-      height: cardEl.offsetHeight * scale,
-      style: {
-        transform: `scale(${scale})`,
-        transformOrigin: "top left",
-      },
-      bgcolor: "#0a0a0a",
-    });
+function downloadCardAsImage(cardEl: HTMLElement, filename: string) {
+  // Find the SVG inside the card (Recharts chart)
+  const svg = cardEl.querySelector("svg.recharts-surface") || cardEl.querySelector("svg");
+  if (!svg) {
+    alert("No chart found to export.");
+    return;
+  }
+
+  const svgEl = svg as SVGSVGElement;
+  const bbox = svgEl.getBoundingClientRect();
+  const scale = 3; // 3x for high resolution
+  const width = bbox.width * scale;
+  const height = bbox.height * scale;
+
+  // Clone SVG and add background
+  const clone = svgEl.cloneNode(true) as SVGSVGElement;
+  clone.setAttribute("width", String(bbox.width));
+  clone.setAttribute("height", String(bbox.height));
+  clone.setAttribute("viewBox", `0 0 ${bbox.width} ${bbox.height}`);
+
+  // Add dark background rect
+  const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  bg.setAttribute("width", "100%");
+  bg.setAttribute("height", "100%");
+  bg.setAttribute("fill", "#0a0a0a");
+  clone.insertBefore(bg, clone.firstChild);
+
+  // Serialize and create image
+  const svgData = new XMLSerializer().serializeToString(clone);
+  const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(svgBlob);
+
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "#0a0a0a";
+      ctx.fillRect(0, 0, width, height);
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0, bbox.width, bbox.height);
+    }
+
     const link = document.createElement("a");
     link.download = `${filename}.png`;
-    link.href = dataUrl;
+    link.href = canvas.toDataURL("image/png", 1.0);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  } catch (err) {
-    console.error("Image download failed:", err);
-    alert("Image export failed. Check console for details.");
-  }
+    URL.revokeObjectURL(url);
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    // Fallback: download SVG directly
+    const svgLink = document.createElement("a");
+    svgLink.download = `${filename}.svg`;
+    svgLink.href = url;
+    document.body.appendChild(svgLink);
+    svgLink.click();
+    document.body.removeChild(svgLink);
+  };
+  img.src = url;
 }
 
 export function CardControls({ data, filename = "export", info, onFilter, filterable, title, expandContent, fullscreen }: Props) {
