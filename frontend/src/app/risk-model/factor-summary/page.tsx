@@ -194,7 +194,7 @@ export default function FactorSummaryPage() {
                     </tr>
                   ))}
                   {factors.length === 0 && !loading && (
-                    <tr><td colSpan={9} className="px-2 py-8 text-center text-muted-foreground text-xs">No factors. Run POST /api/data/risk-model/build first.</td></tr>
+                    <tr><td colSpan={9} className="px-2 py-8 text-center text-muted-foreground text-xs">No factor data yet. Upload a portfolio first — the risk model builds automatically.</td></tr>
                   )}
                 </tbody>
               </table>
