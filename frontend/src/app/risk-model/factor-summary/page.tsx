@@ -213,7 +213,32 @@ export default function FactorSummaryPage() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Correlation</CardTitle>
-            <CardControls />
+            <CardControls>
+              {corrFactors.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="text-[9px]">
+                    <thead>
+                      <tr>
+                        <th className="p-1" />
+                        {corrFactors.map((f) => (
+                          <th key={f} className="p-1 text-center font-medium text-muted-foreground" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: "60px" }}>{f}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {corrMatrix.map((row, i) => (
+                        <tr key={corrFactors[i]}>
+                          <td className="p-1 font-medium text-muted-foreground whitespace-nowrap text-right pr-2">{corrFactors[i]}</td>
+                          {row.map((val, j) => (
+                            <td key={j} className="p-0.5 text-center tabular-nums" style={{ backgroundColor: corrColor(val), minWidth: "28px" }}>{val.toFixed(2)}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+            </CardControls>
           </CardHeader>
           <CardContent className="p-2">
             {corrFactors.length > 0 ? (
@@ -259,7 +284,11 @@ export default function FactorSummaryPage() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Returns Time Series</CardTitle>
-            <CardControls />
+            <CardControls>
+              {factorReturnsData.length > 0 ? (
+                <TimeSeriesChart data={factorReturnsData} series={factorSeries} height={500} yFormatter={(v) => v.toFixed(0)} />
+              ) : null}
+            </CardControls>
           </CardHeader>
           <CardContent className="p-2">
             {factorReturnsData.length > 0 ? (
@@ -281,7 +310,33 @@ export default function FactorSummaryPage() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Correlation Time Series</CardTitle>
-            <CardControls />
+            <CardControls>
+              <div className="space-y-4">
+                <div className="flex gap-2 items-center">
+                  <Select value={corrPair[0]} onValueChange={(v) => { if (typeof v === "string") setCorrPair([v, corrPair[1]]); }}>
+                    <SelectTrigger className="h-9 w-[140px] text-xs"><SelectValue placeholder="Factor 1" /></SelectTrigger>
+                    <SelectContent>{corrFactors.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                  </Select>
+                  <span className="text-xs text-muted-foreground">vs</span>
+                  <Select value={corrPair[1]} onValueChange={(v) => { if (typeof v === "string") setCorrPair([corrPair[0], v]); }}>
+                    <SelectTrigger className="h-9 w-[140px] text-xs"><SelectValue placeholder="Factor 2" /></SelectTrigger>
+                    <SelectContent>{corrFactors.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                {corrPair[0] && corrPair[1] && corrMatrix.length > 0 ? (() => {
+                  const f1 = corrFactors.indexOf(corrPair[0]);
+                  const f2 = corrFactors.indexOf(corrPair[1]);
+                  const cv = (f1 >= 0 && f2 >= 0 && corrMatrix[f1]) ? corrMatrix[f1][f2] : 0;
+                  return (
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <div className="text-sm text-muted-foreground mb-3">{corrPair[0]} vs {corrPair[1]}</div>
+                      <div className={`text-6xl font-bold tabular-nums ${cv >= 0 ? "text-emerald-400" : "text-red-400"}`}>{cv.toFixed(4)}</div>
+                      <div className="text-sm text-muted-foreground mt-3">{Math.abs(cv) > 0.7 ? "Strong" : Math.abs(cv) > 0.3 ? "Moderate" : "Weak"} {cv >= 0 ? "positive" : "negative"} correlation</div>
+                    </div>
+                  );
+                })() : null}
+              </div>
+            </CardControls>
           </CardHeader>
           <CardContent className="p-2 space-y-2">
             <div className="flex gap-2 items-center">
