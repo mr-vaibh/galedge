@@ -1,3 +1,11 @@
+export function makeFilename(name: string, ext: string): string {
+  const now = new Date();
+  const date = `${String(now.getDate()).padStart(2, "0")}_${String(now.getMonth() + 1).padStart(2, "0")}_${now.getFullYear()}`;
+  const time = `${String(now.getHours()).padStart(2, "0")}_${String(now.getMinutes()).padStart(2, "0")}`;
+  const clean = name.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "");
+  return `${clean}-${date}-${time}.${ext}`;
+}
+
 export function downloadCSV(
   data: Record<string, unknown>[],
   filename: string

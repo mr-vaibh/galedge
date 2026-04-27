@@ -8,7 +8,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { downloadCSV } from "@/lib/csv";
+import { downloadCSV, makeFilename } from "@/lib/csv";
 import { useExpand } from "@/lib/expand-context";
 
 interface Props {
@@ -30,7 +30,7 @@ async function downloadCardAsImage(cardEl: HTMLElement, filename: string) {
       backgroundColor: "#0a0a0a",
     });
     const link = document.createElement("a");
-    link.download = `${filename}.png`;
+    link.download = makeFilename(filename, "png");
     link.href = dataUrl;
     document.body.appendChild(link);
     link.click();
@@ -66,7 +66,7 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
   function handleDownload() {
     if (data && data.length > 0) {
       // Table data → CSV
-      downloadCSV(data, filename);
+      downloadCSV(data, makeFilename(filename, "csv"));
     } else {
       // Chart/heatmap → capture as image
       const el = containerRef.current;

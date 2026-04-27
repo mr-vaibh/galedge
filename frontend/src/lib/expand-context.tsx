@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Minimize2, Download } from "lucide-react";
-import { downloadCSV } from "@/lib/csv";
+import { downloadCSV, makeFilename } from "@/lib/csv";
 
 interface ExpandState {
   open: (title: string, content: ReactNode, data?: Record<string, unknown>[], filename?: string, fullscreen?: boolean) => void;
@@ -65,7 +65,7 @@ export function ExpandProvider({ children }: { children: ReactNode }) {
               <span className="text-sm font-semibold">{title}</span>
               <div className="flex items-center gap-2 shrink-0">
                 {data && data.length > 0 && (
-                  <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={() => downloadCSV(data, filename)}>
+                  <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={() => downloadCSV(data, makeFilename(filename, "csv"))}>
                     <Download className="h-3 w-3" /> Download CSV
                   </Button>
                 )}
