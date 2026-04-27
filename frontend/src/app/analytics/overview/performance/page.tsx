@@ -140,7 +140,7 @@ export default function PerformanceSummaryPage() {
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Profit and Loss Summary</CardTitle>
               <CardControls data={[{total_return: `${metrics.total_return ?? "—"}%`, cagr: `${metrics.annualised_return ?? "—"}%`, sharpe: metrics.sharpe_ratio ?? "—", holdings: metrics.num_holdings ?? "—"}]} filename="pnl" title="Profit and Loss Summary" expandContent={
-                <table className="text-[10px]">
+                <table className="text-xs">
                   <tbody>
                     {[
                       ["Total Return", `${metrics.total_return ?? metrics.total_portfolio_return ?? "—"}%`],
@@ -149,8 +149,8 @@ export default function PerformanceSummaryPage() {
                       ["Positions", metrics.avg_positions ?? metrics.num_holdings ?? "—"],
                     ].map(([l, v]) => (
                       <tr key={String(l)} className="border-b border-border/30">
-                        <td className="px-2 py-1.5 text-muted-foreground">{String(l)}</td>
-                        <td className="px-2 py-1.5 text-right tabular-nums font-medium">{String(v)}</td>
+                        <td className="pr-12 py-2 text-muted-foreground">{String(l)}</td>
+                        <td className="py-2 text-right tabular-nums font-medium">{String(v)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -180,7 +180,7 @@ export default function PerformanceSummaryPage() {
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Risk Summary</CardTitle>
               <CardControls data={metrics ? [{max_drawdown: metrics.max_drawdown, volatility: metrics.volatility, avg_turnover: metrics.avg_turnover, trading_days: metrics.trading_days ?? metrics.total_trades}] : []} filename="risk" title="Risk Summary" expandContent={
-                <table className="w-full text-[10px]">
+                <table className="text-xs">
                   <tbody>
                     {[
                       ["Max Drawdown", `${metrics.max_drawdown ?? "—"}%`],
@@ -189,8 +189,8 @@ export default function PerformanceSummaryPage() {
                       ["Trading Days", metrics.trading_days ?? metrics.total_trades ?? "—"],
                     ].map(([l, v]) => (
                       <tr key={String(l)} className="border-b border-border/30">
-                        <td className="px-2 py-1.5 text-muted-foreground">{String(l)}</td>
-                        <td className={`px-2 py-1.5 text-right tabular-nums font-medium ${String(v).startsWith("-") ? "text-red-400" : ""}`}>{String(v)}</td>
+                        <td className="pr-12 py-2 text-muted-foreground">{String(l)}</td>
+                        <td className={`py-2 text-right tabular-nums font-medium ${String(v).startsWith("-") ? "text-red-400" : ""}`}>{String(v)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -220,7 +220,7 @@ export default function PerformanceSummaryPage() {
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Portfolio Summary</CardTitle>
               <CardControls data={metrics ? [{initial_capital: metrics.initial_capital, final_value: metrics.final_value, total_rebalances: metrics.total_rebalances, fund_name: metrics.fund_name ?? selectedFundName}] : []} filename="portfolio" title="Portfolio Summary" expandContent={
-                <table className="w-full text-[10px]">
+                <table className="text-xs">
                   <tbody>
                     {[
                       ["Initial Capital", metrics.initial_capital ? formatCurrencyCompact(Number(metrics.initial_capital), "INR") : metrics.aum ? formatCurrencyCompact(Number(metrics.aum) * 1e7, "INR") : "—"],
@@ -229,8 +229,8 @@ export default function PerformanceSummaryPage() {
                       ["Fund", metrics.fund_name ?? selectedFundName ?? "Demo"],
                     ].map(([l, v]) => (
                       <tr key={String(l)} className="border-b border-border/30">
-                        <td className="px-2 py-1.5 text-muted-foreground">{String(l)}</td>
-                        <td className="px-2 py-1.5 text-right tabular-nums font-medium">{String(v)}</td>
+                        <td className="pr-12 py-2 text-muted-foreground">{String(l)}</td>
+                        <td className="py-2 text-right tabular-nums font-medium">{String(v)}</td>
                       </tr>
                     ))}
                   </tbody>
