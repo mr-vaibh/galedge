@@ -296,27 +296,59 @@ def generate_rebalance(strategy_id: int, user: User = Depends(require_user), db:
         if total > 0:
             weights = {s: w / total for s, w in weights.items()}
 
-    # Get previous weights from last backtest rebalance (if any)
-    prev_weights: dict[str, float] = {}
-    latest_bt = db.query(Backtest).filter(Backtest.strategy_id == strategy_id).order_by(Backtest.created_at.desc()).first()
-    if latest_bt and latest_bt.results:
-        # Try to get last rebalance weights from results
-        pass  # We don't store per-rebalance weights in the DB yet
+    # Get current holdings from user's portfolios as "current weights"
+    from app.models.portfolio import Portfolio, PortfolioHolding
+    current_weights: dict[str, float] = {}
 
-    # Build trade list
+    # Find user's portfolios and get the latest holdings
+    user_portfolios = db.query(Portfolio).filter(Portfolio.user_id == user.id).all()
+    for p in user_portfolios:
+        latest_date_row = (
+            db.query(PortfolioHolding.date)
+            .filter(PortfolioHolding.portfolio_id == p.id)
+            .order_by(PortfolioHolding.date.desc())
+            .first()
+        )
+        if latest_date_row:
+            holdings = (
+                db.query(PortfolioHolding)
+                .filter(PortfolioHolding.portfolio_id == p.id, PortfolioHolding.date == latest_date_row[0])
+                .all()
+            )
+            for h in holdings:
+                # Map bare symbol to .NS for matching
+                sym_key = h.symbol if "." in h.symbol else f"{h.symbol}.NS"
+                if sym_key in valid_symbols:
+                    current_weights[sym_key] = current_weights.get(sym_key, 0) + h.weight
+
+    # Build trade list — include both target positions and positions to exit
     trades = []
     latest_date = df.index[-1]
-    for sym, target_w in sorted(weights.items(), key=lambda x: -x[1]):
-        prev_w = prev_weights.get(sym, 0)
-        delta = target_w - prev_w
-        action = "BUY" if delta > 0 else ("SELL" if delta < 0 else "HOLD")
+    all_symbols = set(weights.keys()) | set(current_weights.keys())
+
+    for sym in sorted(all_symbols, key=lambda s: weights.get(s, 0), reverse=True):
+        target_w = weights.get(sym, 0)
+        current_w = current_weights.get(sym, 0)
+        delta = target_w - current_w
+
+        if abs(delta) < 0.001:
+            action = "HOLD"
+        elif target_w == 0 and current_w > 0:
+            action = "EXIT"
+        elif current_w == 0 and target_w > 0:
+            action = "NEW BUY"
+        elif delta > 0:
+            action = "INCREASE"
+        else:
+            action = "REDUCE"
+
         latest_price = float(df.loc[latest_date, sym]) if sym in df.columns else 0
 
         trades.append({
             "symbol": sym,
             "action": action,
             "target_weight": round(target_w * 100, 2),
-            "current_weight": round(prev_w * 100, 2),
+            "current_weight": round(current_w * 100, 2),
             "delta_weight": round(delta * 100, 2),
             "latest_price": round(latest_price, 2),
         })

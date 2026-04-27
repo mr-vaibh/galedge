@@ -342,7 +342,7 @@ export default function StrategyBuilderPage() {
               <table className="w-full text-[10px]">
                 <thead className="sticky top-0 bg-neutral-900">
                   <tr className="border-b border-neutral-700">
-                    {["#", "Symbol", "Action", "Target %", "Delta %", "Price (₹)"].map((h) => (
+                    {["#", "Symbol", "Action", "Current %", "Target %", "Delta %", "Price (₹)"].map((h) => (
                       <th key={h} className="px-3 py-2 text-left text-muted-foreground font-medium">{h}</th>
                     ))}
                   </tr>
@@ -354,14 +354,17 @@ export default function StrategyBuilderPage() {
                       <td className="px-3 py-1.5 font-medium">{t.symbol}</td>
                       <td className="px-3 py-1.5">
                         <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
-                          t.action === "BUY" ? "bg-emerald-500/20 text-emerald-400" :
-                          t.action === "SELL" ? "bg-red-500/20 text-red-400" :
+                          t.action === "NEW BUY" ? "bg-emerald-500/20 text-emerald-400" :
+                          t.action === "INCREASE" ? "bg-green-500/20 text-green-400" :
+                          t.action === "REDUCE" ? "bg-amber-500/20 text-amber-400" :
+                          t.action === "EXIT" ? "bg-red-500/20 text-red-400" :
                           "bg-neutral-700 text-neutral-400"
                         }`}>
                           {t.action}
                         </span>
                       </td>
-                      <td className="px-3 py-1.5 tabular-nums">{t.target_weight}%</td>
+                      <td className="px-3 py-1.5 tabular-nums text-muted-foreground">{t.current_weight}%</td>
+                      <td className="px-3 py-1.5 tabular-nums font-medium">{t.target_weight}%</td>
                       <td className={`px-3 py-1.5 tabular-nums ${t.delta_weight > 0 ? "text-emerald-400" : t.delta_weight < 0 ? "text-red-400" : ""}`}>
                         {t.delta_weight > 0 ? "+" : ""}{t.delta_weight}%
                       </td>
