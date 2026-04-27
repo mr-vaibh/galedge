@@ -54,20 +54,34 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
     const content = card.querySelector("[data-slot='card-content']");
     if (!content) return;
 
-    // Charts can't be expanded (SVGs don't clone properly)
-    const hasChart = content.querySelector(".recharts-wrapper, .recharts-responsive-container, svg.recharts-surface");
-    if (hasChart) return;
-
-    // Clone table/text content
+    // Clone content
     const clone = content.cloneNode(true) as HTMLElement;
-    // Remove max-height constraints
-    clone.querySelectorAll("[class*='max-h-']").forEach((el) => {
+
+    // Remove scroll/height constraints on containers
+    clone.querySelectorAll("[class*='max-h-'], [class*='overflow-y-auto'], [class*='overflow-x-auto']").forEach((el) => {
       (el as HTMLElement).style.maxHeight = "none";
+      (el as HTMLElement).style.overflow = "visible";
     });
-    clone.style.maxHeight = "none";
-    clone.style.overflow = "visible";
-    // Make tables fill width
+
+    // Tables: fill width
     clone.querySelectorAll("table").forEach((t) => { t.style.width = "100%"; });
+
+    // Charts: remove the tiny fixed dimensions, set to fill
+    clone.querySelectorAll(".recharts-responsive-container").forEach((el) => {
+      (el as HTMLElement).style.width = "100%";
+      (el as HTMLElement).style.height = "600px";
+    });
+    clone.querySelectorAll(".recharts-wrapper").forEach((el) => {
+      (el as HTMLElement).style.width = "100%";
+      (el as HTMLElement).style.height = "600px";
+      // Re-set the SVG inside
+      const svg = el.querySelector("svg.recharts-surface");
+      if (svg) {
+        svg.setAttribute("width", "100%");
+        svg.setAttribute("height", "600");
+        svg.setAttribute("viewBox", `0 0 ${window.innerWidth * 0.9} 600`);
+      }
+    });
 
     setExpandHtml(clone.innerHTML);
     setExpanded(true);
@@ -166,9 +180,9 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
               </div>
             </div>
 
-            {/* Content — cloned DOM from the card */}
-            <div className="overflow-auto flex-1 min-h-0">
-              <div className="w-full h-full p-1 [&_table]:h-full [&_table]:w-full [&>div]:h-full [&>div]:w-full [&_*]:max-h-none" dangerouslySetInnerHTML={{ __html: expandHtml }} />
+            {/* Content */}
+            <div className="overflow-auto flex-1 min-h-0 p-3">
+              <div className="w-full [&_table]:w-full" dangerouslySetInnerHTML={{ __html: expandHtml }} />
             </div>
           </div>
         </div>,
