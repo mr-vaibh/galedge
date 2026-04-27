@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2, Download } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend } from "recharts";
 import { api, FactorSummaryRow } from "@/lib/api";
 import { CardControls } from "@/components/CardControls";
 
@@ -215,22 +216,22 @@ export default function FactorSummaryPage() {
             <CardTitle className="text-sm">Factor Correlation</CardTitle>
             <CardControls>
               {corrFactors.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="text-[9px]">
+                <div className="overflow-auto">
+                  <table className="text-xs">
                     <thead>
                       <tr>
-                        <th className="p-1" />
+                        <th className="p-2" />
                         {corrFactors.map((f) => (
-                          <th key={f} className="p-1 text-center font-medium text-muted-foreground" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: "60px" }}>{f}</th>
+                          <th key={f} className="p-2 text-center font-medium text-muted-foreground" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: "80px" }}>{f}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {corrMatrix.map((row, i) => (
                         <tr key={corrFactors[i]}>
-                          <td className="p-1 font-medium text-muted-foreground whitespace-nowrap text-right pr-2">{corrFactors[i]}</td>
+                          <td className="p-2 font-medium text-muted-foreground whitespace-nowrap text-right pr-3">{corrFactors[i]}</td>
                           {row.map((val, j) => (
-                            <td key={j} className="p-0.5 text-center tabular-nums" style={{ backgroundColor: corrColor(val), minWidth: "28px" }}>{val.toFixed(2)}</td>
+                            <td key={j} className="p-1.5 text-center tabular-nums" style={{ backgroundColor: corrColor(val), minWidth: "36px" }}>{val.toFixed(2)}</td>
                           ))}
                         </tr>
                       ))}
@@ -286,8 +287,19 @@ export default function FactorSummaryPage() {
             <CardTitle className="text-sm">Factor Returns Time Series</CardTitle>
             <CardControls>
               {factorReturnsData.length > 0 ? (
-                <div className="w-full h-full min-h-[400px]">
-                  <TimeSeriesChart data={factorReturnsData} series={factorSeries} height={600} yFormatter={(v) => v.toFixed(0)} />
+                <div style={{ width: "100%", height: "calc(88vh - 100px)" }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={factorReturnsData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                      <XAxis dataKey="date" tick={{ fill: "#71717a", fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} />
+                      <YAxis tick={{ fill: "#71717a", fontSize: 10 }} width={45} tickFormatter={(v: number) => v.toFixed(0)} />
+                      <RechartsTooltip contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: "8px", fontSize: "11px" }} />
+                      <Legend wrapperStyle={{ fontSize: "10px" }} />
+                      {factorSeries.map((s) => (
+                        <Line key={s.key} type="monotone" dataKey={s.key} stroke={s.color} name={s.name} dot={false} strokeWidth={1.5} />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
               ) : null}
             </CardControls>

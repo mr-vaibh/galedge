@@ -163,11 +163,10 @@ function ExpandModal({ title, data, filename, onClose, children }: {
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-auto p-5 min-h-0">
+        {/* Content — flex-1 fills remaining height, children stretch to fill */}
+        <div className="flex-1 min-h-0 flex flex-col overflow-auto">
           {children ? (
-            // Live React components — fully interactive, fill available space
-            <div className="w-full h-full [&_.recharts-responsive-container]:!h-full [&_.recharts-wrapper]:!h-full [&_table]:w-full">{children}</div>
+            <div className="flex-1 min-h-0 w-full p-5">{children}</div>
           ) : data && data.length > 0 ? (
             // Data table fallback
             <table className="w-full text-xs">
