@@ -97,6 +97,18 @@ export default function OptimizerPage() {
     setResult(null);
 
     try {
+      // Validate all constraint values are numeric
+      for (const c of constraints) {
+        for (const [key, val] of Object.entries(c.params)) {
+          if (key === "sector") continue;
+          if (val && isNaN(Number(val))) {
+            setError(`Invalid value "${val}" in ${c.type} → ${key}. Must be a number.`);
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
       // Map constraints to backend format
       const mappedConstraints = constraints.map(c => {
         const flat: Record<string, unknown> = { type: c.type };
