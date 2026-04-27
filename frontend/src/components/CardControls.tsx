@@ -23,66 +23,28 @@ interface Props {
 }
 
 async function downloadCardAsImage(cardEl: HTMLElement, filename: string) {
-  // Convert all SVGs in the card to canvas elements first (html2canvas can't handle SVGs well)
-  const svgs = cardEl.querySelectorAll("svg");
-  const replacements: { svg: SVGElement; canvas: HTMLCanvasElement }[] = [];
-
-  for (const svg of Array.from(svgs)) {
-    try {
-      const svgData = new XMLSerializer().serializeToString(svg);
-      const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-      const url = URL.createObjectURL(svgBlob);
-      const img = new Image();
-
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          canvas.width = svg.clientWidth * 2;
-          canvas.height = svg.clientHeight * 2;
-          canvas.style.width = svg.clientWidth + "px";
-          canvas.style.height = svg.clientHeight + "px";
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            ctx.scale(2, 2);
-            ctx.drawImage(img, 0, 0, svg.clientWidth, svg.clientHeight);
-          }
-          svg.parentNode?.insertBefore(canvas, svg);
-          svg.style.display = "none";
-          replacements.push({ svg: svg as SVGElement, canvas });
-          URL.revokeObjectURL(url);
-          resolve();
-        };
-        img.onerror = reject;
-        img.src = url;
-      });
-    } catch {
-      // Skip SVGs that can't be converted
-    }
-  }
-
   try {
-    const mod = await import("html2canvas");
-    const html2canvas = mod.default || mod;
-    const canvas = await html2canvas(cardEl, {
-      backgroundColor: "#0a0a0a",
-      scale: 2,
-      logging: false,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const domtoimage: any = await import("dom-to-image-more");
+    const scale = 2;
+    const dataUrl = await domtoimage.toPng(cardEl, {
+      width: cardEl.offsetWidth * scale,
+      height: cardEl.offsetHeight * scale,
+      style: {
+        transform: `scale(${scale})`,
+        transformOrigin: "top left",
+      },
+      bgcolor: "#0a0a0a",
     });
     const link = document.createElement("a");
     link.download = `${filename}.png`;
-    link.href = canvas.toDataURL("image/png", 1.0);
+    link.href = dataUrl;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   } catch (err) {
     console.error("Image download failed:", err);
     alert("Image export failed. Check console for details.");
-  }
-
-  // Restore SVGs
-  for (const { svg, canvas } of replacements) {
-    svg.style.display = "";
-    canvas.parentNode?.removeChild(canvas);
   }
 }
 
