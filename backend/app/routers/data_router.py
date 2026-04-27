@@ -228,6 +228,20 @@ def get_stock_exposures(
 
 # ── Data stats ────────────────────────────────────────────────────────────────
 
+@router.get("/latest-trading-date")
+def get_latest_trading_date(db: Session = Depends(get_db)):
+    """Return the latest trading date with price data in the database."""
+    latest = db.query(func.max(StockPrice.date)).scalar()
+    if latest:
+        return {"date": str(latest)}
+    # Fallback: last weekday
+    from datetime import date as dt_date
+    d = dt_date.today()
+    while d.weekday() >= 5:
+        d = d.replace(day=d.day - 1)
+    return {"date": str(d)}
+
+
 @router.get("/stats")
 def get_data_stats(db: Session = Depends(get_db)):
     """Get database statistics."""

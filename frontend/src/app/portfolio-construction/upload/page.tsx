@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,14 +37,16 @@ export default function UploadPortfolioPage() {
   const [fund, setFund] = useState("");
   const [scheme, setScheme] = useState("");
   const [benchmark, setBenchmark] = useState("");
-  const [date, setDate] = useState(() => {
-    const d = new Date();
-    const day = d.getDay();
-    if (day === 0) d.setDate(d.getDate() - 2); // Sunday → Friday
-    else if (day === 6) d.setDate(d.getDate() - 1); // Saturday → Friday
-    return d.toISOString().split("T")[0];
-  });
+  const [date, setDate] = useState("");
   const [file, setFile] = useState<File | null>(null);
+
+  // Fetch latest trading date from backend
+  useEffect(() => {
+    fetch(`${API_BASE}/api/data/latest-trading-date`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.date) setDate(d.date); })
+      .catch(() => { setDate(new Date().toISOString().split("T")[0]); });
+  }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
