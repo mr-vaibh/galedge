@@ -30,6 +30,8 @@ interface Trade {
   current_weight: number;
   delta_weight: number;
   latest_price: number;
+  trade_qty: number;
+  trade_value: number;
 }
 
 interface RebalanceResult {
@@ -40,6 +42,10 @@ interface RebalanceResult {
   expected_return: number;
   expected_risk: number;
   sharpe_ratio: number;
+  portfolio_value: number;
+  total_buy_value: number;
+  total_sell_value: number;
+  net_investment: number;
   trades: Trade[];
 }
 
@@ -148,9 +154,9 @@ export default function StrategyBuilderPage() {
 
   function downloadTradeList() {
     if (!rebalanceResult) return;
-    const header = "Symbol,Action,Target Weight (%),Current Weight (%),Delta (%),Latest Price";
+    const header = "Symbol,Action,Current Weight (%),Target Weight (%),Delta (%),Quantity,Trade Value (₹),Latest Price (₹)";
     const rows = rebalanceResult.trades.map((t) =>
-      `${t.symbol},${t.action},${t.target_weight},${t.current_weight},${t.delta_weight},${t.latest_price}`
+      `${t.symbol},${t.action},${t.current_weight},${t.target_weight},${t.delta_weight},${t.trade_qty},${t.trade_value},${t.latest_price}`
     );
     const csv = [header, ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -336,13 +342,26 @@ export default function StrategyBuilderPage() {
                 </div>
               ))}
             </div>
+            <div className="grid grid-cols-4 gap-3 px-5 py-2 border-b border-neutral-800 bg-neutral-800/30">
+              {[
+                ["Portfolio", `₹${(rebalanceResult.portfolio_value / 1e7).toFixed(2)} Cr`],
+                ["Total Buy", `₹${(rebalanceResult.total_buy_value / 1e5).toFixed(1)} L`],
+                ["Total Sell", `₹${(rebalanceResult.total_sell_value / 1e5).toFixed(1)} L`],
+                ["Net Flow", `₹${(rebalanceResult.net_investment / 1e5).toFixed(1)} L`],
+              ].map(([label, val]) => (
+                <div key={label} className="text-center">
+                  <div className="text-[9px] text-muted-foreground">{label}</div>
+                  <div className={`text-xs font-medium tabular-nums ${String(val).includes("-") ? "text-red-400" : ""}`}>{val}</div>
+                </div>
+              ))}
+            </div>
 
             {/* Trade list */}
             <div className="overflow-y-auto max-h-[55vh]">
               <table className="w-full text-[10px]">
                 <thead className="sticky top-0 bg-neutral-900">
                   <tr className="border-b border-neutral-700">
-                    {["#", "Symbol", "Action", "Current %", "Target %", "Delta %", "Price (₹)"].map((h) => (
+                    {["#", "Symbol", "Action", "Current %", "Target %", "Delta %", "Qty", "Value (₹)", "Price (₹)"].map((h) => (
                       <th key={h} className="px-3 py-2 text-left text-muted-foreground font-medium">{h}</th>
                     ))}
                   </tr>
@@ -367,6 +386,12 @@ export default function StrategyBuilderPage() {
                       <td className="px-3 py-1.5 tabular-nums font-medium">{t.target_weight}%</td>
                       <td className={`px-3 py-1.5 tabular-nums ${t.delta_weight > 0 ? "text-emerald-400" : t.delta_weight < 0 ? "text-red-400" : ""}`}>
                         {t.delta_weight > 0 ? "+" : ""}{t.delta_weight}%
+                      </td>
+                      <td className={`px-3 py-1.5 tabular-nums font-medium ${t.action === "HOLD" ? "text-muted-foreground" : ""}`}>
+                        {t.trade_qty > 0 ? t.trade_qty.toLocaleString() : "—"}
+                      </td>
+                      <td className={`px-3 py-1.5 tabular-nums ${t.delta_weight > 0 ? "text-emerald-400" : t.delta_weight < 0 ? "text-red-400" : "text-muted-foreground"}`}>
+                        {t.trade_value > 0 ? `₹${(t.trade_value / 1e5).toFixed(2)}L` : "—"}
                       </td>
                       <td className="px-3 py-1.5 tabular-nums">₹{t.latest_price.toLocaleString()}</td>
                     </tr>

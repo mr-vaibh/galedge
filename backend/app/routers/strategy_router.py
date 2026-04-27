@@ -321,10 +321,33 @@ def generate_rebalance(strategy_id: int, user: User = Depends(require_user), db:
                 if sym_key in valid_symbols:
                     current_weights[sym_key] = current_weights.get(sym_key, 0) + h.weight
 
+    # Compute total AUM from user's portfolios (in crores → rupees)
+    total_aum = 0.0
+    for p in user_portfolios:
+        latest_date_row2 = (
+            db.query(PortfolioHolding.date)
+            .filter(PortfolioHolding.portfolio_id == p.id)
+            .order_by(PortfolioHolding.date.desc())
+            .first()
+        )
+        if latest_date_row2:
+            semv_sum = sum(
+                h.semv for h in db.query(PortfolioHolding)
+                .filter(PortfolioHolding.portfolio_id == p.id, PortfolioHolding.date == latest_date_row2[0])
+                .all()
+            )
+            total_aum += semv_sum
+    portfolio_value = total_aum * 1e7  # Convert crores to rupees
+    if portfolio_value == 0:
+        portfolio_value = 1e8  # Default 10 Cr if no portfolio data
+
     # Build trade list — include both target positions and positions to exit
     trades = []
     latest_date = df.index[-1]
     all_symbols = set(weights.keys()) | set(current_weights.keys())
+
+    total_buy_value = 0.0
+    total_sell_value = 0.0
 
     for sym in sorted(all_symbols, key=lambda s: weights.get(s, 0), reverse=True):
         target_w = weights.get(sym, 0)
@@ -344,6 +367,15 @@ def generate_rebalance(strategy_id: int, user: User = Depends(require_user), db:
 
         latest_price = float(df.loc[latest_date, sym]) if sym in df.columns else 0
 
+        # Calculate trade value and quantity
+        trade_value = abs(delta) * portfolio_value
+        trade_qty = int(trade_value / latest_price) if latest_price > 0 else 0
+
+        if delta > 0:
+            total_buy_value += trade_value
+        elif delta < 0:
+            total_sell_value += trade_value
+
         trades.append({
             "symbol": sym,
             "action": action,
@@ -351,6 +383,8 @@ def generate_rebalance(strategy_id: int, user: User = Depends(require_user), db:
             "current_weight": round(current_w * 100, 2),
             "delta_weight": round(delta * 100, 2),
             "latest_price": round(latest_price, 2),
+            "trade_qty": trade_qty,
+            "trade_value": round(trade_value, 2),
         })
 
     # Recompute metrics for the new portfolio
@@ -368,6 +402,10 @@ def generate_rebalance(strategy_id: int, user: User = Depends(require_user), db:
         "expected_return": round(exp_ret * 100, 2),
         "expected_risk": round(exp_risk * 100, 2),
         "sharpe_ratio": round(sharpe, 2),
+        "portfolio_value": round(portfolio_value, 2),
+        "total_buy_value": round(total_buy_value, 2),
+        "total_sell_value": round(total_sell_value, 2),
+        "net_investment": round(total_buy_value - total_sell_value, 2),
         "trades": trades,
     }
 
