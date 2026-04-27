@@ -240,10 +240,14 @@ def smart_optimize(body: SmartOptimizeRequest, db: Session = Depends(get_db)):
             symbols=valid_symbols,
             risk_free_rate=body.risk_free_rate,
         )
+        # Benchmark weights (equal-weight for the universe) — needed for tracking error
+        benchmark_weights = np.ones(len(valid_symbols)) / len(valid_symbols)
+
         result = opt.optimize(
             objective=body.objective,
             constraints=filtered_constraints,
             stock_betas=np.array(stock_betas),
+            benchmark_weights=benchmark_weights,
         )
 
         # Post-process: enforce max_positions by keeping only top-k weights
