@@ -278,14 +278,14 @@ export default function FactorSummaryPage() {
           </CardHeader>
           <CardContent className="p-2 space-y-2">
             <div className="flex gap-2 items-center">
-              <Select value={corrFactors[0] || ""} onValueChange={(v) => { /* factor 1 selector - visual only for now */ }}>
+              <Select value={corrFactors[0] || ""} onValueChange={(v) => { if (typeof v === "string") setCorrFactors([v, corrFactors[1] || ""]); }}>
                 <SelectTrigger className="h-7 w-[120px] text-[10px]"><SelectValue placeholder="Factor 1" /></SelectTrigger>
                 <SelectContent>
                   {factors.map(f => <SelectItem key={f.factor} value={f.factor}>{f.factor}</SelectItem>)}
                 </SelectContent>
               </Select>
               <span className="text-[10px] text-muted-foreground">vs</span>
-              <Select value={corrFactors[1] || ""} onValueChange={(v) => { /* factor 2 selector - visual only for now */ }}>
+              <Select value={corrFactors[1] || ""} onValueChange={(v) => { if (typeof v === "string") setCorrFactors([corrFactors[0] || "", v]); }}>
                 <SelectTrigger className="h-7 w-[120px] text-[10px]"><SelectValue placeholder="Factor 2" /></SelectTrigger>
                 <SelectContent>
                   {factors.map(f => <SelectItem key={f.factor} value={f.factor}>{f.factor}</SelectItem>)}
