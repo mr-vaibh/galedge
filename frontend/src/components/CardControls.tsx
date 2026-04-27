@@ -143,7 +143,7 @@ function ExpandModal({ title, data, filename, onClose, children }: {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/85 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-40 bg-black/85 flex items-center justify-center p-4" onClick={onClose}>
       <div
         className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl flex flex-col w-[92vw] h-[88vh]"
         onClick={(e) => e.stopPropagation()}
@@ -166,8 +166,8 @@ function ExpandModal({ title, data, filename, onClose, children }: {
         {/* Content */}
         <div className="flex-1 overflow-auto p-5 min-h-0">
           {children ? (
-            // Live React components — fully interactive
-            <div className="w-full h-full">{children}</div>
+            // Live React components — fully interactive, fill available space
+            <div className="w-full h-full [&_.recharts-responsive-container]:!h-full [&_.recharts-wrapper]:!h-full [&_table]:w-full">{children}</div>
           ) : data && data.length > 0 ? (
             // Data table fallback
             <table className="w-full text-xs">

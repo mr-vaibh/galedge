@@ -286,7 +286,9 @@ export default function FactorSummaryPage() {
             <CardTitle className="text-sm">Factor Returns Time Series</CardTitle>
             <CardControls>
               {factorReturnsData.length > 0 ? (
-                <TimeSeriesChart data={factorReturnsData} series={factorSeries} height={500} yFormatter={(v) => v.toFixed(0)} />
+                <div className="w-full h-full min-h-[400px]">
+                  <TimeSeriesChart data={factorReturnsData} series={factorSeries} height={600} yFormatter={(v) => v.toFixed(0)} />
+                </div>
               ) : null}
             </CardControls>
           </CardHeader>
