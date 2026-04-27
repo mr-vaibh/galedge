@@ -167,9 +167,10 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
 
       {/* Expand Modal */}
       {expanded && mounted && createPortal(
-        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-6" onClick={() => setExpanded(false)}>
+        <div className="fixed inset-0 z-[100] bg-black/85 flex items-center justify-center" onClick={() => setExpanded(false)}>
           <div
-            className="bg-neutral-900 border border-neutral-700 rounded-xl w-[94vw] max-h-[90vh] flex flex-col shadow-2xl"
+            className="bg-neutral-900 border border-neutral-700 rounded-xl m-4 flex flex-col shadow-2xl"
+            style={{ width: "calc(100vw - 2rem)", height: "calc(100vh - 2rem)" }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -187,9 +188,12 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
               </div>
             </div>
 
-            {/* Content */}
-            <div className="overflow-auto flex-1 p-4">
-              <div dangerouslySetInnerHTML={{ __html: expandHtml }} />
+            {/* Content — fills available space */}
+            <div className="flex-1 overflow-auto p-5">
+              <div
+                className="w-full h-full [&_table]:w-full [&_table]:text-xs [&_td]:px-3 [&_td]:py-2 [&_th]:px-3 [&_th]:py-2 [&_.recharts-wrapper]:!w-full [&_.recharts-wrapper]:!h-[calc(100vh-10rem)] [&_svg.recharts-surface]:w-full [&_svg.recharts-surface]:h-full"
+                dangerouslySetInnerHTML={{ __html: expandHtml }}
+              />
             </div>
           </div>
         </div>,
