@@ -69,7 +69,7 @@ export default function PerformanceSummaryPage() {
       } else {
         // Demo backtest
         const res = await fetch(
-          `${API_BASE}/api/backtest/quick?universe=NIFTY%2050&start=2025-06-01&end=2026-04-24&frequency=Monthly&method=equal`,
+          `${API_BASE}/api/backtest/quick?universe=NIFTY%2050&start=2025-06-01&end=${new Date().toISOString().split("T")[0]}&frequency=Monthly&method=equal`,
           { method: "POST" }
         );
         if (res.ok) {

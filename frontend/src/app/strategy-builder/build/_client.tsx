@@ -138,7 +138,7 @@ export default function BuildStrategyPageInner() {
   const [selectedConstraintType, setSelectedConstraintType] = useState("");
   const [selectedObjectiveType, setSelectedObjectiveType] = useState("");
   const [btStartDate, setBtStartDate] = useState("2025-06-01");
-  const [btEndDate, setBtEndDate] = useState("2026-04-24");
+  const [btEndDate, setBtEndDate] = useState(new Date().toISOString().split("T")[0]);
   const [btFrequency, setBtFrequency] = useState("Monthly");
   const [btMethod, setBtMethod] = useState("equal");
   const [backtestResults, setBacktestResults] = useState<Record<string, unknown> | null>(null);

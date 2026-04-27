@@ -200,7 +200,7 @@ export default function BuildScreenPage() {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">Date</span>
-          <Input type="date" defaultValue="2026-04-24" className="h-8 w-[150px] text-xs" />
+          <Input type="date" defaultValue={new Date().toISOString().split("T")[0]} className="h-8 w-[150px] text-xs" />
         </div>
       </div>
 

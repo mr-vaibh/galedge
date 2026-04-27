@@ -37,7 +37,7 @@ export default function UploadPortfolioPage() {
   const [fund, setFund] = useState("");
   const [scheme, setScheme] = useState("");
   const [benchmark, setBenchmark] = useState("");
-  const [date, setDate] = useState("2026-04-24");
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
