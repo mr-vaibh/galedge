@@ -216,22 +216,22 @@ export default function FactorSummaryPage() {
             <CardTitle className="text-sm">Factor Correlation</CardTitle>
             <CardControls>
               {corrFactors.length > 0 ? (
-                <div className="overflow-auto">
-                  <table className="text-xs">
+                <div className="w-full h-full" style={{ minHeight: "calc(88vh - 100px)" }}>
+                  <table className="w-full h-full text-[10px] border-collapse">
                     <thead>
                       <tr>
-                        <th className="p-2" />
+                        <th className="p-1" />
                         {corrFactors.map((f) => (
-                          <th key={f} className="p-2 text-center font-medium text-muted-foreground" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: "80px" }}>{f}</th>
+                          <th key={f} className="p-1 text-center font-medium text-muted-foreground" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: "70px" }}>{f}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {corrMatrix.map((row, i) => (
-                        <tr key={corrFactors[i]}>
-                          <td className="p-2 font-medium text-muted-foreground whitespace-nowrap text-right pr-3">{corrFactors[i]}</td>
+                        <tr key={corrFactors[i]} style={{ height: `${(100 / corrMatrix.length).toFixed(1)}%` }}>
+                          <td className="p-1 font-medium text-muted-foreground whitespace-nowrap text-right pr-2">{corrFactors[i]}</td>
                           {row.map((val, j) => (
-                            <td key={j} className="p-1.5 text-center tabular-nums" style={{ backgroundColor: corrColor(val), minWidth: "36px" }}>{val.toFixed(2)}</td>
+                            <td key={j} className="text-center tabular-nums" style={{ backgroundColor: corrColor(val) }}>{val.toFixed(2)}</td>
                           ))}
                         </tr>
                       ))}
