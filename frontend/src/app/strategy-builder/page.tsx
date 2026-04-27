@@ -154,12 +154,12 @@ export default function StrategyBuilderPage() {
 
   function downloadTradeList() {
     if (!rebalanceResult) return;
-    const header = "Symbol,Action,Current Weight (%),Target Weight (%),Delta (%),Quantity,Trade Value (₹),Latest Price (₹)";
+    const header = "Symbol,Action,Current Weight (%),Target Weight (%),Delta (%),Quantity,Trade Value (INR),Latest Price (INR)";
     const rows = rebalanceResult.trades.map((t) =>
       `${t.symbol},${t.action},${t.current_weight},${t.target_weight},${t.delta_weight},${t.trade_qty},${t.trade_value},${t.latest_price}`
     );
     const csv = [header, ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `rebalance_${rebalanceResult.strategy_name}_${rebalanceResult.rebalance_date}.csv`;
