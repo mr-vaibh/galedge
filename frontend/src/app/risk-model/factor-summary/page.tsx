@@ -244,13 +244,17 @@ export default function FactorSummaryPage() {
             <CardTitle className="text-sm">Factor Correlation</CardTitle>
             <CardControls title="Factor Correlation" fullscreen expandContent={
               corrFactors.length > 0 ? (
-                <div className="overflow-auto">
-                  <table className="text-[9px]">
+                <div className="w-full h-full overflow-auto">
+                  <table className="w-full h-full text-[10px]" style={{ tableLayout: "fixed" }}>
+                    <colgroup>
+                      <col style={{ width: "90px" }} />
+                      {corrFactors.map((f) => <col key={f} />)}
+                    </colgroup>
                     <thead>
                       <tr>
                         <th className="p-1" />
                         {corrFactors.map((f) => (
-                          <th key={f} className="p-1 text-center font-medium text-muted-foreground" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: "60px" }}>
+                          <th key={f} className="p-1 text-center font-medium text-muted-foreground" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: "70px" }}>
                             {f}
                           </th>
                         ))}
@@ -259,9 +263,9 @@ export default function FactorSummaryPage() {
                     <tbody>
                       {corrMatrix.map((row, i) => (
                         <tr key={corrFactors[i]}>
-                          <td className="p-1 font-medium text-muted-foreground whitespace-nowrap text-right pr-2">{corrFactors[i]}</td>
+                          <td className="p-1 font-medium text-muted-foreground whitespace-nowrap text-right pr-2 text-[9px]">{corrFactors[i]}</td>
                           {row.map((val, j) => (
-                            <td key={j} className="p-0.5 text-center tabular-nums" style={{ backgroundColor: corrColor(val), minWidth: "28px" }}>
+                            <td key={j} className="text-center tabular-nums" style={{ backgroundColor: corrColor(val) }}>
                               {val.toFixed(2)}
                             </td>
                           ))}
