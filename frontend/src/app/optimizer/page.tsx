@@ -215,7 +215,7 @@ export default function OptimizerPage() {
                   key={u}
                   variant="outline"
                   size="sm"
-                  className={`h-7 text-[10px] transition-all ${universe === u ? "border-2 border-emerald-500 bg-emerald-500/10 text-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.2)]" : ""}`}
+                  className={`h-7 text-[10px] transition-all ${universe === u ? "border-2 border-emerald-500 bg-emerald-500/10 text-emerald-400" : ""}`}
                   onClick={() => setUniverse(u)}
                 >
                   {u}
