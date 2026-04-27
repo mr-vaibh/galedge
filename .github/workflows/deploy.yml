@@ -29,10 +29,10 @@ jobs:
 
             cd /opt/galedge
 
-            # Pull latest code
+            # Pull latest code (preserve runtime data)
             git fetch --depth=1 --no-tags origin main
             git reset --hard origin/main
-            git clean -fd
+            git clean -fd -e backend/uploads/ -e backend/galedge_alpha.db -e frontend/.next/
 
             # ── Backend ──
             cd /opt/galedge/backend
