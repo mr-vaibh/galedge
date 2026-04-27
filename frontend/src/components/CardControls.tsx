@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, ReactNode } from "react";
+import { useState, useRef, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Filter, Info, Maximize2, X, Search } from "lucide-react";
 import {
@@ -17,17 +17,34 @@ interface Props {
   info?: string;
   onFilter?: (query: string) => void;
   filterable?: boolean;
-  /** Title shown in expand modal header */
   title?: string;
-  /** Content rendered in expand modal — pass same JSX as in the card but bigger */
   expandContent?: ReactNode;
-  /** Force fullscreen modal (for charts/heatmaps). Auto-sizes for tables when false. */
   fullscreen?: boolean;
+}
+
+function downloadCardAsImage(cardEl: HTMLElement, filename: string) {
+  // Use html2canvas dynamically
+  import("html2canvas").then(({ default: html2canvas }) => {
+    html2canvas(cardEl, {
+      backgroundColor: "#0a0a0a",
+      scale: 2, // 2x resolution
+      logging: false,
+      useCORS: true,
+    }).then((canvas) => {
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = `${filename}.png`;
+      a.click();
+    });
+  }).catch(() => {
+    alert("Image export requires html2canvas. Install it with: npm install html2canvas");
+  });
 }
 
 export function CardControls({ data, filename = "export", info, onFilter, filterable, title, expandContent, fullscreen }: Props) {
   const [showFilter, setShowFilter] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
   const { open } = useExpand();
 
   function handleFilterToggle() {
@@ -46,11 +63,27 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
     }
   }
 
+  function handleDownload() {
+    if (data && data.length > 0) {
+      // Table data → CSV
+      downloadCSV(data, filename);
+    } else {
+      // Chart/heatmap → capture as image
+      const el = containerRef.current;
+      if (!el) return;
+      const card = el.closest("[data-slot='card']") as HTMLElement | null;
+      if (card) {
+        downloadCardAsImage(card, filename);
+      }
+    }
+  }
+
   const canExpand = !!expandContent;
+  const canDownload = (data && data.length > 0) || true; // Always enabled — CSV or image
 
   return (
     <>
-      <div className="flex items-center gap-0.5">
+      <div ref={containerRef} className="flex items-center gap-0.5">
         {/* Filter */}
         {(onFilter || filterable) ? (
           <Tooltip>
@@ -98,17 +131,13 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
         {/* Download */}
         <Tooltip>
           <TooltipTrigger>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => { if (data && data.length > 0) downloadCSV(data, filename); }}
-              disabled={!data || data.length === 0}
-            >
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleDownload}>
               <Download className="h-3 w-3" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom"><p className="text-[10px]">{data && data.length > 0 ? "Download CSV" : "No data to download"}</p></TooltipContent>
+          <TooltipContent side="bottom">
+            <p className="text-[10px]">{data && data.length > 0 ? "Download CSV" : "Download as image"}</p>
+          </TooltipContent>
         </Tooltip>
       </div>
 
