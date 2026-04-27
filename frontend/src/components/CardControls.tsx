@@ -24,6 +24,7 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
   const [showFilter, setShowFilter] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
   const [cardHtml, setCardHtml] = useState<string>("");
+  const [cardTitle, setCardTitle] = useState("Expanded View");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -44,19 +45,23 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
   }
 
   function handleExpand(e: React.MouseEvent) {
-    // Find the closest Card parent and clone its CardContent (skip CardHeader with toolbar icons)
     const btn = e.currentTarget as HTMLElement;
-    const card = btn.closest("[class*='rounded-lg border'], [class*='card']");
-    if (card) {
-      // Get all children except the header (which contains the toolbar)
-      const clone = card.cloneNode(true) as HTMLElement;
-      // Remove all CardControls toolbars from the clone
-      clone.querySelectorAll("[class*='gap-0.5']").forEach((el) => {
-        if (el.querySelector("svg")) el.remove();
-      });
-      // Remove the header row if it only had title + controls
-      setCardHtml(clone.innerHTML);
-    }
+    // Walk up to the Card component
+    const card = btn.closest("[class*='rounded-lg border']");
+    if (!card) { setExpanded(true); return; }
+
+    // CardHeader is the first child, CardContent is the second
+    const children = Array.from(card.children);
+    // Find the content div (usually the last/second child, not the header)
+    const contentEl = children.length > 1 ? children[children.length - 1] : children[0];
+
+    // Also grab the title from the header
+    const headerEl = children.length > 1 ? children[0] : null;
+    const titleEl = headerEl?.querySelector("[class*='CardTitle'], [class*='text-sm'], [class*='font-semibold']");
+    const title = titleEl?.textContent || "Expanded View";
+
+    setCardTitle(title);
+    setCardHtml(contentEl?.innerHTML || "");
     setExpanded(true);
   }
 
@@ -163,7 +168,7 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 bg-neutral-900/95 backdrop-blur border-b border-neutral-700">
-              <span className="text-sm font-semibold">Expanded View</span>
+              <span className="text-sm font-semibold">{cardTitle}</span>
               <div className="flex items-center gap-2">
                 {data && data.length > 0 && (
                   <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={() => downloadCSV(data, filename)}>
