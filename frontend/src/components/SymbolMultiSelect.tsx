@@ -65,8 +65,9 @@ export function SymbolMultiSelect({
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter" && query.trim()) {
-      addSymbol(query.trim().toUpperCase());
+    if (e.key === "Enter" && results.length > 0) {
+      // Only allow adding from autocomplete results
+      addSymbol(results[0].symbol);
     }
   }
 
