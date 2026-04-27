@@ -24,8 +24,8 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
   const [showFilter, setShowFilter] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
   const [mounted, setMounted] = useState(false);
-  const [clonedNode, setClonedNode] = useState<HTMLElement | null>(null);
   const [expandTitle, setExpandTitle] = useState("");
+  const [expandHtml, setExpandHtml] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setMounted(true); }, []);
@@ -41,7 +41,6 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
   }
 
   function handleExpand() {
-    // Find the parent Card via data-slot
     const el = containerRef.current;
     if (!el) return;
     const card = el.closest("[data-slot='card']");
@@ -51,48 +50,36 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
     const titleEl = card.querySelector("[data-slot='card-title']");
     setExpandTitle(titleEl?.textContent || filename);
 
-    // Clone the entire card
-    const clone = card.cloneNode(true) as HTMLElement;
+    // Get CardContent
+    const content = card.querySelector("[data-slot='card-content']");
+    if (!content) return;
 
-    // Remove all CardControls toolbar divs from clone
-    clone.querySelectorAll("[data-slot='card-header']").forEach((header) => {
-      // Remove the controls div (flex gap-0.5 with buttons)
-      header.querySelectorAll("div").forEach((div) => {
-        if (div.querySelectorAll("button").length >= 3) div.remove();
-      });
-    });
+    // Check if content has charts (SVG/recharts) — skip expand for charts
+    const hasChart = content.querySelector(".recharts-wrapper, .recharts-responsive-container, svg.recharts-surface");
+    if (hasChart) {
+      // For charts: just use the data table if data is available
+      setExpandHtml("");
+      setExpanded(true);
+      return;
+    }
 
-    // Remove height constraints so content can fill modal
-    clone.style.height = "100%";
-    clone.style.maxHeight = "none";
-    clone.style.overflow = "visible";
-
-    // Make tables fill width
-    clone.querySelectorAll("table").forEach((t) => {
-      t.style.width = "100%";
-    });
-
-    // Remove max-height on scrollable containers
+    // For tables/text: clone the content
+    const clone = content.cloneNode(true) as HTMLElement;
+    // Remove max-height constraints
     clone.querySelectorAll("[class*='max-h-']").forEach((el) => {
       (el as HTMLElement).style.maxHeight = "none";
     });
-    clone.querySelectorAll("[class*='overflow']").forEach((el) => {
-      (el as HTMLElement).style.overflow = "visible";
-    });
+    clone.style.maxHeight = "none";
+    clone.style.overflow = "visible";
+    // Make tables fill width
+    clone.querySelectorAll("table").forEach((t) => { t.style.width = "100%"; });
 
-    // Make recharts containers bigger
-    clone.querySelectorAll(".recharts-responsive-container, .recharts-wrapper").forEach((el) => {
-      (el as HTMLElement).style.width = "100%";
-      (el as HTMLElement).style.height = "calc(88vh - 120px)";
-    });
-    clone.querySelectorAll("svg.recharts-surface").forEach((svg) => {
-      svg.setAttribute("width", "100%");
-      svg.setAttribute("height", "100%");
-    });
-
-    setClonedNode(clone);
+    setExpandHtml(clone.innerHTML);
     setExpanded(true);
   }
+
+  // Has expandable content: either data for table, or non-chart card content
+  const canExpand = data && data.length > 0;
 
   return (
     <>
@@ -163,66 +150,65 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
       )}
 
       {/* Expand Modal */}
-      {expanded && mounted && clonedNode && createPortal(
-        <ExpandModal
-          title={expandTitle}
-          clonedNode={clonedNode}
-          data={data}
-          filename={filename}
-          onClose={() => { setExpanded(false); setClonedNode(null); }}
-        />,
+      {expanded && mounted && createPortal(
+        <div className="fixed inset-0 z-40 bg-black/85 flex items-center justify-center p-4" onClick={() => setExpanded(false)}>
+          <div
+            className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl flex flex-col max-w-[95vw] max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-700 shrink-0">
+              <span className="text-sm font-semibold">{expandTitle}</span>
+              <div className="flex items-center gap-2">
+                {data && data.length > 0 && (
+                  <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={() => downloadCSV(data, filename)}>
+                    <Download className="h-3 w-3" /> Download CSV
+                  </Button>
+                )}
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setExpanded(false)}>
+                  <Minimize2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="overflow-auto p-4">
+              {expandHtml ? (
+                <div dangerouslySetInnerHTML={{ __html: expandHtml }} />
+              ) : data && data.length > 0 ? (
+                <table className="w-full text-[11px]">
+                  <thead className="sticky top-0 bg-neutral-900 z-10">
+                    <tr className="border-b border-neutral-700">
+                      {Object.keys(data[0]).filter(k => {
+                        const v = data[0][k];
+                        return v === null || v === undefined || typeof v !== "object";
+                      }).map((key) => (
+                        <th key={key} className="px-3 py-2 text-left text-muted-foreground font-medium whitespace-nowrap">
+                          {key.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase())}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.map((row, i) => (
+                      <tr key={i} className="border-b border-neutral-800 hover:bg-neutral-800/30">
+                        {Object.entries(row).filter(([, v]) => v === null || v === undefined || typeof v !== "object").map(([, val], j) => (
+                          <td key={j} className="px-3 py-1.5 tabular-nums whitespace-nowrap">{val == null ? "—" : String(val)}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="text-center text-muted-foreground py-12 text-sm">
+                  No data available for this card.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
         document.body
       )}
     </>
-  );
-}
-
-function ExpandModal({ title, clonedNode, data, filename, onClose }: {
-  title: string;
-  clonedNode: HTMLElement;
-  data?: Record<string, unknown>[];
-  filename: string;
-  onClose: () => void;
-}) {
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, []);
-
-  // Mount cloned DOM node
-  useEffect(() => {
-    if (contentRef.current && clonedNode) {
-      contentRef.current.innerHTML = "";
-      contentRef.current.appendChild(clonedNode);
-    }
-  }, [clonedNode]);
-
-  return (
-    <div className="fixed inset-0 z-40 bg-black/85 flex items-center justify-center p-4" onClick={onClose}>
-      <div
-        className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl flex flex-col w-[94vw] h-[90vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-700 shrink-0">
-          <span className="text-sm font-semibold">{title}</span>
-          <div className="flex items-center gap-2">
-            {data && data.length > 0 && (
-              <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={() => downloadCSV(data, filename)}>
-                <Download className="h-3 w-3" /> Download CSV
-              </Button>
-            )}
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
-              <Minimize2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Cloned content */}
-        <div ref={contentRef} className="flex-1 min-h-0 overflow-auto p-2" />
-      </div>
-    </div>
   );
 }
