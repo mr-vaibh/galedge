@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Minimize2, Download } from "lucide-react";
@@ -31,16 +31,30 @@ export function ExpandProvider({ children }: { children: ReactNode }) {
     setVisible(true);
   }
 
-  function close() {
+  const close = useCallback(() => {
     setVisible(false);
     setContent(null);
-  }
+  }, []);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!visible) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") close();
+    }
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleKey);
+    };
+  }, [visible, close]);
 
   return (
     <ExpandContext.Provider value={{ open }}>
       {children}
       {visible && typeof window !== "undefined" && createPortal(
-        <div className="fixed inset-0 z-[60] bg-black/85 flex items-center justify-center p-4" onClick={close}>
+        <div className="fixed inset-0 z-40 bg-black/85 flex items-center justify-center p-4" onClick={close}>
           <div
             className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl flex flex-col w-[94vw] h-[90vh]"
             onClick={(e) => e.stopPropagation()}
@@ -58,7 +72,7 @@ export function ExpandProvider({ children }: { children: ReactNode }) {
                 </Button>
               </div>
             </div>
-            <div className="flex-1 min-h-0 overflow-auto p-4">
+            <div className="flex-1 min-h-0 overflow-auto p-4 [&_table]:text-xs [&_table]:border-collapse">
               {content}
             </div>
           </div>
