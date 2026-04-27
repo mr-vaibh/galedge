@@ -22,70 +22,23 @@ interface Props {
   fullscreen?: boolean;
 }
 
-function downloadCardAsImage(cardEl: HTMLElement, filename: string) {
-  // Find the SVG inside the card (Recharts chart)
-  const svg = cardEl.querySelector("svg.recharts-surface") || cardEl.querySelector("svg");
-  if (!svg) {
-    alert("No chart found to export.");
-    return;
-  }
-
-  const svgEl = svg as SVGSVGElement;
-  const bbox = svgEl.getBoundingClientRect();
-  const scale = 3; // 3x for high resolution
-  const width = bbox.width * scale;
-  const height = bbox.height * scale;
-
-  // Clone SVG and add background
-  const clone = svgEl.cloneNode(true) as SVGSVGElement;
-  clone.setAttribute("width", String(bbox.width));
-  clone.setAttribute("height", String(bbox.height));
-  clone.setAttribute("viewBox", `0 0 ${bbox.width} ${bbox.height}`);
-
-  // Add dark background rect
-  const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-  bg.setAttribute("width", "100%");
-  bg.setAttribute("height", "100%");
-  bg.setAttribute("fill", "#0a0a0a");
-  clone.insertBefore(bg, clone.firstChild);
-
-  // Serialize and create image
-  const svgData = new XMLSerializer().serializeToString(clone);
-  const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(svgBlob);
-
-  const img = new Image();
-  img.onload = () => {
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      ctx.fillStyle = "#0a0a0a";
-      ctx.fillRect(0, 0, width, height);
-      ctx.scale(scale, scale);
-      ctx.drawImage(img, 0, 0, bbox.width, bbox.height);
-    }
-
+async function downloadCardAsImage(cardEl: HTMLElement, filename: string) {
+  try {
+    const { domToPng } = await import("modern-screenshot");
+    const dataUrl = await domToPng(cardEl, {
+      scale: 3,
+      backgroundColor: "#0a0a0a",
+    });
     const link = document.createElement("a");
     link.download = `${filename}.png`;
-    link.href = canvas.toDataURL("image/png", 1.0);
+    link.href = dataUrl;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-  img.onerror = () => {
-    URL.revokeObjectURL(url);
-    // Fallback: download SVG directly
-    const svgLink = document.createElement("a");
-    svgLink.download = `${filename}.svg`;
-    svgLink.href = url;
-    document.body.appendChild(svgLink);
-    svgLink.click();
-    document.body.removeChild(svgLink);
-  };
-  img.src = url;
+  } catch (err) {
+    console.error("Image download failed:", err);
+    alert("Image export failed. Check console for details.");
+  }
 }
 
 export function CardControls({ data, filename = "export", info, onFilter, filterable, title, expandContent, fullscreen }: Props) {
