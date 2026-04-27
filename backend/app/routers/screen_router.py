@@ -198,10 +198,23 @@ def run_python_code(req: RunCodeRequest):
         output = captured_out.getvalue()
         error = captured_err.getvalue()
         return {"output": output + error if error else output, "error": None}
-    except Exception:
+    except Exception as e:
         output = captured_out.getvalue()
-        error = traceback.format_exc()
-        return {"output": output, "error": error}
+        # Sanitize: only show the user's code error, hide server paths
+        tb = traceback.format_exc()
+        # Remove server file paths, keep only <string> references (user code)
+        sanitized_lines = []
+        for line in tb.split("\n"):
+            if "screen_router" in line or "exec(req.code" in line:
+                continue
+            # Replace any server paths
+            line = line.replace(str(__file__), "<server>")
+            sanitized_lines.append(line)
+        sanitized = "\n".join(sanitized_lines).strip()
+        # If sanitization removed everything, show just the exception
+        if not sanitized:
+            sanitized = f"{type(e).__name__}: {e}"
+        return {"output": output, "error": sanitized}
     finally:
         sys.stdout = old_stdout
         sys.stderr = old_stderr
