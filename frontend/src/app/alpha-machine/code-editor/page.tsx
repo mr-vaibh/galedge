@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Code2, Terminal, ExternalLink, RefreshCw } from "lucide-react";
 
-// Always use port 8080 on the same hostname
+// HTTPS: use code.galedge subdomain. HTTP/local: use port 8080.
 const CODE_SERVER_URL = process.env.NEXT_PUBLIC_CODE_SERVER_URL || (typeof window !== "undefined"
-  ? `http://${window.location.hostname}:8080`
+  ? window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? "http://localhost:8080"
+    : `https://code.${window.location.hostname.replace(/^www\./, "")}`
   : "http://localhost:8080");
 
 export default function CodeEditorPage() {
