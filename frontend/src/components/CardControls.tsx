@@ -165,12 +165,11 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
         </div>
       )}
 
-      {/* Expand Modal */}
+      {/* Expand Modal — auto-sizes to content, max at viewport */}
       {expanded && mounted && createPortal(
-        <div className="fixed inset-0 z-[100] bg-black/85 flex items-center justify-center" onClick={() => setExpanded(false)}>
+        <div className="fixed inset-0 z-[100] bg-black/85 flex items-center justify-center p-8" onClick={() => setExpanded(false)}>
           <div
-            className="bg-neutral-900 border border-neutral-700 rounded-xl m-4 flex flex-col shadow-2xl"
-            style={{ width: "calc(100vw - 2rem)", height: "calc(100vh - 2rem)" }}
+            className="bg-neutral-900 border border-neutral-700 rounded-xl flex flex-col shadow-2xl max-w-[95vw] max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -188,10 +187,10 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
               </div>
             </div>
 
-            {/* Content — fills available space */}
-            <div className="flex-1 overflow-auto p-5">
+            {/* Content — auto-sizes, scrolls if needed */}
+            <div className="overflow-auto p-5">
               <div
-                className="w-full h-full [&_table]:w-full [&_table]:text-xs [&_td]:px-3 [&_td]:py-2 [&_th]:px-3 [&_th]:py-2 [&_.recharts-wrapper]:!w-full [&_.recharts-wrapper]:!h-[calc(100vh-10rem)] [&_svg.recharts-surface]:w-full [&_svg.recharts-surface]:h-full"
+                className="[&_table]:w-full [&_table]:text-xs [&_td]:px-3 [&_td]:py-2 [&_th]:px-3 [&_th]:py-2"
                 dangerouslySetInnerHTML={{ __html: expandHtml }}
               />
             </div>
