@@ -256,7 +256,7 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Return Decomposition (%)</CardTitle>
-                <CardControls />
+                <CardControls data={returnDecompBarData as Record<string, unknown>[]} filename="return_decomposition" />
               </CardHeader>
               <CardContent>
                 {returnDecompBarData.length > 0 ? (
@@ -269,7 +269,7 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Returns (%)</CardTitle>
-                <CardControls />
+                <CardControls data={topBarData as Record<string, unknown>[]} filename="factor_returns" />
               </CardHeader>
               <CardContent>
                 {topBarData.length > 0 ? (
@@ -282,7 +282,7 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Risk Contrib (%)</CardTitle>
-                <CardControls />
+                <CardControls data={factors.map(f => ({name: f.factor, value: f.risk_contribution * 100})) as Record<string, unknown>[]} filename="factor_risk" />
               </CardHeader>
               <CardContent>
                 {factors.length > 0 ? (
@@ -300,7 +300,7 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Exposure</CardTitle>
-                <CardControls />
+                <CardControls data={factors.map(f => ({name: f.factor, value: f.exposure})) as Record<string, unknown>[]} filename="factor_exposure" />
               </CardHeader>
               <CardContent>
                 {factors.length > 0 ? (
@@ -370,7 +370,7 @@ export default function ReturnsAndRiskPage() {
               <Card>
                 <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                   <CardTitle className="text-[11px]">Top Factor Returns (%)</CardTitle>
-                  <CardControls />
+                  <CardControls data={topHoldingsBarData as Record<string, unknown>[]} filename="top_factor_returns" />
                 </CardHeader>
                 <CardContent>
                   {topHoldingsBarData.length > 0 ? (

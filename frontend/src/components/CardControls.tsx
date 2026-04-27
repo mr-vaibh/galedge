@@ -153,7 +153,7 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
       {expanded && mounted && createPortal(
         <div className="fixed inset-0 z-40 bg-black/85 flex items-center justify-center p-4" onClick={() => setExpanded(false)}>
           <div
-            className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl flex flex-col max-w-[95vw] max-h-[90vh]"
+            className={`bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl flex flex-col max-h-[90vh] ${expandHtml ? "w-[94vw]" : "max-w-[95vw]"}`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}

@@ -175,7 +175,7 @@ export default function PeerIntelligencePage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Cumulative Return (%)</CardTitle>
-                <CardControls />
+                <CardControls data={returnChartData as Record<string, unknown>[]} filename="peer_return" />
               </CardHeader>
               <CardContent className="p-2">
                 {returnChartData.length > 1 ? (
@@ -196,7 +196,7 @@ export default function PeerIntelligencePage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Return Contributions (%)</CardTitle>
-                <CardControls />
+                <CardControls data={factorBarData as Record<string, unknown>[]} filename="factor_contributions" />
               </CardHeader>
               <CardContent className="p-2">
                 {factorBarData.length > 0 ? (

@@ -439,7 +439,7 @@ export default function PeerComparisonPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Total Return (%)</CardTitle>
-                <CardControls />
+                <CardControls data={returnBarData as Record<string, unknown>[]} filename="return_comparison" />
               </CardHeader>
               <CardContent className="p-2">
                 <BarChartPanel data={returnBarData} height={200} />
@@ -449,7 +449,7 @@ export default function PeerComparisonPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Sharpe Ratio</CardTitle>
-                <CardControls />
+                <CardControls data={sharpeBarData as Record<string, unknown>[]} filename="sharpe_comparison" />
               </CardHeader>
               <CardContent className="p-2">
                 <BarChartPanel data={sharpeBarData} height={200} />
@@ -459,7 +459,7 @@ export default function PeerComparisonPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Volatility (%)</CardTitle>
-                <CardControls />
+                <CardControls data={volBarData as Record<string, unknown>[]} filename="volatility_comparison" />
               </CardHeader>
               <CardContent className="p-2">
                 <BarChartPanel data={volBarData} height={200} />

@@ -260,7 +260,7 @@ export default function FactorSummaryPage() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Returns Time Series</CardTitle>
-            <CardControls />
+            <CardControls data={factorReturnsData as Record<string, unknown>[]} filename="factor_returns_ts" />
           </CardHeader>
           <CardContent className="p-2">
             {factorReturnsData.length > 0 ? (

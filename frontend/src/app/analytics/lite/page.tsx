@@ -242,7 +242,7 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Cumulative Return (%)</CardTitle>
-                <CardControls />
+                <CardControls data={returnCurve as Record<string, unknown>[]} filename="cumulative_return" />
               </CardHeader>
               <CardContent className="p-2">
                 {returnCurve.length > 1 ? (
@@ -261,7 +261,7 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Drawdown (%)</CardTitle>
-                <CardControls />
+                <CardControls data={drawdownCurve as Record<string, unknown>[]} filename="drawdown" />
               </CardHeader>
               <CardContent className="p-2">
                 {drawdownCurve.length > 1 ? (
@@ -279,7 +279,7 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Portfolio Value</CardTitle>
-                <CardControls />
+                <CardControls data={equityCurve.map(p => ({date: p.date, value: p.value})) as Record<string, unknown>[]} filename="portfolio_value" />
               </CardHeader>
               <CardContent className="p-2">
                 {equityCurve.length > 1 ? (

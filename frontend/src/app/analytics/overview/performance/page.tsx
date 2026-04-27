@@ -229,7 +229,7 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Drawdown (%)</CardTitle>
-              <CardControls />
+              <CardControls data={equityCurve.filter(e => e.drawdown !== undefined).map(e => ({date: String(e.date), drawdown: Number(e.drawdown)}))} filename="drawdown" />
             </CardHeader>
             <CardContent className="p-2">
               {equityCurve.length > 0 ? (
@@ -245,7 +245,7 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Value Trend</CardTitle>
-              <CardControls />
+              <CardControls data={equityCurve.map(e => ({date: String(e.date), value: Number(e.value)}))} filename="value_trend" />
             </CardHeader>
             <CardContent className="p-2">
               {equityCurve.length > 0 ? (
