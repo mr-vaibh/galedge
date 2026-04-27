@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, ReactNode } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Download, Filter, Info, Maximize2, Minimize2, X, Search } from "lucide-react";
@@ -23,8 +23,6 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
   const [expanded, setExpanded] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
-  const [cardHtml, setCardHtml] = useState<string>("");
-  const [cardTitle, setCardTitle] = useState("Expanded View");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -42,27 +40,6 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
   function handleFilterChange(q: string) {
     setFilterQuery(q);
     onFilter?.(q);
-  }
-
-  function handleExpand(e: React.MouseEvent) {
-    const btn = e.currentTarget as HTMLElement;
-    // Walk up to the Card component
-    const card = btn.closest("[class*='rounded-lg border']");
-    if (!card) { setExpanded(true); return; }
-
-    // CardHeader is the first child, CardContent is the second
-    const children = Array.from(card.children);
-    // Find the content div (usually the last/second child, not the header)
-    const contentEl = children.length > 1 ? children[children.length - 1] : children[0];
-
-    // Also grab the title from the header
-    const headerEl = children.length > 1 ? children[0] : null;
-    const titleEl = headerEl?.querySelector("[class*='CardTitle'], [class*='text-sm'], [class*='font-semibold']");
-    const title = titleEl?.textContent || "Expanded View";
-
-    setCardTitle(title);
-    setCardHtml(contentEl?.innerHTML || "");
-    setExpanded(true);
   }
 
   return (
@@ -113,12 +90,13 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
               variant="ghost"
               size="icon"
               className="h-6 w-6"
-              onClick={handleExpand}
+              onClick={() => setExpanded(true)}
+              disabled={!data || data.length === 0}
             >
               <Maximize2 className="h-3 w-3" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom"><p className="text-[10px]">Expand fullscreen</p></TooltipContent>
+          <TooltipContent side="bottom"><p className="text-[10px]">{data && data.length > 0 ? "Expand fullscreen" : "No data to expand"}</p></TooltipContent>
         </Tooltip>
 
         {/* Download */}
@@ -160,32 +138,65 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
         </div>
       )}
 
-      {/* Expand Modal — rendered via portal to avoid overflow clipping */}
-      {expanded && mounted && createPortal(
+      {/* Expand Modal — data table fullscreen */}
+      {expanded && data && data.length > 0 && mounted && createPortal(
         <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-6" onClick={() => setExpanded(false)}>
           <div
-            className="bg-neutral-900 border border-neutral-700 rounded-xl w-[92vw] max-h-[88vh] overflow-auto shadow-2xl"
+            className="bg-neutral-900 border border-neutral-700 rounded-xl w-[94vw] max-h-[90vh] flex flex-col shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 bg-neutral-900/95 backdrop-blur border-b border-neutral-700">
-              <span className="text-sm font-semibold">{cardTitle}</span>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-700 shrink-0">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold">{filename.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase())}</span>
+                <span className="text-[10px] text-muted-foreground">{data.length} rows</span>
+              </div>
               <div className="flex items-center gap-2">
-                {data && data.length > 0 && (
-                  <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={() => downloadCSV(data, filename)}>
-                    <Download className="h-3 w-3" /> Download CSV
-                  </Button>
-                )}
+                <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={() => downloadCSV(data, filename)}>
+                  <Download className="h-3 w-3" /> Download CSV
+                </Button>
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setExpanded(false)}>
                   <Minimize2 className="h-4 w-4" />
                 </Button>
               </div>
             </div>
-            <div className="p-6">
-              {/* Render cloned card content at larger size */}
-              <div
-                className="[&_table]:text-sm [&_td]:px-4 [&_td]:py-2 [&_th]:px-4 [&_th]:py-2.5"
-                dangerouslySetInnerHTML={{ __html: cardHtml }}
-              />
+
+            {/* Table */}
+            <div className="overflow-auto flex-1">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-neutral-900 z-10">
+                  <tr className="border-b border-neutral-700">
+                    <th className="px-4 py-2.5 text-left text-muted-foreground font-medium">#</th>
+                    {Object.keys(data[0]).map((key) => (
+                      <th key={key} className="px-4 py-2.5 text-left text-muted-foreground font-medium whitespace-nowrap">
+                        {key.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase())}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.map((row, i) => (
+                    <tr key={i} className="border-b border-neutral-800 hover:bg-neutral-800/40">
+                      <td className="px-4 py-2 text-muted-foreground">{i + 1}</td>
+                      {Object.entries(row).map(([key, val], j) => {
+                        const str = String(val ?? "—");
+                        const isNeg = str.startsWith("-") && !isNaN(Number(str));
+                        const isNum = !isNaN(Number(str)) && str !== "";
+                        return (
+                          <td
+                            key={j}
+                            className={`px-4 py-2 tabular-nums whitespace-nowrap ${
+                              isNeg ? "text-red-400" : isNum && Number(str) > 0 ? "text-emerald-400" : ""
+                            }`}
+                          >
+                            {str}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>,
