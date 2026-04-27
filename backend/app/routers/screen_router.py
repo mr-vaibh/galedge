@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
-from app.models.screen import Screen, AlphaModel
+from app.models.screen import Screen, AlphaModel, CodeFile
 from app.auth import require_user, get_current_user
 
 router = APIRouter(prefix="/api/alpha", tags=["alpha-machine"])
@@ -178,40 +178,135 @@ class RunCodeRequest(BaseModel):
     code: str
 
 
+# Dangerous modules that must be blocked
+_BLOCKED_MODULES = {"os", "sys", "subprocess", "shutil", "socket", "ctypes", "importlib"}
+
+# Safe builtins exposed to user code
+_SAFE_BUILTINS = {
+    "print": print, "len": len, "range": range, "int": int, "float": float,
+    "str": str, "list": list, "dict": dict, "tuple": tuple, "set": set,
+    "sorted": sorted, "reversed": reversed, "enumerate": enumerate, "zip": zip,
+    "map": map, "filter": filter, "abs": abs, "max": max, "min": min,
+    "sum": sum, "round": round, "type": type, "isinstance": isinstance,
+    "hasattr": hasattr, "getattr": getattr, "bool": bool, "True": True,
+    "False": False, "None": None, "__import__": None,  # block __import__
+}
+
+
+def _build_restricted_globals() -> dict:
+    """Build globals dict with safe builtins and pre-imported libraries."""
+    import math, statistics, datetime, json, re, collections, itertools, functools
+
+    restricted = {"__builtins__": _SAFE_BUILTINS}
+
+    # Pre-import safe libraries so user code can reference them directly
+    safe_libs = {
+        "math": math, "statistics": statistics, "datetime": datetime,
+        "json": json, "re": re, "collections": collections,
+        "itertools": itertools, "functools": functools,
+    }
+
+    # Optional heavy libs — skip if not installed
+    try:
+        import pandas as pd
+        safe_libs["pd"] = pd
+        safe_libs["pandas"] = pd
+    except ImportError:
+        pass
+    try:
+        import numpy as np
+        safe_libs["np"] = np
+        safe_libs["numpy"] = np
+    except ImportError:
+        pass
+
+    restricted.update(safe_libs)
+    return restricted
+
+
+def _check_blocked_imports(code: str) -> str | None:
+    """Return the name of a blocked module if found in import statements, else None."""
+    import re as _re
+    for line in code.splitlines():
+        stripped = line.strip()
+        # Match: import os / import os, sys / from os import ...
+        m = _re.match(r"^(?:import|from)\s+([\w,\s]+)", stripped)
+        if not m:
+            continue
+        modules = [tok.strip() for tok in m.group(1).split(",")]
+        for mod in modules:
+            mod_root = mod.split(".")[0]
+            if mod_root in _BLOCKED_MODULES:
+                return mod_root
+    # Also check __import__ calls
+    if "__import__" in code:
+        return "__import__"
+    return None
+
+
 @router.post("/run-code")
 def run_python_code(req: RunCodeRequest):
-    """Execute Python code in a sandboxed environment."""
+    """Execute Python code in a sandboxed environment with security restrictions."""
     import io
     import sys
     import traceback
+    import threading
+    import re
 
-    # Capture stdout
+    # --- Security check: block dangerous imports ---
+    blocked = _check_blocked_imports(req.code)
+    if blocked:
+        return {
+            "output": "",
+            "error": f"SecurityError: import of '{blocked}' is blocked in the sandbox. "
+                     f"Blocked modules: {', '.join(sorted(_BLOCKED_MODULES))}.",
+        }
+
+    # Capture stdout / stderr
     old_stdout = sys.stdout
     old_stderr = sys.stderr
-    sys.stdout = captured_out = io.StringIO()
-    sys.stderr = captured_err = io.StringIO()
+    captured_out = io.StringIO()
+    captured_err = io.StringIO()
 
-    try:
-        # Restricted globals — allow common data science imports
-        restricted_globals = {"__builtins__": __builtins__}
-        exec(req.code, restricted_globals)
-        output = captured_out.getvalue()
-        error = captured_err.getvalue()
-        return {"output": output + error if error else output, "error": None}
-    except Exception as e:
-        output = captured_out.getvalue()
-        # Sanitize: only show user code errors, strip ALL server info
-        tb = traceback.format_exc()
+    result: dict = {}
+    exc_holder: list = []
+
+    def _exec_target():
+        sys.stdout = captured_out
+        sys.stderr = captured_err
+        try:
+            restricted_globals = _build_restricted_globals()
+            exec(req.code, restricted_globals)
+        except Exception as e:
+            exc_holder.append(e)
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+
+    # --- Run with 30-second timeout ---
+    thread = threading.Thread(target=_exec_target, daemon=True)
+    thread.start()
+    thread.join(timeout=30)
+
+    if thread.is_alive():
+        return {
+            "output": captured_out.getvalue(),
+            "error": "TimeoutError: Code execution exceeded the 30-second limit.",
+        }
+
+    output = captured_out.getvalue()
+    error_output = captured_err.getvalue()
+
+    if exc_holder:
+        e = exc_holder[0]
+        tb = traceback.format_exception(type(e), e, e.__traceback__)
+        tb_str = "".join(tb)
         sanitized_lines = []
-        for line in tb.split("\n"):
-            # Skip any line referencing server files (not user code)
+        for line in tb_str.split("\n"):
             if 'File "' in line and '"<string>"' not in line:
                 continue
-            # Skip internal exec/eval frames
-            if "exec(req" in line or "run_python_code" in line:
+            if "_exec_target" in line or "exec(req" in line:
                 continue
-            # Remove any absolute paths that might leak
-            import re
             line = re.sub(r'(/[A-Za-z][\w./\-]*)', '<redacted>', line)
             line = re.sub(r'([A-Z]:\\[\w\\./\-]*)', '<redacted>', line)
             sanitized_lines.append(line)
@@ -219,9 +314,8 @@ def run_python_code(req: RunCodeRequest):
         if not sanitized:
             sanitized = f"{type(e).__name__}: {e}"
         return {"output": output, "error": sanitized}
-    finally:
-        sys.stdout = old_stdout
-        sys.stderr = old_stderr
+
+    return {"output": output + error_output if error_output else output, "error": None}
 
 
 @router.delete("/models/{model_id}")
@@ -230,5 +324,68 @@ def delete_alpha_model(model_id: int, user: User = Depends(require_user), db: Se
     if not model:
         raise HTTPException(status_code=404, detail="Alpha model not found")
     db.delete(model)
+    db.commit()
+    return {"deleted": True}
+
+
+# ── Code Files (saved editor files) ─────────────────────────────────────────
+
+class CodeFileCreate(BaseModel):
+    name: str
+    code: str
+
+
+class CodeFileUpdate(BaseModel):
+    name: str | None = None
+    code: str | None = None
+
+
+@router.get("/code-files")
+def list_code_files(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """List all saved code files for the current user."""
+    files = db.query(CodeFile).filter(CodeFile.user_id == user.id).order_by(CodeFile.updated_at.desc()).all()
+    return [
+        {
+            "id": f.id, "name": f.name, "code": f.code,
+            "created_at": str(f.created_at), "updated_at": str(f.updated_at),
+        }
+        for f in files
+    ]
+
+
+@router.post("/code-files")
+def create_code_file(data: CodeFileCreate, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Create a new code file."""
+    cf = CodeFile(user_id=user.id, name=data.name, code=data.code)
+    db.add(cf)
+    db.commit()
+    db.refresh(cf)
+    return {"id": cf.id, "name": cf.name, "code": cf.code,
+            "created_at": str(cf.created_at), "updated_at": str(cf.updated_at)}
+
+
+@router.put("/code-files/{file_id}")
+def update_code_file(file_id: int, data: CodeFileUpdate, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Update a saved code file (name and/or code)."""
+    cf = db.query(CodeFile).filter(CodeFile.id == file_id, CodeFile.user_id == user.id).first()
+    if not cf:
+        raise HTTPException(status_code=404, detail="Code file not found")
+    if data.name is not None:
+        cf.name = data.name
+    if data.code is not None:
+        cf.code = data.code
+    db.commit()
+    db.refresh(cf)
+    return {"id": cf.id, "name": cf.name, "code": cf.code,
+            "created_at": str(cf.created_at), "updated_at": str(cf.updated_at)}
+
+
+@router.delete("/code-files/{file_id}")
+def delete_code_file(file_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Delete a saved code file."""
+    cf = db.query(CodeFile).filter(CodeFile.id == file_id, CodeFile.user_id == user.id).first()
+    if not cf:
+        raise HTTPException(status_code=404, detail="Code file not found")
+    db.delete(cf)
     db.commit()
     return {"deleted": True}

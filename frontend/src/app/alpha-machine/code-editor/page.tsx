@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,8 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Play, Save, RotateCcw, FileCode2, FolderOpen, Plus, Trash2, Copy, Download, Loader2 } from "lucide-react";
+import { Play, Save, RotateCcw, FileCode2, FolderOpen, Plus, Trash2, Copy, Download, Loader2, Cloud, HardDrive, ShieldCheck } from "lucide-react";
 import Editor from "@monaco-editor/react";
+import { useAuth } from "@/lib/auth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
@@ -154,35 +155,152 @@ interface FileTab {
   name: string;
   code: string;
   modified: boolean;
+  cloudId: number | null; // null = local only, number = saved to backend
+  saveStatus: "saved" | "saving" | "local";
 }
 
 export default function CodeEditorPage() {
+  const { token } = useAuth();
   const [files, setFiles] = useState<FileTab[]>([
-    { id: "main", name: "main.py", code: TEMPLATES.blank.code, modified: false },
+    { id: "main", name: "main.py", code: TEMPLATES.blank.code, modified: false, cloudId: null, saveStatus: "local" },
   ]);
   const [activeFileId, setActiveFileId] = useState("main");
   const [output, setOutput] = useState("");
   const [running, setRunning] = useState(false);
   const [outputHeight, setOutputHeight] = useState(200);
+  const [loaded, setLoaded] = useState(false);
   const editorRef = useRef<unknown>(null);
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const activeFile = files.find((f) => f.id === activeFileId) || files[0];
 
+  // --- Fetch saved files on mount ---
+  useEffect(() => {
+    if (!token) {
+      setLoaded(true);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/alpha/code-files`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) { setLoaded(true); return; }
+        const data: { id: number; name: string; code: string }[] = await res.json();
+        if (data.length > 0) {
+          const loaded_files: FileTab[] = data.map((f) => ({
+            id: `cloud_${f.id}`,
+            name: f.name,
+            code: f.code,
+            modified: false,
+            cloudId: f.id,
+            saveStatus: "saved" as const,
+          }));
+          setFiles(loaded_files);
+          setActiveFileId(loaded_files[0].id);
+        }
+      } catch {
+        // Silently fall back to local-only
+      }
+      setLoaded(true);
+    })();
+  }, [token]);
+
+  // --- Auto-save with debounce ---
+  const autoSave = useCallback(
+    (fileId: string, cloudId: number | null, code: string, name: string) => {
+      if (!token || !cloudId) return;
+
+      // Mark as saving
+      setFiles((prev) =>
+        prev.map((f) => (f.id === fileId ? { ...f, saveStatus: "saving" as const } : f))
+      );
+
+      // Clear previous timer
+      if (saveTimers.current[fileId]) clearTimeout(saveTimers.current[fileId]);
+
+      saveTimers.current[fileId] = setTimeout(async () => {
+        try {
+          await fetch(`${API_BASE}/api/alpha/code-files/${cloudId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ code, name }),
+          });
+          setFiles((prev) =>
+            prev.map((f) => (f.id === fileId ? { ...f, saveStatus: "saved" as const } : f))
+          );
+        } catch {
+          // Silently fail — will retry on next edit
+        }
+      }, 2000);
+    },
+    [token]
+  );
+
   function updateCode(value: string | undefined) {
+    const code = value || "";
     setFiles((prev) =>
-      prev.map((f) => (f.id === activeFileId ? { ...f, code: value || "", modified: true } : f))
+      prev.map((f) => {
+        if (f.id !== activeFileId) return f;
+        const updated = { ...f, code, modified: true };
+        return updated;
+      })
     );
+    // Trigger auto-save for the active file
+    const file = files.find((f) => f.id === activeFileId);
+    if (file) {
+      autoSave(activeFileId, file.cloudId, code, file.name);
+    }
   }
 
-  function newFile() {
-    const id = `file_${Date.now()}`;
+  async function newFile() {
     const num = files.length + 1;
-    setFiles([...files, { id, name: `script_${num}.py`, code: TEMPLATES.blank.code, modified: false }]);
+    const name = `script_${num}.py`;
+    const code = TEMPLATES.blank.code;
+
+    if (token) {
+      try {
+        const res = await fetch(`${API_BASE}/api/alpha/code-files`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ name, code }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const id = `cloud_${data.id}`;
+          setFiles((prev) => [...prev, { id, name: data.name, code: data.code, modified: false, cloudId: data.id, saveStatus: "saved" }]);
+          setActiveFileId(id);
+          return;
+        }
+      } catch {
+        // Fall through to local
+      }
+    }
+
+    // Fallback: local-only file
+    const id = `file_${Date.now()}`;
+    setFiles((prev) => [...prev, { id, name, code, modified: false, cloudId: null, saveStatus: "local" }]);
     setActiveFileId(id);
   }
 
-  function closeFile(id: string) {
+  async function closeFile(id: string) {
     if (files.length <= 1) return;
+    const file = files.find((f) => f.id === id);
+
+    if (file?.cloudId) {
+      const confirmed = window.confirm(`Delete "${file.name}" from saved files? This cannot be undone.`);
+      if (!confirmed) return;
+
+      try {
+        await fetch(`${API_BASE}/api/alpha/code-files/${file.cloudId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {
+        // Delete locally even if backend fails
+      }
+    }
+
     const remaining = files.filter((f) => f.id !== id);
     setFiles(remaining);
     if (activeFileId === id) setActiveFileId(remaining[0].id);
@@ -192,8 +310,16 @@ export default function CodeEditorPage() {
     const template = TEMPLATES[templateKey];
     if (!template) return;
     setFiles((prev) =>
-      prev.map((f) => (f.id === activeFileId ? { ...f, code: template.code, modified: true } : f))
+      prev.map((f) => {
+        if (f.id !== activeFileId) return f;
+        const updated = { ...f, code: template.code, modified: true };
+        return updated;
+      })
     );
+    const file = files.find((f) => f.id === activeFileId);
+    if (file) {
+      autoSave(activeFileId, file.cloudId, template.code, file.name);
+    }
   }
 
   async function runCode() {
@@ -214,7 +340,6 @@ export default function CodeEditorPage() {
         setOutput("No output");
       }
     } catch {
-      // Fallback: try running with eval-like display
       setOutput("Backend code execution not available.\n\nTo run Python code, start the backend with the /api/alpha/run-code endpoint.\n\nYour code:\n" + activeFile.code.slice(0, 500));
     }
     setRunning(false);
@@ -283,6 +408,25 @@ export default function CodeEditorPage() {
             <FileCode2 className="h-3 w-3 text-yellow-500" />
             {f.name}
             {f.modified && <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />}
+            {/* Save status indicator */}
+            {f.saveStatus === "saving" && (
+              <span className="text-[9px] text-yellow-400 ml-1">Saving...</span>
+            )}
+            {f.saveStatus === "saved" && (
+              <span className="text-[9px] text-emerald-400 ml-1 flex items-center gap-0.5">
+                <Cloud className="h-2.5 w-2.5" /> Saved
+              </span>
+            )}
+            {/* Cloud vs Local badge */}
+            {f.cloudId ? (
+              <Badge variant="secondary" className="text-[7px] px-1 py-0 h-3 ml-1 bg-emerald-900/40 text-emerald-400 border-emerald-700/50">
+                <Cloud className="h-2 w-2 mr-0.5" />cloud
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-[7px] px-1 py-0 h-3 ml-1 bg-neutral-800 text-neutral-400 border-neutral-700">
+                <HardDrive className="h-2 w-2 mr-0.5" />local
+              </Badge>
+            )}
             {files.length > 1 && (
               <button
                 onClick={(e) => { e.stopPropagation(); closeFile(f.id); }}
@@ -353,9 +497,16 @@ export default function CodeEditorPage() {
             <span className="text-[10px] text-muted-foreground font-medium">OUTPUT</span>
             {running && <Loader2 className="h-3 w-3 animate-spin text-emerald-400" />}
           </div>
-          <pre className="p-3 text-[11px] font-mono text-emerald-400 overflow-auto" style={{ height: outputHeight - 28 }}>
+          <pre className="p-3 text-[11px] font-mono text-emerald-400 overflow-auto" style={{ height: outputHeight - 28 - 22 }}>
             {output || "Click Run to execute your code..."}
           </pre>
+          {/* Security notice */}
+          <div className="flex items-center gap-1.5 px-3 py-1 border-t border-border/30 bg-neutral-950/80">
+            <ShieldCheck className="h-3 w-3 text-amber-500/70" />
+            <span className="text-[9px] text-muted-foreground">
+              Sandboxed environment — os, sys, subprocess blocked. 30s timeout.
+            </span>
+          </div>
         </div>
       </div>
     </div>
