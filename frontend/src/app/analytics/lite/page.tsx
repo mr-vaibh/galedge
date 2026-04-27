@@ -147,7 +147,7 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Profit and Loss Summary</CardTitle>
-                <CardControls />
+                <CardControls data={metrics ? [metrics as Record<string, unknown>] : []} filename="pnl" />
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full text-[10px]">
@@ -172,7 +172,7 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Risk Summary</CardTitle>
-                <CardControls />
+                <CardControls data={metrics ? [metrics as Record<string, unknown>] : []} filename="risk" />
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full text-[10px]">
@@ -197,7 +197,7 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Weighted Factor Exposure</CardTitle>
-                <CardControls />
+                <CardControls data={factorNames.map(f => ({factor: f, contribution: factorContributions[f]}))} filename="factor_exposures" />
               </CardHeader>
               <CardContent className="p-2">
                 <div className="flex flex-wrap gap-1.5 mb-2">

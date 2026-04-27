@@ -163,7 +163,7 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Risk Summary</CardTitle>
-              <CardControls />
+              <CardControls data={metrics ? [{max_drawdown: metrics.max_drawdown, volatility: metrics.volatility, avg_turnover: metrics.avg_turnover, trading_days: metrics.trading_days ?? metrics.total_trades}] : []} filename="risk" />
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full text-[10px]">
@@ -187,7 +187,7 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Portfolio Summary</CardTitle>
-              <CardControls />
+              <CardControls data={metrics ? [{initial_capital: metrics.initial_capital, final_value: metrics.final_value, total_rebalances: metrics.total_rebalances, fund_name: metrics.fund_name ?? selectedFundName}] : []} filename="portfolio" />
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full text-[10px]">

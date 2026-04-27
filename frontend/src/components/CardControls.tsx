@@ -178,7 +178,9 @@ export function CardControls({ data, filename = "export", info, expandContent, o
                     </table>
                   </div>
                 ) : (
-                  <div className="text-center text-muted-foreground py-20 text-sm">No data to display</div>
+                  <div className="text-center text-muted-foreground py-20 text-sm">
+                    No tabular data available for this card.
+                  </div>
                 )
               )}
             </div>

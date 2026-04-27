@@ -229,7 +229,7 @@ export default function PeerBreakdownPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Breakdown by {dimension}</CardTitle>
-                <CardControls />
+                <CardControls data={groupedRows.map(r => ({[dimension]: r[0], weight: r[1], count: r[2], symbols: r[3]}))} filename="breakdown" />
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full text-[10px]">

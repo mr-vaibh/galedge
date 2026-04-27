@@ -174,7 +174,7 @@ export default function FactorSummaryPage() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Performance Summary</CardTitle>
-            <CardControls />
+            <CardControls data={factors.map(f => ({...f}))} filename="factors" />
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
