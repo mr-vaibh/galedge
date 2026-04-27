@@ -44,17 +44,18 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
   }
 
   function handleExpand(e: React.MouseEvent) {
-    // Find the closest Card parent and clone its content
+    // Find the closest Card parent and clone its CardContent (skip CardHeader with toolbar icons)
     const btn = e.currentTarget as HTMLElement;
     const card = btn.closest("[class*='rounded-lg border'], [class*='card']");
     if (card) {
-      // Clone the card's CardContent
-      const content = card.querySelector("[class*='CardContent'], [class*='p-0'], [class*='p-2']");
-      if (content) {
-        setCardHtml(content.innerHTML);
-      } else {
-        setCardHtml(card.innerHTML);
-      }
+      // Get all children except the header (which contains the toolbar)
+      const clone = card.cloneNode(true) as HTMLElement;
+      // Remove all CardControls toolbars from the clone
+      clone.querySelectorAll("[class*='gap-0.5']").forEach((el) => {
+        if (el.querySelector("svg")) el.remove();
+      });
+      // Remove the header row if it only had title + controls
+      setCardHtml(clone.innerHTML);
     }
     setExpanded(true);
   }
@@ -177,7 +178,7 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
             <div className="p-6">
               {/* Render cloned card content at larger size */}
               <div
-                className="[&_table]:text-sm [&_td]:px-4 [&_td]:py-2 [&_th]:px-4 [&_th]:py-2.5 [&_svg]:w-full [&_svg]:h-auto"
+                className="[&_table]:text-sm [&_td]:px-4 [&_td]:py-2 [&_th]:px-4 [&_th]:py-2.5"
                 dangerouslySetInnerHTML={{ __html: cardHtml }}
               />
             </div>
