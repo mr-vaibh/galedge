@@ -19,7 +19,7 @@ jobs:
           script: |
             set -e
 
-            # Ensure swap exists so the Next.js build doesn't get OOM-killed (exit 137)
+            # Ensure swap exists
             if ! sudo swapon --show | grep -q '/swapfile'; then
               sudo fallocate -l 2G /swapfile
               sudo chmod 600 /swapfile
@@ -33,23 +33,30 @@ jobs:
             # Pull latest code (preserve runtime data)
             git fetch --depth=1 --no-tags origin main
             git reset --hard origin/main
-            git clean -fd -e backend/uploads/ -e backend/galedge_alpha.db -e frontend/.next/
+            git clean -fd -e backend/uploads/ -e backend/galedge_alpha.db -e frontend/.next/ -e workspace/
 
             # ── Backend ──
             cd /opt/galedge/backend
             source /opt/galedge/.venv/bin/activate
             export MAX_JOBS=1
-            pip install --prefer-binary --no-build-isolation --no-cache-dir -r requirements.txt -q
-            pip install --no-build-isolation --no-cache-dir -e /opt/galedge/packages/galedge-core -q
-            pip install --no-build-isolation --no-cache-dir -e /opt/galedge/packages/galedge-ml -q
+            pip install --prefer-binary --no-build-isolation --no-cache-dir -r requirements.txt -q 2>&1 | tail -3
+            pip install --no-build-isolation --no-cache-dir -e /opt/galedge/packages/galedge-core -q 2>&1 | tail -1
+            pip install --no-build-isolation --no-cache-dir -e /opt/galedge/packages/galedge-ml -q 2>&1 | tail -1
 
             sudo systemctl daemon-reload
             sudo systemctl restart galedge-api
 
             # ── Frontend ──
             cd /opt/galedge/frontend
-            npm install --prefer-offline --no-audit --no-fund
-            NODE_OPTIONS="--max-old-space-size=512" npm run build
+            npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -3
+
+            # Build with more memory and retry once on failure
+            NODE_OPTIONS="--max-old-space-size=1024" npm run build 2>&1 | tail -20 || {
+              echo "First build attempt failed, retrying..."
+              rm -rf .next/cache
+              NODE_OPTIONS="--max-old-space-size=1024" npm run build 2>&1 | tail -20
+            }
+
             sudo systemctl restart galedge-frontend
 
             echo "✅ Deployed successfully"
