@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 
-const STANDALONE_ROUTES = ["/login", "/register"];
+const STANDALONE_ROUTES = ["/login", "/register", "/docs"];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

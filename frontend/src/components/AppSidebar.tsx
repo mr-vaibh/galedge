@@ -22,6 +22,7 @@ import {
   LogIn,
   LogOut,
   User,
+  BookOpen,
 } from "lucide-react";
 import {
   Sidebar,
@@ -55,6 +56,7 @@ interface NavItem {
 
 const MAIN_NAV: NavItem[] = [
   { title: "Home", href: "/home", icon: Home },
+  { title: "Docs", href: "/docs", icon: BookOpen },
 ];
 
 const PLATFORM_NAV: NavItem[] = [

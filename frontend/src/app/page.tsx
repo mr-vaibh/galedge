@@ -101,6 +101,7 @@ export default function LandingPage() {
             <a href="#features" className="text-sm text-neutral-400 hover:text-white transition-colors">Features</a>
             <a href="#how-it-works" className="text-sm text-neutral-400 hover:text-white transition-colors">How It Works</a>
             <a href="#stats" className="text-sm text-neutral-400 hover:text-white transition-colors">Platform</a>
+            <a href="/docs" className="text-sm text-neutral-400 hover:text-white transition-colors">Docs</a>
           </div>
           <div className="flex items-center gap-3">
             {isLoggedIn ? (
@@ -290,6 +291,7 @@ export default function LandingPage() {
             <button onClick={() => router.push("/login")} className="text-xs text-neutral-500 hover:text-white transition-colors">Login</button>
             <button onClick={() => router.push("/register")} className="text-xs text-neutral-500 hover:text-white transition-colors">Register</button>
             <button onClick={() => router.push("/home")} className="text-xs text-neutral-500 hover:text-white transition-colors">Market Data</button>
+            <button onClick={() => router.push("/docs")} className="text-xs text-neutral-500 hover:text-white transition-colors">Docs</button>
           </div>
         </div>
       </footer>
