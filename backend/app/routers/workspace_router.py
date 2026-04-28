@@ -38,26 +38,28 @@ def _provision_workspace(user_id: int) -> Path:
     # Create user's writable directories
     (user_dir / "my_scripts").mkdir(exist_ok=True)
 
-    # Create .vscode/settings.json for Python interpreter
+    # Create .vscode/settings.json for Python interpreter — only on first provision.
+    # Never overwrite so user customizations (theme, keybindings, etc.) survive.
     vscode_dir = user_dir / ".vscode"
     vscode_dir.mkdir(exist_ok=True)
     settings_file = vscode_dir / "settings.json"
-    workspace_path = str(user_dir)
-    settings_file.write_text(
-            '{\n'
-            f'  "python.defaultInterpreterPath": "{PYTHON_PATH}",\n'
-            '  "python.terminal.activateEnvironment": false,\n'
-            f'  "terminal.integrated.cwd": "{workspace_path}",\n'
-            '  "terminal.integrated.env.linux": {\n'
-            f'    "GALEDGE_WORKSPACE": "{workspace_path}"\n'
-            '  },\n'
-            '  "files.readonlyInclude": {\n'
-            '    "galedge.py": true,\n'
-            '    "README.md": true,\n'
-            '    "examples/**": true\n'
-            '  }\n'
-            '}\n'
-        )
+    if not settings_file.exists():
+        workspace_path = str(user_dir)
+        settings_file.write_text(
+                '{\n'
+                f'  "python.defaultInterpreterPath": "{PYTHON_PATH}",\n'
+                '  "python.terminal.activateEnvironment": false,\n'
+                f'  "terminal.integrated.cwd": "{workspace_path}",\n'
+                '  "terminal.integrated.env.linux": {\n'
+                f'    "GALEDGE_WORKSPACE": "{workspace_path}"\n'
+                '  },\n'
+                '  "files.readonlyInclude": {\n'
+                '    "galedge.py": true,\n'
+                '    "README.md": true,\n'
+                '    "examples/**": true\n'
+                '  }\n'
+                '}\n'
+            )
 
     return user_dir
 
