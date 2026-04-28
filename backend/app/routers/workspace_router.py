@@ -73,13 +73,15 @@ def provision_workspace(user: User = Depends(require_user)):
             "user_id": user.id,
         }
     except Exception as e:
-        logger.warning("Workspace provisioning failed for user %s: %s — using fallback", user.id, e)
+        import traceback
+        logger.warning("Workspace provisioning failed for user %s: %s", user.id, traceback.format_exc())
         # Fallback for local dev or when server dirs don't exist
         fallback = "/home/galedge-coder/workspace"
         return {
             "workspace_path": fallback,
             "status": "fallback",
             "user_id": user.id,
+            "error": str(e),
         }
 
 
