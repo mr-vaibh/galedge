@@ -65,16 +65,19 @@ def _provision_workspace(user_id: int) -> Path:
 @router.post("/provision")
 def provision_workspace(user: User = Depends(require_user)):
     """Create or return the user's isolated workspace."""
+    import traceback as tb
     try:
+        logger.info("Provisioning workspace for user %s", user.id)
         workspace_path = _provision_workspace(user.id)
+        logger.info("Workspace provisioned at %s", workspace_path)
         return {
             "workspace_path": str(workspace_path),
             "status": "ready",
             "user_id": user.id,
         }
     except Exception as e:
-        import traceback
-        logger.warning("Workspace provisioning failed for user %s: %s", user.id, traceback.format_exc())
+        err_tb = tb.format_exc()
+        logger.error("PROVISION FAILED for user %s: %s\n%s", user.id, e, err_tb)
         # Fallback for local dev or when server dirs don't exist
         fallback = "/home/galedge-coder/workspace"
         return {
