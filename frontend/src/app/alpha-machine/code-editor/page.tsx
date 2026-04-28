@@ -6,11 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Code2, Terminal, ExternalLink, RefreshCw } from "lucide-react";
 
 function getCodeServerUrl() {
-  if (process.env.NEXT_PUBLIC_codeServerUrl) return process.env.NEXT_PUBLIC_codeServerUrl;
+  if (process.env.NEXT_PUBLIC_CODE_SERVER_URL) return process.env.NEXT_PUBLIC_CODE_SERVER_URL;
   if (typeof window === "undefined") return "";
   const h = window.location.hostname;
-  if (h === "localhost" || h === "127.0.0.1") return "http://localhost:8080";
-  return `https://code.${h.replace(/^www\./, "")}`;
+  const ws = "?folder=/home/galedge-coder/workspace";
+  if (h === "localhost" || h === "127.0.0.1") return `http://localhost:8080/${ws}`;
+  return `https://code.${h.replace(/^www\./, "")}/${ws}`;
 }
 
 export default function CodeEditorPage() {
