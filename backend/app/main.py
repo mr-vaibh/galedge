@@ -56,6 +56,9 @@ app = FastAPI(
     description="Institutional-grade systematic investment platform API",
     version="2.0.0",
     lifespan=lifespan,
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
 )
 
 app.add_middleware(
