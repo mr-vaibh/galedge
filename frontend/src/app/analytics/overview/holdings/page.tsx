@@ -52,7 +52,7 @@ export default function HoldingsSummaryPage() {
       const data = await res.json();
       const holdingsArr: Holding[] = Array.isArray(data) ? data : data.holdings ?? [];
       setHoldings(holdingsArr);
-      setSelectedSymbols(new Set(holdingsArr.slice(0, 10).map((h: Holding) => h.symbol)));
+      setSelectedSymbols(new Set(holdingsArr.map((h: Holding) => h.symbol)));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to fetch holdings");
     } finally {
@@ -103,8 +103,8 @@ export default function HoldingsSummaryPage() {
     exposure: (v.totalExposure / v.count).toFixed(2),
   }));
 
-  // Build bar chart data from selected holdings
-  const chartSymbols = Array.from(selectedSymbols).slice(0, 8);
+  // Build bar chart data from selected holdings (all selected, no limit)
+  const chartSymbols = Array.from(selectedSymbols);
   const holdingsBarData = chartSymbols.map((sym) => {
     const h = holdings.find((x) => x.symbol === sym);
     return { name: sym, value: h ? parseFloat((h.weight * 100).toFixed(2)) : 0 };
@@ -217,11 +217,10 @@ export default function HoldingsSummaryPage() {
                   )}
                 </tbody>
               </table>
-              <div className="p-2">
-                <Button size="sm" variant="outline" className="text-[9px] h-6" onClick={() => {
-                  // "Update Graph" refreshes the chart with current checkbox selection
-                  setSelectedSymbols(new Set(selectedSymbols));
-                }}>Update Graph</Button>
+              <div className="p-2 flex items-center gap-2">
+                <span className="text-[9px] text-muted-foreground">{selectedSymbols.size}/{holdings.length} selected</span>
+                <Button size="sm" variant="ghost" className="text-[9px] h-5 px-1.5" onClick={() => setSelectedSymbols(new Set(holdings.map(h => h.symbol)))}>All</Button>
+                <Button size="sm" variant="ghost" className="text-[9px] h-5 px-1.5" onClick={() => setSelectedSymbols(new Set())}>None</Button>
               </div>
             </CardContent>
           </Card>
