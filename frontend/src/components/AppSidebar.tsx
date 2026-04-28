@@ -54,7 +54,7 @@ interface NavItem {
 }
 
 const MAIN_NAV: NavItem[] = [
-  { title: "Home", href: "/", icon: Home },
+  { title: "Home", href: "/home", icon: Home },
 ];
 
 const PLATFORM_NAV: NavItem[] = [

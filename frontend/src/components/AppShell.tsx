@@ -10,11 +10,11 @@ import {
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 
-const AUTH_ROUTES = ["/login", "/register"];
+const STANDALONE_ROUTES = ["/login", "/register"];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isAuthPage = AUTH_ROUTES.some((r) => pathname.startsWith(r));
+  const isAuthPage = pathname === "/" || STANDALONE_ROUTES.some((r) => pathname.startsWith(r));
 
   if (isAuthPage) {
     return <>{children}</>;
