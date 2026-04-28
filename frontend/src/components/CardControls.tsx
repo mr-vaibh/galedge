@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef, ReactNode } from "react";
+import { useState, useRef, useEffect, useMemo, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Filter, Info, Maximize2, X, Search } from "lucide-react";
+import { Download, Filter, Info, Maximize2 } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/tooltip";
 import { downloadCSV, makeFilename } from "@/lib/csv";
 import { useExpand } from "@/lib/expand-context";
+import { applyFilters, applySort, Filter as FilterType, Sort } from "@/lib/filter-utils";
+import { FilterSortPopover } from "@/components/FilterSortPopover";
 
 interface Props {
   data?: Record<string, unknown>[];
@@ -41,57 +43,86 @@ async function downloadCardAsImage(cardEl: HTMLElement, filename: string) {
   }
 }
 
-export function CardControls({ data, filename = "export", info, onFilter, filterable, title, expandContent, fullscreen }: Props) {
+export function CardControls({ data, filename = "export", info, title, expandContent, fullscreen }: Props) {
   const [showFilter, setShowFilter] = useState(false);
-  const [filterQuery, setFilterQuery] = useState("");
+  const [filters, setFilters] = useState<FilterType[]>([]);
+  const [sort, setSort] = useState<Sort | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { open } = useExpand();
 
-  function handleFilterToggle() {
-    if (showFilter) {
-      setShowFilter(false);
-      setFilterQuery("");
-      onFilter?.("");
-    } else {
-      setShowFilter(true);
-    }
-  }
+  // Close filter on Escape
+  useEffect(() => {
+    if (!showFilter) return;
+    function handleKey(e: KeyboardEvent) { if (e.key === "Escape") setShowFilter(false); }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [showFilter]);
+
+  // Compute filtered/sorted data
+  const processedData = useMemo(() => {
+    if (!data) return undefined;
+    let result = data;
+    result = applyFilters(result, filters);
+    result = applySort(result, sort);
+    return result;
+  }, [data, filters, sort]);
+
+  // Columns from data
+  const columns = useMemo(() => {
+    if (!data || !data.length) return [];
+    return Object.keys(data[0]).filter((k) => {
+      const v = data[0][k];
+      return v === null || v === undefined || typeof v !== "object";
+    });
+  }, [data]);
+
+  const hasFilters = filters.length > 0 || sort !== null;
+  const canFilter = data && data.length > 0 && columns.length > 0;
+  const canExpand = !!expandContent;
 
   function handleExpand() {
     if (expandContent) {
-      open(title || filename, expandContent, data, filename, fullscreen);
+      open(title || filename, expandContent, processedData || data, filename, fullscreen);
     }
   }
 
   function handleDownload() {
     const name = title || filename;
-    if (data && data.length > 0) {
+    if (processedData && processedData.length > 0) {
+      downloadCSV(processedData, makeFilename(name, "csv"));
+    } else if (data && data.length > 0) {
       downloadCSV(data, makeFilename(name, "csv"));
     } else {
+      // Chart/heatmap → image
       const el = containerRef.current;
       if (!el) return;
       const card = el.closest("[data-slot='card']") as HTMLElement | null;
-      if (card) {
-        downloadCardAsImage(card, makeFilename(name, "png"));
-      }
+      if (card) downloadCardAsImage(card, makeFilename(name, "png"));
     }
   }
 
-  const canExpand = !!expandContent;
-  const canDownload = (data && data.length > 0) || true; // Always enabled — CSV or image
-
   return (
     <>
-      <div ref={containerRef} className="flex items-center gap-0.5">
+      <div ref={containerRef} className="flex items-center gap-0.5 relative">
         {/* Filter */}
-        {(onFilter || filterable) ? (
+        {canFilter ? (
           <Tooltip>
             <TooltipTrigger>
-              <Button variant="ghost" size="icon" className={`h-6 w-6 ${showFilter ? "text-emerald-400" : ""}`} onClick={handleFilterToggle}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-6 w-6 relative ${hasFilters ? "text-emerald-400" : ""}`}
+                onClick={() => setShowFilter(!showFilter)}
+              >
                 <Filter className="h-3 w-3" />
+                {hasFilters && (
+                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full text-[7px] text-white flex items-center justify-center font-bold">
+                    {filters.length + (sort ? 1 : 0)}
+                  </span>
+                )}
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom"><p className="text-[10px]">{showFilter ? "Clear filter" : "Filter"}</p></TooltipContent>
+            <TooltipContent side="bottom"><p className="text-[10px]">{hasFilters ? `${filters.length} filter(s) active` : "Filter & Sort"}</p></TooltipContent>
           </Tooltip>
         ) : (
           <Button variant="ghost" size="icon" className="h-6 w-6 opacity-20 cursor-default">
@@ -135,20 +166,23 @@ export function CardControls({ data, filename = "export", info, onFilter, filter
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            <p className="text-[10px]">{data && data.length > 0 ? "Download CSV" : "Download as image"}</p>
+            <p className="text-[10px]">{data && data.length > 0 ? (hasFilters ? "Download filtered CSV" : "Download CSV") : "Download as image"}</p>
           </TooltipContent>
         </Tooltip>
-      </div>
 
-      {/* Filter Input */}
-      {showFilter && onFilter && (
-        <div className="absolute top-12 right-3 z-20 flex items-center gap-1 bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1 shadow-lg">
-          <Search className="h-3 w-3 text-muted-foreground" />
-          <input autoFocus type="text" value={filterQuery} onChange={(e) => { setFilterQuery(e.target.value); onFilter(e.target.value); }} placeholder="Filter..."
-            className="bg-transparent border-none outline-none text-[11px] w-[140px] text-foreground placeholder:text-muted-foreground" />
-          <button onClick={handleFilterToggle} className="p-0.5 hover:bg-neutral-800 rounded"><X className="h-3 w-3 text-muted-foreground" /></button>
-        </div>
-      )}
+        {/* Filter Popover */}
+        {showFilter && canFilter && (
+          <FilterSortPopover
+            columns={columns}
+            filters={filters}
+            sort={sort}
+            onFiltersChange={setFilters}
+            onSortChange={setSort}
+            onClose={() => setShowFilter(false)}
+            anchorRef={containerRef}
+          />
+        )}
+      </div>
     </>
   );
 }
