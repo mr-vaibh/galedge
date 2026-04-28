@@ -3,7 +3,7 @@
 import { useState, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { User } from "lucide-react";
+import { User, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
   Card,
@@ -17,8 +17,9 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
 export default function RegisterPage() {
-  const { register } = useAuth();
+  const { register, user, token } = useAuth();
   const router = useRouter();
+  const isLoggedIn = !!(user || token);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,7 +34,7 @@ export default function RegisterPage() {
     setSubmitting(true);
     try {
       await register(email, password, fullName, organization);
-      router.push("/");
+      router.push("/home");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {
@@ -43,6 +44,15 @@ export default function RegisterPage() {
 
   return (
     <Card className="w-full max-w-sm">
+      {isLoggedIn && (
+        <div className="mx-4 mt-4 flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+          <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-xs text-amber-400">
+            <p className="font-medium">You&apos;re already logged in as {user?.email}.</p>
+            <p className="mt-0.5 text-amber-400/80">Creating a new account will switch to the new session. <button className="underline" onClick={() => router.push("/home")}>Go to app instead</button></p>
+          </div>
+        </div>
+      )}
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <User className="h-5 w-5" />

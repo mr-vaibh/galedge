@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
 import {
   BarChart3, Brain, Code2, LineChart, Shield, Zap, TrendingUp,
   PieChart, Target, Activity, Layers, Database, ArrowRight,
@@ -84,6 +85,8 @@ const STATS = [
 
 export default function LandingPage() {
   const router = useRouter();
+  const { user, token } = useAuth();
+  const isLoggedIn = !!(user || token);
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white">
@@ -100,8 +103,19 @@ export default function LandingPage() {
             <a href="#stats" className="text-sm text-neutral-400 hover:text-white transition-colors">Platform</a>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="ghost" className="text-sm" onClick={() => router.push("/login")}>Login</Button>
-            <Button className="text-sm bg-emerald-600 hover:bg-emerald-700" onClick={() => router.push("/register")}>Get Started Free</Button>
+            {isLoggedIn ? (
+              <>
+                <span className="text-sm text-neutral-400">{user?.full_name || user?.email || "Welcome"}</span>
+                <Button className="text-sm bg-emerald-600 hover:bg-emerald-700 gap-1.5" onClick={() => router.push("/home")}>
+                  Go to App <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" className="text-sm" onClick={() => router.push("/login")}>Login</Button>
+                <Button className="text-sm bg-emerald-600 hover:bg-emerald-700" onClick={() => router.push("/register")}>Get Started Free</Button>
+              </>
+            )}
           </div>
         </div>
       </nav>
