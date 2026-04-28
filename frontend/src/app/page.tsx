@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
   BarChart3, Brain, Code2, LineChart, Shield, Zap, TrendingUp,
@@ -90,9 +91,7 @@ export default function LandingPage() {
       <nav className="fixed top-0 w-full z-50 bg-neutral-950/80 backdrop-blur-xl border-b border-neutral-800/50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
-              <BarChart3 className="h-5 w-5 text-white" />
-            </div>
+            <Image src="/logo-icon.svg" alt="Galedge" width={32} height={32} className="rounded-lg" />
             <span className="text-lg font-bold">Galedge Alpha</span>
           </div>
           <div className="hidden md:flex items-center gap-8">
@@ -267,9 +266,7 @@ export default function LandingPage() {
       <footer className="py-12 px-6 border-t border-neutral-800/50">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-emerald-500 flex items-center justify-center">
-              <BarChart3 className="h-4 w-4 text-white" />
-            </div>
+            <Image src="/logo-icon.svg" alt="Galedge" width={24} height={24} className="rounded" />
             <span className="text-sm font-semibold">Galedge Alpha</span>
           </div>
           <p className="text-xs text-neutral-600">
