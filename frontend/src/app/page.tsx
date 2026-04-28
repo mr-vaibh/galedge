@@ -189,7 +189,7 @@ export default function LandingPage() {
       <section className="pt-32 pb-20 px-6">
         <div className="max-w-5xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium mb-8">
-            <Star className="h-3.5 w-3.5" />
+            <Shield className="h-3.5 w-3.5" />
             Built for systematic investors. Not financial advice.
           </div>
 
@@ -499,7 +499,7 @@ export default function LandingPage() {
             <span className="text-sm font-semibold">Galedge Alpha</span>
           </div>
           <p className="text-xs text-neutral-600">
-            Built for systematic investors. Not financial advice.
+            © 2025 Galedge Alpha
           </p>
           <div className="flex items-center gap-6">
             <button onClick={() => router.push("/login")} className="text-xs text-neutral-500 hover:text-white transition-colors">Login</button>
