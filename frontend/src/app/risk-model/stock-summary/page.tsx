@@ -184,7 +184,7 @@ export default function StockSummaryPage() {
         <Card>
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Stock Factor Exposures</CardTitle>
-            <CardControls data={factorNames.map(f => { const row: Record<string, unknown> = { Factor: f }; selected.forEach(s => { row[s.symbol.replace(".NS", "")] = exposures[s.symbol]?.[f] ?? 0; }); return row; })} filename="stock_factor_exposures" title="Stock Factor Exposures" expandContent={
+            <CardControls data={factorNames.map(f => { const row: Record<string, unknown> = { Factor: f }; selected.forEach(s => { row[s.symbol.replace(".NS", "")] = exposures[s.symbol]?.[f] ?? 0; }); return row; })} filename="stock_factor_exposures" title="Stock Factor Exposures" info="Factor exposure values for selected stocks. Shows how sensitive each stock is to each factor." expandContent={
               selected.length > 0 ? (
                 <table className="w-full text-[11px]">
                   <thead className="sticky top-0 bg-card z-10">
@@ -270,7 +270,7 @@ export default function StockSummaryPage() {
         <Card>
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Return Decomposition</CardTitle>
-            <CardControls data={factorNames.slice(0, 7).map(f => { const row: Record<string, unknown> = { Factor: f }; selected.slice(0, 3).forEach(s => { row[s.symbol.replace(".NS", "")] = exposures[s.symbol]?.[f] ?? 0; }); return row; })} filename="return_decomposition" title="Return Decomposition" expandContent={
+            <CardControls data={factorNames.slice(0, 7).map(f => { const row: Record<string, unknown> = { Factor: f }; selected.slice(0, 3).forEach(s => { row[s.symbol.replace(".NS", "")] = exposures[s.symbol]?.[f] ?? 0; }); return row; })} filename="return_decomposition" title="Return Decomposition" info="How much of each stock's return is explained by factor exposures vs stock-specific movement." expandContent={
               <table className="w-full text-[11px]">
                 <thead>
                   <tr className="border-b border-border/50">
@@ -337,7 +337,7 @@ export default function StockSummaryPage() {
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Exposures — {selected[0]?.symbol.replace(".NS", "") || "Select stock"}</CardTitle>
-            <CardControls title={`Factor Exposures — ${selected[0]?.symbol.replace(".NS", "") || "Select stock"}`} fullscreen expandContent={
+            <CardControls title={`Factor Exposures — ${selected[0]?.symbol.replace(".NS", "") || "Select stock"}`} info="Bar chart of factor exposures for the selected stock. Positive = long exposure, negative = short." fullscreen expandContent={
               selected.length > 0 && exposures[selected[0].symbol] ? (
                 <BarChartPanel
                   data={Object.entries(exposures[selected[0].symbol] || {}).map(([f, v]) => ({

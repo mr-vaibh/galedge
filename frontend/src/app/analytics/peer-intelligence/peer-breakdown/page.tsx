@@ -229,7 +229,7 @@ export default function PeerBreakdownPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Breakdown by {dimension}</CardTitle>
-                <CardControls data={groupedRows.map(r => ({[dimension]: r[0], weight: r[1], count: r[2], symbols: r[3]}))} filename="breakdown" title={`Breakdown by ${dimension}`} expandContent={
+                <CardControls data={groupedRows.map(r => ({[dimension]: r[0], weight: r[1], count: r[2], symbols: r[3]}))} filename="breakdown" title={`Breakdown by ${dimension}`} info="Holdings grouped by the selected dimension with total weight and count." expandContent={
                   <table className="w-full text-[10px]">
                     <thead>
                       <tr className="border-b border-border/50">
@@ -281,7 +281,7 @@ export default function PeerBreakdownPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Weight by {dimension} (%)</CardTitle>
-                <CardControls filename="breakdown" title={`Weight by ${dimension} (%)`} fullscreen expandContent={
+                <CardControls filename="breakdown" title={`Weight by ${dimension} (%)`} info="Weight allocation visualized by the selected grouping dimension." fullscreen expandContent={
                   breakdownBarData.length > 0 ? (
                     <BarChartPanel data={breakdownBarData} height={600} />
                   ) : undefined
@@ -302,7 +302,7 @@ export default function PeerBreakdownPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Top Holdings by Weight</CardTitle>
-                <CardControls title="Top Holdings by Weight" expandContent={
+                <CardControls title="Top Holdings by Weight" info="Highest-weighted positions in your portfolio with sector and market cap." expandContent={
                   <table className="w-full text-[10px]">
                     <thead>
                       <tr className="border-b border-border/50">
@@ -350,7 +350,7 @@ export default function PeerBreakdownPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Bottom Holdings by Weight</CardTitle>
-                <CardControls title="Bottom Holdings by Weight" expandContent={
+                <CardControls title="Bottom Holdings by Weight" info="Lowest-weighted positions in your portfolio." expandContent={
                   <table className="w-full text-[10px]">
                     <thead>
                       <tr className="border-b border-border/50">
@@ -398,7 +398,7 @@ export default function PeerBreakdownPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Top Holdings Weight (%)</CardTitle>
-                <CardControls filename="top_holdings" title="Top Holdings Weight (%)" fullscreen expandContent={
+                <CardControls filename="top_holdings" title="Top Holdings Weight (%)" info="Bar chart of the largest portfolio positions by weight." fullscreen expandContent={
                   holdingsBarData.length > 0 ? (
                     <BarChartPanel data={holdingsBarData} height={600} />
                   ) : undefined
@@ -434,7 +434,7 @@ export default function PeerBreakdownPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Card>
-              <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between"><CardTitle className="text-[11px]">Top Contributors</CardTitle><CardControls title="Top Contributors" fullscreen expandContent={
+              <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between"><CardTitle className="text-[11px]">Top Contributors</CardTitle><CardControls title="Top Contributors" info="Factors contributing most positively to portfolio returns." fullscreen expandContent={
                 <table className="w-full text-[10px]">
                   <thead>
                     <tr className="border-b border-border/50">
@@ -485,7 +485,7 @@ export default function PeerBreakdownPage() {
             </Card>
 
             <Card>
-              <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between"><CardTitle className="text-[11px]">Top Detractors</CardTitle><CardControls title="Top Detractors" fullscreen expandContent={
+              <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between"><CardTitle className="text-[11px]">Top Detractors</CardTitle><CardControls title="Top Detractors" info="Factors dragging portfolio returns the most." fullscreen expandContent={
                 <table className="w-full text-[10px]">
                   <thead>
                     <tr className="border-b border-border/50">

@@ -175,7 +175,7 @@ export default function FactorSummaryPage() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Performance Summary</CardTitle>
-            <CardControls data={factors.map(f => ({...f}))} filename="factors" title="Factor Performance Summary" expandContent={
+            <CardControls data={factors.map(f => ({...f}))} filename="factors" title="Factor Performance Summary" info="CAGR, cumulative return, Sharpe ratio, and max drawdown for each factor in the risk model." expandContent={
               <table className="w-full text-[11px]">
                 <thead className="sticky top-0 bg-card z-10">
                   <tr className="border-b border-border/50">
@@ -242,7 +242,7 @@ export default function FactorSummaryPage() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Correlation</CardTitle>
-            <CardControls title="Factor Correlation" fullscreen expandContent={
+            <CardControls title="Factor Correlation" info="Pairwise correlation matrix between all factors. Red = negative, green = positive correlation." fullscreen expandContent={
               corrFactors.length > 0 ? (
                 <div className="w-full h-full overflow-auto">
                   <table className="w-full h-full text-[10px]" style={{ tableLayout: "fixed" }}>
@@ -321,7 +321,7 @@ export default function FactorSummaryPage() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Returns Time Series</CardTitle>
-            <CardControls filename="factor_returns_ts" title="Factor Returns Time Series" fullscreen expandContent={
+            <CardControls filename="factor_returns_ts" title="Factor Returns Time Series" info="Cumulative factor returns over time. Shows how each factor performed historically." fullscreen expandContent={
               factorReturnsData.length > 0 ? (
                 <TimeSeriesChart
                   data={factorReturnsData}
@@ -352,7 +352,7 @@ export default function FactorSummaryPage() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Factor Correlation Time Series</CardTitle>
-            <CardControls title="Factor Correlation Time Series" expandContent={
+            <CardControls title="Factor Correlation Time Series" info="Select two factors to see their correlation value. Strong (>0.7), moderate (0.3-0.7), or weak (<0.3)." expandContent={
               <div className="space-y-2">
                 <div className="flex gap-2 items-center">
                   <Select value={corrPair[0]} onValueChange={(v) => { if (typeof v === "string") setCorrPair([v, corrPair[1]]); }}>

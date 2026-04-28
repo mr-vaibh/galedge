@@ -370,7 +370,7 @@ export default function PeerComparisonPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Side-by-Side Comparison</CardTitle>
-              <CardControls title="Side-by-Side Comparison" expandContent={
+              <CardControls title="Side-by-Side Comparison" info="Compare metrics across multiple portfolios and benchmark. Green highlight = best in class." expandContent={
                 <div className="overflow-auto">
                   <table className="w-full text-[10px]">
                     <thead>
@@ -496,7 +496,7 @@ export default function PeerComparisonPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Total Return (%)</CardTitle>
-                <CardControls filename="return_comparison" title="Total Return (%)" fullscreen expandContent={
+                <CardControls filename="return_comparison" title="Total Return (%)" info="Total return comparison across all selected portfolios and benchmark." fullscreen expandContent={
                   <BarChartPanel data={returnBarData} height={600} />
                 } />
               </CardHeader>
@@ -508,7 +508,7 @@ export default function PeerComparisonPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Sharpe Ratio</CardTitle>
-                <CardControls filename="sharpe_comparison" title="Sharpe Ratio" fullscreen expandContent={
+                <CardControls filename="sharpe_comparison" title="Sharpe Ratio" info="Risk-adjusted return comparison. Higher Sharpe = better return per unit of risk." fullscreen expandContent={
                   <BarChartPanel data={sharpeBarData} height={600} />
                 } />
               </CardHeader>
@@ -520,7 +520,7 @@ export default function PeerComparisonPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Volatility (%)</CardTitle>
-                <CardControls filename="volatility_comparison" title="Volatility (%)" fullscreen expandContent={
+                <CardControls filename="volatility_comparison" title="Volatility (%)" info="Annualized volatility comparison. Lower = more stable returns." fullscreen expandContent={
                   <BarChartPanel data={volBarData} height={600} />
                 } />
               </CardHeader>
@@ -535,7 +535,7 @@ export default function PeerComparisonPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Rankings by Total Return</CardTitle>
-                <CardControls title="Rankings by Total Return" expandContent={
+                <CardControls title="Rankings by Total Return" info="Portfolios ranked by total return with key risk and return metrics." expandContent={
                   <table className="w-full text-[10px]">
                     <thead>
                       <tr className="border-b border-border/50">

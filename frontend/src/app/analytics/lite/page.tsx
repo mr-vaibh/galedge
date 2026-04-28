@@ -147,7 +147,7 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Profit and Loss Summary</CardTitle>
-                <CardControls data={metrics ? [{total_return: `${metrics.total_return}%`, cagr: `${metrics.annualised_return}%`, sharpe: metrics.sharpe_ratio, holdings: metrics.num_holdings}] : []} filename="pnl" title="Profit and Loss Summary" expandContent={
+                <CardControls data={metrics ? [{total_return: `${metrics.total_return}%`, cagr: `${metrics.annualised_return}%`, sharpe: metrics.sharpe_ratio, holdings: metrics.num_holdings}] : []} filename="pnl" title="Profit and Loss Summary" info="Key return metrics: total return, CAGR, Sharpe ratio, and number of holdings." expandContent={
                   <table className="w-full text-[10px]">
                     <tbody>
                       {[
@@ -188,7 +188,7 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Risk Summary</CardTitle>
-                <CardControls data={metrics ? [{volatility: `${metrics.volatility}%`, max_drawdown: `${metrics.max_drawdown}%`, trading_days: metrics.trading_days, aum: metrics.total_aum_cr}] : []} filename="risk" title="Risk Summary" expandContent={
+                <CardControls data={metrics ? [{volatility: `${metrics.volatility}%`, max_drawdown: `${metrics.max_drawdown}%`, trading_days: metrics.trading_days, aum: metrics.total_aum_cr}] : []} filename="risk" title="Risk Summary" info="Risk metrics: volatility, max drawdown, trading days, and assets under management." expandContent={
                   <table className="w-full text-[10px]">
                     <tbody>
                       {[
@@ -229,7 +229,7 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Weighted Factor Exposure</CardTitle>
-                <CardControls data={factorNames.map(f => ({factor: f, contribution: factorContributions[f]}))} filename="factor_exposures" title="Weighted Factor Exposure" expandContent={
+                <CardControls data={factorNames.map(f => ({factor: f, contribution: factorContributions[f]}))} filename="factor_exposures" title="Weighted Factor Exposure" info="Portfolio-weighted factor exposures. Shows how much each factor contributes to risk." expandContent={
                   factorNames.length > 0 ? (
                     <div>
                       <div className="flex flex-wrap gap-1.5 mb-2">
@@ -303,7 +303,7 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Cumulative Return (%)</CardTitle>
-                <CardControls filename="cumulative_return" title="Cumulative Return (%)" fullscreen expandContent={
+                <CardControls filename="cumulative_return" title="Cumulative Return (%)" info="Cumulative percentage return of the portfolio over time." fullscreen expandContent={
                   returnCurve.length > 1 ? (
                     <TimeSeriesChart
                       data={returnCurve}
@@ -331,7 +331,7 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Drawdown (%)</CardTitle>
-                <CardControls filename="drawdown" title="Drawdown (%)" fullscreen expandContent={
+                <CardControls filename="drawdown" title="Drawdown (%)" info="Drawdown from peak — how much the portfolio fell from its highest point." fullscreen expandContent={
                   drawdownCurve.length > 1 ? (
                     <TimeSeriesChart
                       data={drawdownCurve}
@@ -357,7 +357,7 @@ export default function LiteAnalyticsPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Portfolio Value</CardTitle>
-                <CardControls filename="portfolio_value" title="Portfolio Value" fullscreen expandContent={
+                <CardControls filename="portfolio_value" title="Portfolio Value" info="Absolute portfolio value over time in your selected currency." fullscreen expandContent={
                   equityCurve.length > 1 ? (
                     <TimeSeriesChart
                       data={equityCurve.map((p) => ({ date: p.date, value: p.value }))}

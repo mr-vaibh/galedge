@@ -16,7 +16,7 @@ function STable({ title, rows, viewMode = "active" }: { title: string; rows: [st
     <Card>
       <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
         <CardTitle className="text-[11px]">{title}</CardTitle>
-        <CardControls title={title} fullscreen expandContent={
+        <CardControls title={title} info={`${title} — breakdown of returns and risk metrics for the active portfolio vs benchmark.`} fullscreen expandContent={
           <table className="w-full text-[10px]">
             <thead>
               <tr className="border-b border-border/50">
@@ -294,7 +294,7 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Return Decomposition (%)</CardTitle>
-                <CardControls filename="return_decomposition" title="Return Decomposition (%)" fullscreen expandContent={
+                <CardControls filename="return_decomposition" title="Return Decomposition (%)" info="Portfolio return split into total, factor, and stock-specific (idiosyncratic) components." fullscreen expandContent={
                   returnDecompBarData.length > 0 ? (
                     <BarChartPanel data={returnDecompBarData} height={600} />
                   ) : undefined
@@ -311,7 +311,7 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Returns (%)</CardTitle>
-                <CardControls filename="factor_returns" title="Factor Returns (%)" fullscreen expandContent={
+                <CardControls filename="factor_returns" title="Factor Returns (%)" info="Return contribution from each factor. Positive = factor helped, negative = factor hurt." fullscreen expandContent={
                   topBarData.length > 0 ? (
                     <BarChartPanel data={topBarData} height={600} color="#10b981" showNegativeColors={false} />
                   ) : undefined
@@ -328,7 +328,7 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Risk Contrib (%)</CardTitle>
-                <CardControls filename="factor_risk" title="Factor Risk Contrib (%)" fullscreen expandContent={
+                <CardControls filename="factor_risk" title="Factor Risk Contrib (%)" info="How much risk each factor adds to the portfolio. Higher = more risk contribution." fullscreen expandContent={
                   factors.length > 0 ? (
                     <BarChartPanel
                       data={factors.map((f) => ({ name: f.factor, value: f.risk_contribution * 100 }))}
@@ -355,7 +355,7 @@ export default function ReturnsAndRiskPage() {
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                 <CardTitle className="text-[11px]">Factor Exposure</CardTitle>
-                <CardControls filename="factor_exposure" title="Factor Exposure" fullscreen expandContent={
+                <CardControls filename="factor_exposure" title="Factor Exposure" info="Portfolio's weighted exposure to each factor. Shows factor tilts." fullscreen expandContent={
                   factors.length > 0 ? (
                     <BarChartPanel
                       data={factors.map((f) => ({ name: f.factor, value: f.exposure }))}
@@ -392,7 +392,7 @@ export default function ReturnsAndRiskPage() {
               <Card>
                 <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between"><CardTitle className="text-[11px]">
                   {contributorTab === "factor" ? "Top Factors" : "Top Contributors"}
-                </CardTitle><CardControls title={contributorTab === "factor" ? "Top Factors" : "Top Contributors"} fullscreen expandContent={
+                </CardTitle><CardControls title={contributorTab === "factor" ? "Top Factors" : "Top Contributors"} info="Factors with the highest positive return contribution." fullscreen expandContent={
                   <table className="w-full text-[10px]">
                     <thead><tr className="border-b border-border/50">
                       {FACTOR_COLS.map(h => <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>)}
@@ -426,7 +426,7 @@ export default function ReturnsAndRiskPage() {
               <Card>
                 <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between"><CardTitle className="text-[11px]">
                   {contributorTab === "factor" ? "Bottom Factors" : "Bottom Detractors"}
-                </CardTitle><CardControls title={contributorTab === "factor" ? "Bottom Factors" : "Bottom Detractors"} fullscreen expandContent={
+                </CardTitle><CardControls title={contributorTab === "factor" ? "Bottom Factors" : "Bottom Detractors"} info="Factors with the most negative return contribution." fullscreen expandContent={
                   <table className="w-full text-[10px]">
                     <thead><tr className="border-b border-border/50">
                       {FACTOR_COLS.map(h => <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>)}
@@ -460,7 +460,7 @@ export default function ReturnsAndRiskPage() {
               <Card>
                 <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
                   <CardTitle className="text-[11px]">Top Factor Returns (%)</CardTitle>
-                  <CardControls filename="top_factor_returns" title="Top Factor Returns (%)" fullscreen expandContent={
+                  <CardControls filename="top_factor_returns" title="Top Factor Returns (%)" info="Top factor return contributors ranked by impact on portfolio performance." fullscreen expandContent={
                     topHoldingsBarData.length > 0 ? (
                       <BarChartPanel data={topHoldingsBarData} height={600} />
                     ) : undefined

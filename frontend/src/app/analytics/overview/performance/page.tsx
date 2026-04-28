@@ -139,7 +139,7 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Profit and Loss Summary</CardTitle>
-              <CardControls data={[{total_return: `${metrics.total_return ?? "—"}%`, cagr: `${metrics.annualised_return ?? "—"}%`, sharpe: metrics.sharpe_ratio ?? "—", holdings: metrics.num_holdings ?? "—"}]} filename="pnl" title="Profit and Loss Summary" expandContent={
+              <CardControls data={[{total_return: `${metrics.total_return ?? "—"}%`, cagr: `${metrics.annualised_return ?? "—"}%`, sharpe: metrics.sharpe_ratio ?? "—", holdings: metrics.num_holdings ?? "—"}]} filename="pnl" title="Profit and Loss Summary" info="Total return, annualized return (CAGR), Sharpe ratio, and number of holdings in your portfolio." expandContent={
                 <table className="w-full text-xs">
                   <tbody>
                     {[
@@ -179,7 +179,7 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Risk Summary</CardTitle>
-              <CardControls data={metrics ? [{max_drawdown: metrics.max_drawdown, volatility: metrics.volatility, avg_turnover: metrics.avg_turnover, trading_days: metrics.trading_days ?? metrics.total_trades}] : []} filename="risk" title="Risk Summary" expandContent={
+              <CardControls data={metrics ? [{max_drawdown: metrics.max_drawdown, volatility: metrics.volatility, avg_turnover: metrics.avg_turnover, trading_days: metrics.trading_days ?? metrics.total_trades}] : []} filename="risk" title="Risk Summary" info="Max drawdown, annualized volatility, average turnover, and trading days for the period." expandContent={
                 <table className="w-full text-xs">
                   <tbody>
                     {[
@@ -219,7 +219,7 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Portfolio Summary</CardTitle>
-              <CardControls data={metrics ? [{initial_capital: metrics.initial_capital, final_value: metrics.final_value, total_rebalances: metrics.total_rebalances, fund_name: metrics.fund_name ?? selectedFundName}] : []} filename="portfolio" title="Portfolio Summary" expandContent={
+              <CardControls data={metrics ? [{initial_capital: metrics.initial_capital, final_value: metrics.final_value, total_rebalances: metrics.total_rebalances, fund_name: metrics.fund_name ?? selectedFundName}] : []} filename="portfolio" title="Portfolio Summary" info="Initial capital invested, current portfolio value, number of rebalances, and fund name." expandContent={
                 <table className="w-full text-xs">
                   <tbody>
                     {[
@@ -260,7 +260,7 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Portfolio Value</CardTitle>
-              <CardControls filename="equity_curve" title="Portfolio Value" fullscreen expandContent={
+              <CardControls filename="equity_curve" title="Portfolio Value" info="Daily portfolio value over time. Shows how your investment grew or declined." fullscreen expandContent={
                 equityCurve.length > 0 ? (
                   <TimeSeriesChart
                     data={equityCurve.map(e => ({ date: String(e.date), value: Number(e.value) }))}
@@ -286,7 +286,7 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Drawdown (%)</CardTitle>
-              <CardControls filename="drawdown" title="Drawdown (%)" fullscreen expandContent={
+              <CardControls filename="drawdown" title="Drawdown (%)" info="Peak-to-trough decline in portfolio value. Measures the worst loss from a high point." fullscreen expandContent={
                 equityCurve.length > 0 ? (
                   <TimeSeriesChart
                     data={equityCurve.filter(e => e.drawdown !== undefined).map(e => ({ date: String(e.date), dd: Number(e.drawdown) }))}
@@ -310,7 +310,7 @@ export default function PerformanceSummaryPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Value Trend</CardTitle>
-              <CardControls filename="value_trend" title="Value Trend" fullscreen expandContent={
+              <CardControls filename="value_trend" title="Value Trend" info="Portfolio value trend over the full period with currency formatting." fullscreen expandContent={
                 equityCurve.length > 0 ? (
                   <TimeSeriesChart
                     data={equityCurve.map(e => ({ date: String(e.date), v: Number(e.value) }))}

@@ -131,6 +131,7 @@ function STable({ title, rows, columns }: { title: string; rows: string[][]; col
         <CardTitle className="text-[11px]">{title}</CardTitle>
         <CardControls
           title={title}
+          info={`${title} — period-by-period breakdown of returns, risk, and statistics.`}
           data={rows.map((row) => Object.fromEntries(columns.map((c, i) => [c, row[i] ?? ""])))}
           filename={title.toLowerCase().replace(/\s+/g, "_")}
           expandContent={tableJsx}
@@ -237,7 +238,7 @@ export default function PeriodAnalysisPage() {
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Return by Period (%)</CardTitle>
-              <CardControls title="Return by Period (%)" filename="period_returns" fullscreen expandContent={barData.length > 0 ? <BarChartPanel data={barData} height={600} /> : undefined} />
+              <CardControls title="Return by Period (%)" filename="period_returns" info="Visual comparison of returns across each period. Red bars = negative returns." fullscreen expandContent={barData.length > 0 ? <BarChartPanel data={barData} height={600} /> : undefined} />
             </CardHeader>
             <CardContent className="p-2">
               {barData.length > 0 ? (
