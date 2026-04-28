@@ -42,11 +42,15 @@ def _provision_workspace(user_id: int) -> Path:
     vscode_dir = user_dir / ".vscode"
     vscode_dir.mkdir(exist_ok=True)
     settings_file = vscode_dir / "settings.json"
-    if not settings_file.exists():
-        settings_file.write_text(
+    workspace_path = str(user_dir)
+    settings_file.write_text(
             '{\n'
             f'  "python.defaultInterpreterPath": "{PYTHON_PATH}",\n'
             '  "python.terminal.activateEnvironment": false,\n'
+            f'  "terminal.integrated.cwd": "{workspace_path}",\n'
+            '  "terminal.integrated.env.linux": {\n'
+            f'    "GALEDGE_WORKSPACE": "{workspace_path}"\n'
+            '  },\n'
             '  "files.readonlyInclude": {\n'
             '    "galedge.py": true,\n'
             '    "README.md": true,\n'
