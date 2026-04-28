@@ -37,7 +37,11 @@ export default function CodeEditorPage() {
 
     setProvisioning(true);
 
-    fetch(`${API_BASE}/api/alpha/workspace/provision`, {
+    // Use relative URL on production (nginx proxies /api/), absolute on local
+    const apiUrl = typeof window !== "undefined" && window.location.hostname !== "localhost"
+      ? "/api/alpha/workspace/provision"
+      : `${API_BASE}/api/alpha/workspace/provision`;
+    fetch(apiUrl, {
       method: "POST",
       headers: { Authorization: `Bearer ${authToken}` },
     })
