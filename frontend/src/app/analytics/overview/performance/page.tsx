@@ -23,7 +23,7 @@ const OVERVIEW_TABS = [
 export default function PerformanceSummaryPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const { token } = useAuth();
+  const { token, loading: authLoading } = useAuth();
   const { selectedPortfolioId, selectedFundName } = usePortfolio();
 
   const { formatCurrencyCompact, symbol } = useCurrency();
@@ -36,6 +36,9 @@ export default function PerformanceSummaryPage() {
   const [dataIngesting, setDataIngesting] = useState(false);
 
   async function fetchPerformance() {
+    // Wait for auth to finish loading before deciding
+    if (authLoading) return;
+
     setLoading(true);
     setError(null);
     setDataIngesting(false);
@@ -68,8 +71,11 @@ export default function PerformanceSummaryPage() {
             setEquityCurve(data.equity_curve || []);
           }
         }
+      } else if (token && !portfolioId) {
+        // Logged in but no portfolio selected
+        setError("No portfolio selected. Go to Portfolio Construction to upload and select one.");
       } else {
-        // Demo backtest
+        // Not logged in — show demo backtest
         const res = await fetch(
           `${API_BASE}/api/backtest/quick?universe=NIFTY%2050&start=2025-06-01&end=${new Date().toISOString().split("T")[0]}&frequency=Monthly&method=equal`,
           { method: "POST" }
@@ -79,7 +85,7 @@ export default function PerformanceSummaryPage() {
           setMetrics(data.metrics);
           setEquityCurve(data.equity_curve || []);
         } else {
-          setError("Backend unavailable. Start the backend with: cd backend && uvicorn app.main:app --port 8001");
+          setError("Backend unavailable.");
         }
       }
     } catch {
@@ -88,7 +94,7 @@ export default function PerformanceSummaryPage() {
     setLoading(false);
   }
 
-  useEffect(() => { fetchPerformance(); }, [portfolioId, token]);
+  useEffect(() => { fetchPerformance(); }, [portfolioId, token, authLoading]);
 
   return (
     <div className="p-4 space-y-4">
