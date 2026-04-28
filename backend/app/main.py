@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI):
                 logger = logging.getLogger("galedge.seed")
                 logger.info("Empty database detected — running initial data ingestion...")
                 from app.services.data_ingestion import run_full_ingestion
-                run_full_ingestion(db, period="1y")
+                run_full_ingestion(db, period="max")
                 logger.info("Initial ingestion complete. Building factor model...")
                 from app.services.factor_engine import build_factor_model
                 build_factor_model(db, "INEC1")

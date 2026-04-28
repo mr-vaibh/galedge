@@ -26,7 +26,7 @@ router = APIRouter(prefix="/api/data", tags=["data"])
 
 @router.post("/ingest/prices")
 def trigger_price_ingestion(
-    period: str = Query("2y"),
+    period: str = Query("max"),
     market: str = Query("india", enum=["india", "us", "all"]),
     db: Session = Depends(get_db),
 ):
@@ -59,7 +59,7 @@ def trigger_info_ingestion(
 
 @router.post("/ingest/full")
 def trigger_full_ingestion(
-    period: str = Query("2y"),
+    period: str = Query("max"),
     db: Session = Depends(get_db),
 ):
     """Run full data ingestion pipeline (prices + info + index constituents)."""

@@ -1,7 +1,8 @@
 """Data ingestion pipeline — populates StockPrice, StockInfo, IndexConstituent tables.
 
 Uses yfinance for price data and stock info. Designed to run as a daily job
-or initial bulk load.
+or initial bulk load. Universe covers NIFTY 500 (50 + NEXT 50 + MIDCAP 150 + SMALLCAP 250)
+plus major US stocks. Period defaults to "max" to fetch the full available history.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from app.models.market_data import StockPrice, StockInfo, IndexConstituent
 
 logger = logging.getLogger(__name__)
 
-# ── Indian Market Universe ────────────────────────────────────────────────────
+# ── NIFTY 50 ─────────────────────────────────────────────────────────────────
 
 NIFTY_50 = [
     "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "ICICIBANK.NS",
@@ -33,8 +34,10 @@ NIFTY_50 = [
     "HEROMOTOCO.NS", "M&M.NS", "BPCL.NS", "ONGC.NS", "COALINDIA.NS",
     "GRASIM.NS", "INDUSINDBK.NS", "TATACONSUM.NS", "BRITANNIA.NS",
     "HDFCLIFE.NS", "SBILIFE.NS", "BAJAJFINSV.NS", "ADANIENT.NS",
-    "ETERNAL.NS", "VEDL.NS",
+    "ZOMATO.NS", "VEDL.NS",
 ]
+
+# ── NIFTY NEXT 50 ─────────────────────────────────────────────────────────────
 
 NIFTY_NEXT_50 = [
     "SHRIRAMFIN.NS", "HAVELLS.NS", "PIDILITIND.NS", "GODREJCP.NS",
@@ -50,15 +53,154 @@ NIFTY_NEXT_50 = [
     "RECLTD.NS", "NHPC.NS", "SJVN.NS", "POLYCAB.NS", "VOLTAS.NS",
 ]
 
-ALL_NSE_STOCKS = NIFTY_50 + NIFTY_NEXT_50
+# ── NIFTY MIDCAP 150 ──────────────────────────────────────────────────────────
+
+NIFTY_MIDCAP_150 = [
+    # Financial Services
+    "CHOLAFIN.NS", "BAJAJHLDNG.NS", "AUBANK.NS", "RBLBANK.NS", "SBICARD.NS",
+    "KARURVYSYA.NS", "CITYUNIONBK.NS", "MAHABANK.NS", "EQUITASBNK.NS",
+    "CREDITACC.NS", "UJJIVANSFB.NS", "ICICIPRULI.NS", "ICICIGI.NS",
+    "STARHEALTH.NS", "NIACL.NS", "GICRE.NS", "MANAPPURAM.NS",
+    "ANGELONE.NS", "MOTILALOFS.NS", "360ONE.NS", "JMFINANCIL.NS",
+    "CDSL.NS", "BSE.NS", "MCX.NS", "CAMS.NS", "KFINTECH.NS",
+    # IT / Tech
+    "MPHASIS.NS", "PERSISTENT.NS", "COFORGE.NS", "LTTS.NS", "KPITTECH.NS",
+    "TATAELXSI.NS", "TANLA.NS", "MASTEK.NS", "ZENSAR.NS", "AFFLE.NS",
+    "INDIAMART.NS", "RATEGAIN.NS", "LATENTVIEW.NS", "HAPPSTMNDS.NS",
+    "TATACOMM.NS", "ROUTE.NS",
+    # Consumer / FMCG
+    "EMAMILTD.NS", "RADICO.NS", "VSTIND.NS", "UNITEDBREW.NS",
+    "UNITEDSPIRITS.NS", "GODREJIND.NS", "MARICO.NS", "JYOTHYLAB.NS",
+    "ZYDUSWELL.NS", "GILLETTE.NS", "HONAUT.NS",
+    # Auto & Components
+    "SUNDRMFAST.NS", "MOTHERSON.NS", "ENDURANCE.NS", "ESCORTS.NS",
+    "TIINDIA.NS", "BHARATFORG.NS", "APOLLOTYRE.NS", "CEAT.NS",
+    "BOSCHLTD.NS", "CRAFTSMAN.NS", "MAHINDCIE.NS", "MRF.NS",
+    # Industrials / Capital Goods
+    "THERMAX.NS", "CUMMINSIND.NS", "AIAENG.NS", "ELGIEQUIP.NS",
+    "TIMKEN.NS", "SCHAEFFLER.NS", "SKF.NS", "GRINDWELL.NS",
+    "PRAJ.NS", "INGERRAND.NS", "KSB.NS", "RVNL.NS",
+    "RAILTEL.NS", "IRCON.NS", "NBCC.NS", "APARINDS.NS", "KEI.NS",
+    # Real Estate
+    "GODREJPROP.NS", "SOBHA.NS", "PRESTIGE.NS", "BRIGADE.NS",
+    "PHOENIXLTD.NS", "OBEROIRLTY.NS", "SUNTECK.NS", "MAHLIFE.NS",
+    # Building Materials / Cement
+    "ASTRAL.NS", "SUPREMEIND.NS", "CERA.NS", "KAJARIA.NS",
+    "RAMCOCEM.NS", "JKCEMENT.NS", "DALMIACBT.NS", "CENTURYPLY.NS",
+    "GREENPANEL.NS",
+    # Chemicals
+    "DEEPAKFERT.NS", "COROMANDEL.NS", "ATUL.NS", "NAVINFLUOR.NS",
+    "VINATI.NS", "DEEPAKNTR.NS", "AARTIIND.NS", "FINEORG.NS",
+    "CLEAN.NS", "TATACHEM.NS", "GALAXYSURF.NS", "ROSSARI.NS",
+    "ALKYLAMINE.NS", "BALAMINES.NS", "NOCIL.NS", "SUDARSCHEM.NS",
+    "FLUOROCHEM.NS", "PCBL.NS",
+    # Power / Gas / Energy
+    "TORNTPOWER.NS", "IGL.NS", "MGL.NS", "GUJGASLTD.NS", "ATGL.NS",
+    "CESC.NS", "JSWENERGY.NS", "ADANIPOWER.NS", "TATAPOWER.NS",
+    "ADANIGREEN.NS",
+    # Metals
+    "RATNAMANI.NS", "HINDZINC.NS", "HINDCOPPER.NS", "MOIL.NS",
+    "JINDALSAW.NS", "WELCORP.NS",
+    # Consumer Electronics / Durables
+    "CROMPTON.NS", "BLUESTARCO.NS", "DIXON.NS", "AMBER.NS",
+    "VGUARD.NS", "ORIENTELEC.NS", "WHIRLPOOL.NS", "PVRINOX.NS",
+    # Healthcare / Hospitals
+    "MAXHEALTH.NS", "FORTIS.NS", "METROPOLIS.NS", "SYNGENE.NS",
+    "IPCA.NS", "GLENMARK.NS", "JBCHEPHARM.NS", "GRANULES.NS",
+    "ERIS.NS", "LAURUS.NS", "NATCOPHARM.NS", "AJANTPHARM.NS",
+    "LALPATHLAB.NS", "ZYDUSLIFE.NS", "GLAND.NS",
+    # New Economy / Fintech
+    "POLICYBZR.NS", "PAYTM.NS", "NYKAA.NS", "DELHIVERY.NS",
+    "CARTRADE.NS", "MAPMYINDIA.NS",
+]
+
+# ── NIFTY SMALLCAP 250 (representative selection) ─────────────────────────────
+
+NIFTY_SMALLCAP_250 = [
+    # Financial
+    "AAVAS.NS", "HOMEFIRST.NS", "APTUS.NS", "HUDCO.NS", "IREDA.NS",
+    "NUVAMA.NS", "IIFLSEC.NS", "MOTILALOFS.NS",
+    # IT / SaaS
+    "RPTECH.NS", "QUICKHEAL.NS", "INTELLECT.NS", "CYIENT.NS",
+    "BIRLASOFT.NS", "NIITTECH.NS", "NEWGEN.NS", "SONATSOFTW.NS",
+    "MPHASIS.NS",
+    # Consumer / Food
+    "KRBL.NS", "LTFOODS.NS", "BALRAMCHIN.NS", "AVANTIFEED.NS",
+    "KPRMILL.NS", "SAREGAMA.NS", "VENKEYS.NS", "DHAMPUR.NS",
+    "EIDPARRY.NS", "DHARAMSI.NS",
+    # Textiles
+    "RAYMOND.NS", "TRIDENT.NS", "CENTURYTEX.NS", "WELSPUNLIV.NS",
+    "VARDHMAN.NS", "KITEX.NS",
+    # Staffing / HR
+    "TEAMLEASE.NS", "QUESS.NS", "SIS.NS",
+    # Healthcare / Diagnostics
+    "THYROCARE.NS", "KRSNAA.NS", "HEALTHIUM.NS", "SEQUENT.NS",
+    "PFIZER.NS", "ABBOTINDIA.NS", "GLAXO.NS", "SANOFI.NS",
+    # Auto / Ancillaries
+    "SUPRAJIT.NS", "SANSERA.NS", "MINDA.NS", "VARROC.NS",
+    "GABRIEL.NS", "MMFINANCE.NS", "JKTYRES.NS",
+    # Industrials / Infrastructure
+    "POWERMECH.NS", "KEC.NS", "KALPATPOWR.NS", "GPPL.NS",
+    "JINDALWORLD.NS", "HLEGLAS.NS", "ELECTCAST.NS",
+    # Chemicals (small)
+    "PAUSHAKLTD.NS", "APCOTEX.NS", "GUJALKALI.NS", "NEOGEN.NS",
+    "TATACHEM.NS",
+    # Media / Telecom
+    "NETWORK18.NS", "TV18BRDCST.NS", "HFCL.NS", "GTLINFRA.NS",
+    # Real Estate / Hotels
+    "EIHOTEL.NS", "LEMONTREE.NS", "CHALET.NS", "MAHINDHOTEL.NS",
+    # Packaging
+    "MOLDTKPAC.NS", "UFLEX.NS", "HUHTAMAKI.NS",
+    # Metals / Mining
+    "WELSPUNIND.NS", "JSLHISAR.NS", "APLAPOLLO.NS",
+    # Power Equipment
+    "INOXWIND.NS", "SUZLON.NS", "ORIENTGREEN.NS",
+    # Agri
+    "NATHBIOGENS.NS", "KAVERI.NS", "DHANUKA.NS", "RALLIS.NS",
+    # Exchanges / Infra
+    "MSTCLTD.NS", "IRCON.NS", "RITES.NS", "WABCOINDIA.NS",
+]
+
+# ── US Stocks ─────────────────────────────────────────────────────────────────
 
 US_STOCKS = [
+    # Mega cap tech
     "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "AVGO",
-    "JPM", "V", "MA", "BAC", "UNH", "JNJ", "LLY", "PFE", "ABBV", "MRK",
+    "ORCL", "ADBE", "CRM", "AMD", "INTC", "QCOM", "TXN", "IBM",
+    # Software / Cloud
+    "NOW", "WDAY", "PANW", "CRWD", "ZS", "DDOG", "NET", "SNOW",
+    "PLTR", "TWLO", "SHOP", "NFLX",
+    # Fintech / Payments
+    "V", "MA", "PYPL", "SQ", "COIN",
+    # Banks / Finance
+    "JPM", "BAC", "GS", "MS", "BLK", "SPGI", "ICE", "CME",
+    # Healthcare
+    "UNH", "JNJ", "LLY", "PFE", "ABBV", "MRK", "AMGN", "GILD",
+    "BMY", "MDT", "ABT", "TMO", "DHR", "ISRG",
+    # Consumer
     "WMT", "PG", "KO", "PEP", "COST", "HD", "LOW", "NKE", "MCD",
-    "XOM", "CVX", "COP", "DIS", "CMCSA", "T", "VZ",
-    "UPS", "HON", "CAT", "BA", "GE", "DE",
+    "SBUX", "TGT", "CMG", "YUM", "MNST",
+    # Energy
+    "XOM", "CVX", "COP",
+    # Industrials
+    "HON", "CAT", "BA", "GE", "DE", "UPS", "LMT", "RTX", "NOC", "GD",
+    # Telecom / Media
+    "T", "VZ", "DIS", "CMCSA",
+    # REITs / Real Estate
+    "AMT", "CCI", "PLD",
+    # Utilities
+    "NEE", "DUK", "SO",
+    # Autos
+    "F", "GM", "RIVN",
+    # New economy
+    "UBER", "ABNB", "ROKU",
 ]
+
+# ── Composite lists ───────────────────────────────────────────────────────────
+
+ALL_NSE_STOCKS = list(dict.fromkeys(
+    NIFTY_50 + NIFTY_NEXT_50 + NIFTY_MIDCAP_150 + NIFTY_SMALLCAP_250
+))
 
 
 # ── Price Ingestion ───────────────────────────────────────────────────────────
@@ -84,16 +226,17 @@ def _fetch_prices_batch(symbols: list[str], period: str = "max") -> pd.DataFrame
 def ingest_prices(
     db: Session,
     symbols: list[str] | None = None,
-    period: str = "2y",
+    period: str = "max",
 ) -> dict:
     """Ingest daily OHLCV prices into the database.
 
     Uses yf.download for batch efficiency, then upserts into stock_prices table.
+    Fetches full available history by default (period="max").
     """
     symbols = symbols or ALL_NSE_STOCKS
     logger.info("Ingesting prices for %d symbols, period=%s", len(symbols), period)
 
-    # Find latest date per symbol already in DB
+    # Find latest date per symbol already in DB — skip re-fetching old data
     latest_dates = {}
     for sym in symbols:
         result = db.execute(
@@ -102,16 +245,48 @@ def ingest_prices(
         if result:
             latest_dates[sym] = result
 
-    # Batch download
-    df = _fetch_prices_batch(symbols, period)
-    if df.empty:
-        return {"ingested": 0, "errors": len(symbols)}
+    # Symbols that already have data only need recent days, not max history
+    fresh_symbols = [s for s in symbols if s not in latest_dates]
+    update_symbols = [s for s in symbols if s in latest_dates]
 
+    total_rows = 0
+    errors = 0
+
+    # Batch-fetch full history for new symbols
+    if fresh_symbols:
+        logger.info("Fetching full history for %d new symbols", len(fresh_symbols))
+        df = _fetch_prices_batch(fresh_symbols, "max")
+        rows, errs = _store_prices(db, fresh_symbols, df, latest_dates)
+        total_rows += rows
+        errors += errs
+
+    # Batch-fetch recent data for already-ingested symbols (fast daily update)
+    if update_symbols:
+        logger.info("Updating recent data for %d existing symbols", len(update_symbols))
+        df = _fetch_prices_batch(update_symbols, "5d")
+        rows, errs = _store_prices(db, update_symbols, df, latest_dates)
+        total_rows += rows
+        errors += errs
+
+    db.commit()
+    logger.info("Price ingestion complete: %d rows, %d errors", total_rows, errors)
+    return {"ingested": total_rows, "errors": errors}
+
+
+def _store_prices(
+    db: Session,
+    symbols: list[str],
+    df: pd.DataFrame,
+    latest_dates: dict,
+) -> tuple[int, int]:
     total_rows = 0
     errors = 0
 
     for sym in symbols:
         try:
+            if df.empty:
+                continue
+
             if len(symbols) == 1:
                 sym_df = df
             else:
@@ -123,7 +298,6 @@ def ingest_prices(
             if sym_df.empty:
                 continue
 
-            # Filter to only new dates
             latest = latest_dates.get(sym)
             if latest:
                 sym_df = sym_df[sym_df.index.date > latest]
@@ -131,7 +305,6 @@ def ingest_prices(
             if sym_df.empty:
                 continue
 
-            # Bulk insert
             rows = []
             for idx, row in sym_df.iterrows():
                 rows.append(StockPrice(
@@ -147,15 +320,13 @@ def ingest_prices(
 
             db.bulk_save_objects(rows)
             total_rows += len(rows)
-            logger.info("Ingested %d rows for %s", len(rows), sym)
+            logger.debug("Ingested %d rows for %s", len(rows), sym)
 
         except Exception as e:
             logger.warning("Failed to ingest %s: %s", sym, e)
             errors += 1
 
-    db.commit()
-    logger.info("Price ingestion complete: %d rows, %d errors", total_rows, errors)
-    return {"ingested": total_rows, "errors": errors}
+    return total_rows, errors
 
 
 # ── Stock Info Ingestion ──────────────────────────────────────────────────────
@@ -184,7 +355,6 @@ def ingest_stock_info(
     symbols = symbols or ALL_NSE_STOCKS
     logger.info("Ingesting stock info for %d symbols", len(symbols))
 
-    # Parallel fetch
     with ThreadPoolExecutor(max_workers=10) as executor:
         results = list(executor.map(_fetch_stock_info, symbols))
 
@@ -223,6 +393,10 @@ def ingest_index_constituents(db: Session) -> dict:
         "NIFTY 50": NIFTY_50,
         "NIFTY NEXT 50": NIFTY_NEXT_50,
         "NIFTY 100": NIFTY_50 + NIFTY_NEXT_50,
+        "NIFTY MIDCAP 150": NIFTY_MIDCAP_150,
+        "NIFTY 200": NIFTY_50 + NIFTY_NEXT_50 + NIFTY_MIDCAP_150,
+        "NIFTY SMALLCAP 250": NIFTY_SMALLCAP_250,
+        "NIFTY 500": ALL_NSE_STOCKS,
     }
 
     today = date.today()
@@ -252,12 +426,14 @@ def ingest_index_constituents(db: Session) -> dict:
 
 # ── Full Ingestion ────────────────────────────────────────────────────────────
 
-def run_full_ingestion(db: Session, period: str = "2y") -> dict:
+def run_full_ingestion(db: Session, period: str = "max") -> dict:
     """Run complete data ingestion pipeline."""
-    logger.info("=== Starting full data ingestion ===")
+    logger.info("=== Starting full data ingestion: %d NSE + %d US symbols ===",
+                len(ALL_NSE_STOCKS), len(US_STOCKS))
 
-    info_result = ingest_stock_info(db, ALL_NSE_STOCKS + US_STOCKS[:20])
-    price_result = ingest_prices(db, ALL_NSE_STOCKS + US_STOCKS[:20], period)
+    all_symbols = ALL_NSE_STOCKS + US_STOCKS
+    info_result = ingest_stock_info(db, all_symbols)
+    price_result = ingest_prices(db, all_symbols, period)
     index_result = ingest_index_constituents(db)
 
     result = {

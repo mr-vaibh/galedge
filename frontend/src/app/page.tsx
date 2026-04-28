@@ -2,77 +2,120 @@
 
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import {
   BarChart3, Brain, Code2, LineChart, Shield, Zap, TrendingUp,
   PieChart, Target, Activity, Layers, Database, ArrowRight,
-  ChevronDown, Star, Users, Globe,
+  ChevronDown, Star, Users, Globe, CheckCircle2, XCircle, Plus, Minus,
+  BookOpen, Cpu, GraduationCap, Briefcase,
 } from "lucide-react";
 
 const FEATURES = [
   {
     icon: PieChart,
-    title: "Portfolio Analytics",
-    desc: "Real-time performance tracking, Brinson attribution, factor decomposition, peer comparison — all from your actual portfolio data.",
+    title: "Know exactly where your returns come from",
+    desc: "Brinson attribution, factor decomposition, peer comparison — see which decisions added alpha and which didn't.",
     color: "text-emerald-400",
     bg: "bg-emerald-500/10",
   },
   {
     icon: TrendingUp,
-    title: "Strategy Builder",
-    desc: "Define constraints, set objectives, run optimizer — backtest with real market data and promote winning strategies to production.",
+    title: "Test before you risk real money",
+    desc: "Backtest any strategy over real NSE price history. See the equity curve, drawdowns, and Sharpe before committing capital.",
     color: "text-blue-400",
     bg: "bg-blue-500/10",
   },
   {
     icon: Brain,
-    title: "Risk Model",
-    desc: "21-factor risk model (BETA, SIZE, MOMENTUM, VALUE + 10 industries). Cross-sectional regression, correlation matrix, factor returns.",
+    title: "Understand what's really driving your risk",
+    desc: "21-factor risk model reveals your true exposures — market beta, size, momentum, value, and 10 industry tilts.",
     color: "text-purple-400",
     bg: "bg-purple-500/10",
   },
   {
     icon: Target,
-    title: "Portfolio Optimizer",
-    desc: "CVXPY-powered optimization. Minimize risk, maximize Sharpe, or track a benchmark — with position, beta, and sector constraints.",
+    title: "Build portfolios that match your constraints",
+    desc: "Set position limits, beta bounds, sector caps. The optimizer finds the best allocation within your rules — not just the textbook answer.",
     color: "text-orange-400",
     bg: "bg-orange-500/10",
   },
   {
     icon: Code2,
-    title: "Code Editor",
-    desc: "Full VS Code IDE in the browser. Write Python, access market data via SDK, run strategies — all in an isolated sandbox per user.",
+    title: "Research without leaving your browser",
+    desc: "Full VS Code IDE with Python, pandas, and live market data. Isolated sandbox per user — no setup, no cloud bills.",
     color: "text-cyan-400",
     bg: "bg-cyan-500/10",
   },
   {
     icon: Zap,
-    title: "Live Rebalance",
-    desc: "Generate actionable trade lists for production strategies. BUY/SELL/HOLD signals with exact quantities and current prices.",
+    title: "Go from backtest to trade list in one click",
+    desc: "Promote a strategy to production. Get exact BUY/SELL quantities at current prices, updated at each rebalance.",
     color: "text-yellow-400",
     bg: "bg-yellow-500/10",
   },
+];
+
+const PERSONAS = [
   {
-    icon: BarChart3,
-    title: "Screener & Heatmap",
-    desc: "Screen stocks by fundamental and technical criteria. Visualize the entire market in a single heatmap view.",
-    color: "text-red-400",
-    bg: "bg-red-500/10",
+    icon: Cpu,
+    title: "Quant Researcher",
+    desc: "Write factor models in Python, screen thousands of stocks in seconds, upload your alpha signals and backtest them against real data.",
   },
   {
-    icon: Shield,
-    title: "Factor Attribution",
-    desc: "Decompose returns into Market, Style, and Industry. Know exactly which factors are helping or hurting your portfolio.",
-    color: "text-emerald-400",
-    bg: "bg-emerald-500/10",
+    icon: Briefcase,
+    title: "Portfolio Manager",
+    desc: "Upload your current holdings, run Brinson attribution, optimize against a benchmark, generate rebalance trade lists.",
   },
   {
-    icon: LineChart,
-    title: "Backtesting Engine",
-    desc: "Path-dependent backtest with transaction costs, stop-loss, monthly rebalancing. Optimizer runs at each rebalance date.",
-    color: "text-indigo-400",
-    bg: "bg-indigo-500/10",
+    icon: TrendingUp,
+    title: "Self-Directed Investor",
+    desc: "Stop guessing. Screen stocks by fundamentals, compare against peers, build rule-based strategies that remove emotion.",
+  },
+  {
+    icon: GraduationCap,
+    title: "Finance Student",
+    desc: "Learn factor models, CAPM, and portfolio theory hands-on with real NSE data — not toy examples from a textbook.",
+  },
+];
+
+const VS_EXCEL = [
+  { feature: "Factor attribution", galedge: true, excel: false },
+  { feature: "21-factor risk model", galedge: true, excel: false },
+  { feature: "Portfolio optimizer (CVXPY)", galedge: true, excel: false },
+  { feature: "Backtesting with transaction costs", galedge: true, excel: false },
+  { feature: "Live rebalance trade lists", galedge: true, excel: false },
+  { feature: "Python research environment", galedge: true, excel: false },
+  { feature: "NSE market data (100+ stocks)", galedge: true, excel: "Manual download" },
+  { feature: "Peer comparison", galedge: true, excel: "Manual" },
+  { feature: "Free to start", galedge: true, excel: true },
+];
+
+const FAQS = [
+  {
+    q: "Do I need to know how to code?",
+    a: "No. The platform works entirely through the UI — upload your portfolio, set constraints, run the optimizer. The Python code editor is optional, for researchers who want to go deeper.",
+  },
+  {
+    q: "What data does Galedge use?",
+    a: "NSE (National Stock Exchange of India) price and fundamental data via yfinance. 100+ stocks across NIFTY 50, 100, and 500. Data goes back ~1 year for backtesting, updated regularly.",
+  },
+  {
+    q: "What is a factor model and why does it matter?",
+    a: "A factor model explains stock returns through systematic exposures — market beta, size, momentum, value, industry. Instead of saying 'the stock went up', a factor model tells you why it went up, and whether that source of return is repeatable.",
+  },
+  {
+    q: "How is this different from a brokerage platform?",
+    a: "Brokerage platforms show you prices and let you trade. Galedge is a research and decision-support platform — analytics, optimization, backtesting, attribution. You bring the trades back to your broker.",
+  },
+  {
+    q: "Is my portfolio data private?",
+    a: "Yes. Each user has an isolated workspace. Your portfolio data and scripts are not shared with other users.",
+  },
+  {
+    q: "Can I use Galedge for live trading?",
+    a: "Not directly — Galedge doesn't connect to brokers. But it generates trade lists (BUY/SELL/HOLD with quantities and current prices) that you can execute manually through any broker.",
   },
 ];
 
@@ -82,6 +125,26 @@ const STATS = [
   { value: "250+", label: "Trading Days", icon: Activity },
   { value: "Real-time", label: "Market Data", icon: Globe },
 ];
+
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      className="border border-neutral-800 rounded-xl overflow-hidden cursor-pointer"
+      onClick={() => setOpen(!open)}
+    >
+      <div className="flex items-center justify-between px-6 py-4">
+        <span className="font-medium text-sm">{q}</span>
+        {open ? <Minus className="h-4 w-4 text-neutral-500 shrink-0" /> : <Plus className="h-4 w-4 text-neutral-500 shrink-0" />}
+      </div>
+      {open && (
+        <div className="px-6 pb-4 text-sm text-neutral-400 leading-relaxed border-t border-neutral-800 pt-4">
+          {a}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function LandingPage() {
   const router = useRouter();
@@ -98,9 +161,10 @@ export default function LandingPage() {
             <span className="text-lg font-bold">Galedge Alpha</span>
           </div>
           <div className="hidden md:flex items-center gap-8">
+            <a href="#what-is" className="text-sm text-neutral-400 hover:text-white transition-colors">What is it?</a>
             <a href="#features" className="text-sm text-neutral-400 hover:text-white transition-colors">Features</a>
-            <a href="#how-it-works" className="text-sm text-neutral-400 hover:text-white transition-colors">How It Works</a>
-            <a href="#stats" className="text-sm text-neutral-400 hover:text-white transition-colors">Platform</a>
+            <a href="#who" className="text-sm text-neutral-400 hover:text-white transition-colors">Who it&apos;s for</a>
+            <a href="#faq" className="text-sm text-neutral-400 hover:text-white transition-colors">FAQ</a>
             <a href="/docs" className="text-sm text-neutral-400 hover:text-white transition-colors">Docs</a>
           </div>
           <div className="flex items-center gap-3">
@@ -126,7 +190,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium mb-8">
             <Star className="h-3.5 w-3.5" />
-            Institutional-Grade Investment Platform
+            Built for systematic investors. Not financial advice.
           </div>
 
           <h1 className="text-5xl md:text-7xl font-bold leading-tight tracking-tight mb-6">
@@ -148,19 +212,18 @@ export default function LandingPage() {
               className="text-base px-8 py-6 bg-emerald-600 hover:bg-emerald-700 gap-2 rounded-xl"
               onClick={() => router.push("/register")}
             >
-              Start Building <ArrowRight className="h-5 w-5" />
+              Start Building Free <ArrowRight className="h-5 w-5" />
             </Button>
             <Button
               size="lg"
               variant="outline"
               className="text-base px-8 py-6 gap-2 rounded-xl border-neutral-700 hover:bg-neutral-800"
-              onClick={() => router.push("/home")}
+              onClick={() => router.push("/docs")}
             >
-              Explore Market Data
+              <BookOpen className="h-5 w-5" /> Read the Docs
             </Button>
           </div>
 
-          {/* Scroll indicator */}
           <div className="animate-bounce">
             <ChevronDown className="h-6 w-6 text-neutral-600 mx-auto" />
           </div>
@@ -180,12 +243,111 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* What is Systematic Investing */}
+      <section id="what-is" className="py-24 px-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-4">The Idea</div>
+              <h2 className="text-3xl md:text-4xl font-bold mb-6">What is systematic investing?</h2>
+              <p className="text-neutral-400 leading-relaxed mb-4">
+                Most investors make portfolio decisions based on news, gut feel, or tips. Systematic investing is the opposite: you define rules, test them on historical data, and follow the system — not emotions.
+              </p>
+              <p className="text-neutral-400 leading-relaxed mb-4">
+                Hedge funds and large asset managers have done this for decades using factor models — mathematical frameworks that explain why stocks go up or down (size, momentum, value, quality). Until now, these tools were inaccessible without institutional infrastructure.
+              </p>
+              <p className="text-neutral-400 leading-relaxed">
+                Galedge brings that infrastructure to individual researchers, students, and portfolio managers. You define the strategy. The platform handles the math.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { label: "Rules-based", desc: "Decisions follow pre-defined criteria, not hunches" },
+                { label: "Evidence-based", desc: "Strategies tested on historical data before real capital" },
+                { label: "Factor-driven", desc: "Returns attributed to systematic risk premia" },
+                { label: "Repeatable", desc: "Same inputs produce same outputs, every time" },
+              ].map((item) => (
+                <div key={item.label} className="p-5 rounded-2xl border border-neutral-800 bg-neutral-900/40">
+                  <div className="text-sm font-semibold text-emerald-400 mb-1">{item.label}</div>
+                  <div className="text-xs text-neutral-500 leading-relaxed">{item.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Product Preview */}
+      <section className="py-12 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="rounded-3xl border border-neutral-800 bg-neutral-900/50 overflow-hidden">
+            <div className="flex items-center gap-2 px-5 py-3 border-b border-neutral-800 bg-neutral-900">
+              <div className="h-3 w-3 rounded-full bg-red-500/60" />
+              <div className="h-3 w-3 rounded-full bg-yellow-500/60" />
+              <div className="h-3 w-3 rounded-full bg-emerald-500/60" />
+              <span className="text-xs text-neutral-600 ml-3">Galedge Alpha — Analytics</span>
+            </div>
+            <div className="grid grid-cols-3 divide-x divide-neutral-800 min-h-[320px]">
+              <div className="p-6 col-span-1 bg-neutral-950/40">
+                <div className="text-xs text-neutral-600 uppercase tracking-widest mb-4">Portfolio</div>
+                {["HDFC Bank", "Infosys", "Reliance", "TCS", "ICICI Bank"].map((s, i) => (
+                  <div key={s} className="flex items-center justify-between py-2 border-b border-neutral-800/50">
+                    <span className="text-xs text-neutral-300">{s}</span>
+                    <span className={`text-xs font-mono ${i % 2 === 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      {i % 2 === 0 ? "+" : "-"}{(Math.random() * 5 + 1).toFixed(2)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="p-6 col-span-2">
+                <div className="text-xs text-neutral-600 uppercase tracking-widest mb-4">Factor Attribution</div>
+                <div className="space-y-3">
+                  {[
+                    { factor: "Market Beta", contribution: 3.2, color: "bg-emerald-500" },
+                    { factor: "Momentum", contribution: 1.8, color: "bg-blue-500" },
+                    { factor: "Quality", contribution: 0.9, color: "bg-purple-500" },
+                    { factor: "Value", contribution: -0.4, color: "bg-red-500" },
+                    { factor: "Size", contribution: -0.2, color: "bg-orange-500" },
+                  ].map((f) => (
+                    <div key={f.factor} className="flex items-center gap-3">
+                      <div className="w-24 text-xs text-neutral-500 shrink-0">{f.factor}</div>
+                      <div className="flex-1 bg-neutral-800 rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className={`h-full ${f.color} rounded-full`}
+                          style={{ width: `${Math.abs(f.contribution) * 15}%`, marginLeft: f.contribution < 0 ? "auto" : 0 }}
+                        />
+                      </div>
+                      <div className={`w-12 text-xs font-mono text-right ${f.contribution >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                        {f.contribution >= 0 ? "+" : ""}{f.contribution}%
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-6 pt-4 border-t border-neutral-800 grid grid-cols-3 gap-4">
+                  {[
+                    { label: "Total Return", value: "+18.4%" },
+                    { label: "Sharpe Ratio", value: "1.42" },
+                    { label: "Max Drawdown", value: "-7.2%" },
+                  ].map((m) => (
+                    <div key={m.label}>
+                      <div className="text-xs text-neutral-600 mb-1">{m.label}</div>
+                      <div className="text-sm font-bold text-white">{m.value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Features */}
       <section id="features" className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Everything You Need to Invest Systematically</h2>
-            <p className="text-neutral-400 text-lg max-w-2xl mx-auto">From data ingestion to live trade execution — a complete workflow for quantitative portfolio management.</p>
+            <div className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-4">Platform</div>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Tools that answer real questions</h2>
+            <p className="text-neutral-400 text-lg max-w-2xl mx-auto">Not dashboards. Not charts for the sake of charts. Every feature answers a specific question a portfolio manager or researcher would actually ask.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -197,8 +359,60 @@ export default function LandingPage() {
                 <div className={`w-12 h-12 rounded-xl ${f.bg} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
                   <f.icon className={`h-6 w-6 ${f.color}`} />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">{f.title}</h3>
+                <h3 className="text-base font-semibold mb-2 leading-snug">{f.title}</h3>
                 <p className="text-sm text-neutral-400 leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Who is this for */}
+      <section id="who" className="py-24 px-6 bg-neutral-900/30">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-16">
+            <div className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-4">Who it&apos;s for</div>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Built for people who take investing seriously</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {PERSONAS.map((p) => (
+              <div key={p.title} className="flex gap-5 p-6 rounded-2xl border border-neutral-800 bg-neutral-900/40">
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+                  <p.icon className="h-6 w-6 text-emerald-400" />
+                </div>
+                <div>
+                  <div className="font-semibold mb-1">{p.title}</div>
+                  <div className="text-sm text-neutral-400 leading-relaxed">{p.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Galedge vs Excel */}
+      <section className="py-24 px-6">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-12">
+            <div className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-4">Comparison</div>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Why not just use Excel?</h2>
+            <p className="text-neutral-400">Excel is great for simple models. It breaks down the moment you need live data, optimization, or proper attribution.</p>
+          </div>
+          <div className="rounded-2xl border border-neutral-800 overflow-hidden">
+            <div className="grid grid-cols-3 bg-neutral-900 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-neutral-500">
+              <div>Feature</div>
+              <div className="text-center text-emerald-400">Galedge</div>
+              <div className="text-center">Excel</div>
+            </div>
+            {VS_EXCEL.map((row, i) => (
+              <div key={row.feature} className={`grid grid-cols-3 px-6 py-3.5 text-sm items-center ${i % 2 === 0 ? "bg-neutral-950/40" : ""}`}>
+                <div className="text-neutral-300">{row.feature}</div>
+                <div className="flex justify-center">
+                  {row.galedge === true ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> : <span className="text-xs text-neutral-500">{row.galedge}</span>}
+                </div>
+                <div className="flex justify-center">
+                  {row.excel === true ? <CheckCircle2 className="h-4 w-4 text-neutral-400" /> : row.excel === false ? <XCircle className="h-4 w-4 text-red-500/60" /> : <span className="text-xs text-neutral-500">{row.excel}</span>}
+                </div>
               </div>
             ))}
           </div>
@@ -209,16 +423,17 @@ export default function LandingPage() {
       <section id="how-it-works" className="py-24 px-6 bg-neutral-900/30">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">How It Works</h2>
-            <p className="text-neutral-400 text-lg">Four steps from raw data to live portfolio management.</p>
+            <div className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-4">Workflow</div>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">From raw data to live portfolio</h2>
+            <p className="text-neutral-400 text-lg">Four steps. No infrastructure to set up.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
-              { step: "01", title: "Upload Portfolio", desc: "Upload your holdings CSV with stock symbols and weights. Market data is fetched automatically.", icon: Database },
-              { step: "02", title: "Analyze & Research", desc: "View real analytics, run factor decomposition, compare against benchmarks, write custom Python research.", icon: BarChart3 },
-              { step: "03", title: "Build Strategy", desc: "Set constraints and objectives, run the optimizer, backtest over historical data with transaction costs.", icon: Target },
-              { step: "04", title: "Go Live", desc: "Promote your strategy to production. Generate rebalance trade lists with exact quantities and prices.", icon: Zap },
+              { step: "01", title: "Upload Portfolio", desc: "Upload a CSV with your holdings. Market data is fetched automatically in the background.", icon: Database },
+              { step: "02", title: "Analyze & Research", desc: "Run factor attribution, compare against benchmark, write custom Python research in the code editor.", icon: BarChart3 },
+              { step: "03", title: "Build & Backtest", desc: "Set constraints and objectives, run the optimizer, see the backtest equity curve with transaction costs.", icon: Target },
+              { step: "04", title: "Go Live", desc: "Promote to production. Generate rebalance trade lists with exact quantities and current prices.", icon: Zap },
             ].map((s) => (
               <div key={s.step} className="relative">
                 <div className="text-6xl font-black text-neutral-800 mb-4">{s.step}</div>
@@ -231,27 +446,16 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Tech Stack */}
-      <section className="py-24 px-6">
-        <div className="max-w-5xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Built With Modern Tech</h2>
-          <p className="text-neutral-400 text-lg mb-12">Production-grade infrastructure for serious quantitative work.</p>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {[
-              { name: "Next.js 16", desc: "React framework" },
-              { name: "FastAPI", desc: "Python backend" },
-              { name: "CVXPY", desc: "Optimization" },
-              { name: "Recharts", desc: "Visualization" },
-              { name: "yfinance", desc: "Market data" },
-              { name: "Pandas", desc: "Data analysis" },
-              { name: "SQLite", desc: "Database" },
-              { name: "VS Code", desc: "Code editor" },
-            ].map((t) => (
-              <div key={t.name} className="p-4 rounded-xl border border-neutral-800 bg-neutral-900/30">
-                <div className="font-semibold text-sm">{t.name}</div>
-                <div className="text-xs text-neutral-500">{t.desc}</div>
-              </div>
+      {/* FAQ */}
+      <section id="faq" className="py-24 px-6">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-12">
+            <div className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-4">FAQ</div>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Common questions</h2>
+          </div>
+          <div className="space-y-3">
+            {FAQS.map((faq) => (
+              <FaqItem key={faq.q} q={faq.q} a={faq.a} />
             ))}
           </div>
         </div>
@@ -262,17 +466,27 @@ export default function LandingPage() {
         <div className="max-w-3xl mx-auto text-center">
           <div className="p-12 rounded-3xl bg-gradient-to-br from-emerald-500/10 via-neutral-900 to-cyan-500/10 border border-emerald-500/20">
             <Users className="h-10 w-10 text-emerald-400 mx-auto mb-6" />
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to Build Your Edge?</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to invest systematically?</h2>
             <p className="text-neutral-400 text-lg mb-8">
-              Start with free market data. Upload your portfolio. Build and backtest strategies. Go live when you&apos;re ready.
+              Free to start. Upload your portfolio, run analytics, backtest strategies. Go live when you&apos;re ready.
             </p>
-            <Button
-              size="lg"
-              className="text-base px-10 py-6 bg-emerald-600 hover:bg-emerald-700 gap-2 rounded-xl"
-              onClick={() => router.push("/register")}
-            >
-              Get Started Free <ArrowRight className="h-5 w-5" />
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button
+                size="lg"
+                className="text-base px-10 py-6 bg-emerald-600 hover:bg-emerald-700 gap-2 rounded-xl"
+                onClick={() => router.push("/register")}
+              >
+                Get Started Free <ArrowRight className="h-5 w-5" />
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="text-base px-8 py-6 gap-2 rounded-xl border-neutral-700 hover:bg-neutral-800"
+                onClick={() => router.push("/docs")}
+              >
+                <BookOpen className="h-5 w-5" /> Read the Docs
+              </Button>
+            </div>
           </div>
         </div>
       </section>

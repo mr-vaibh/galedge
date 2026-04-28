@@ -56,7 +56,7 @@ def _auto_ingest_missing(raw_symbols: list[str], db: Session, portfolio_id: int 
             from app.services.data_ingestion import ingest_prices, ingest_stock_info
             bg_db = SessionLocal()
             try:
-                ingest_prices(bg_db, syms, period="2y")
+                ingest_prices(bg_db, syms, period="max")
                 ingest_stock_info(bg_db, syms)
                 logger.info("Auto-ingestion complete for %d symbols", len(syms))
                 if pid:
