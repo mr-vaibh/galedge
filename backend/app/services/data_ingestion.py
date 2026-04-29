@@ -215,7 +215,7 @@ def _fetch_prices_batch(symbols: list[str], period: str = "max") -> pd.DataFrame
             group_by="ticker",
             progress=False,
             threads=True,
-            auto_adjust=False,
+            auto_adjust=True,
         )
         return df
     except Exception as e:
@@ -307,14 +307,15 @@ def _store_prices(
 
             rows = []
             for idx, row in sym_df.iterrows():
+                close = float(row.get("Close", 0))
                 rows.append(StockPrice(
                     symbol=sym,
                     date=idx.date() if hasattr(idx, "date") else idx,
                     open=float(row.get("Open", 0)),
                     high=float(row.get("High", 0)),
                     low=float(row.get("Low", 0)),
-                    close=float(row.get("Close", 0)),
-                    adj_close=float(row.get("Adj Close", row.get("Close", 0))),
+                    close=close,
+                    adj_close=close,  # auto_adjust=True: Close is already split/dividend-adjusted
                     volume=int(row.get("Volume", 0)),
                 ))
 
