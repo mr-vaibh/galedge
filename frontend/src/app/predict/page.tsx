@@ -65,8 +65,8 @@ function AdvancedRiskSection({ data }: { data: Record<string, unknown> | undefin
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div><span className="text-xs text-muted-foreground">Expected Return</span><div className={`font-bold tabular-nums ${mc.expected_return >= 0 ? "text-emerald-500" : "text-red-500"}`}>{mc.expected_return >= 0 ? "+" : ""}{mc.expected_return}%</div></div>
               <div><span className="text-xs text-muted-foreground">Prob of Loss</span><div className="font-bold text-red-400 tabular-nums">{mc.prob_loss}%</div></div>
-              <div><span className="text-xs text-muted-foreground">Worst Case (1%)</span><div className="font-bold text-red-400 tabular-nums">{mc.worst_case}%</div></div>
-              <div><span className="text-xs text-muted-foreground">Best Case (99%)</span><div className="font-bold text-emerald-400 tabular-nums">+{mc.best_case}%</div></div>
+              <div><span className="text-xs text-muted-foreground">Floor (1% chance of worse)</span><div className="font-bold text-red-400 tabular-nums">{mc.worst_case}%</div></div>
+              <div><span className="text-xs text-muted-foreground">Ceiling (1% chance of better)</span><div className="font-bold text-emerald-400 tabular-nums">+{mc.best_case}%</div></div>
             </div>
             {mc.percentiles && (
               <div className="mt-3 flex items-center gap-1 text-[10px]">
