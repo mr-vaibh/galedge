@@ -8,11 +8,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import CORS_ORIGINS
 from app.database import init_db
 from app.routers import auth_router, portfolio_router, strategy_router, screen_router, data_router, optimizer_router, backtest_router, analytics_router, workspace_router
 from app.routers.portfolio_router import tracker_router
+from app.admin import create_admin, ADMIN_SECRET
 
 
 @asynccontextmanager
@@ -62,6 +64,7 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
 )
 
+app.add_middleware(SessionMiddleware, secret_key=ADMIN_SECRET)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -69,6 +72,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+create_admin(app)
 
 # ── New structured routers ────────────────────────────────────────────────────
 
