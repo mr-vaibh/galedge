@@ -130,7 +130,11 @@ def execute_screen_query(
     prices_db: Session = Depends(get_prices_db),
 ):
     """Execute a screen query directly without saving."""
-    from app.services.screen_executor import run_screen
+    from app.services.screen_executor import run_screen, validate_query
+    if body.query.strip():
+        valid, msg = validate_query(body.query)
+        if not valid:
+            raise HTTPException(status_code=400, detail=msg)
     return run_screen(db=prices_db, query=body.query, portfolio_weight=body.weight, limit=body.limit)
 
 

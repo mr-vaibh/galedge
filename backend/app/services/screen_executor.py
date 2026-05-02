@@ -174,6 +174,53 @@ def _evaluate_condition(info: dict, metric: str, operator: str, value: str) -> b
     return False
 
 
+def validate_query(query: str) -> tuple[bool, str]:
+    """Validate query syntax before execution. Returns (is_valid, error_message)."""
+    q = query.strip()
+    if not q:
+        return False, "Query cannot be empty"
+
+    tokens = _tokenize(q)
+    if not tokens:
+        return False, "Query cannot be empty"
+
+    operators = {">", "<", ">=", "<=", "==", "!="}
+    logic = {"AND", "OR"}
+
+    i = 0
+    while i < len(tokens):
+        t = tokens[i]
+        if t.upper() in logic:
+            # Logic operator must have tokens before and after
+            if i == 0:
+                return False, f"'{t}' cannot be at the start of a query"
+            if i == len(tokens) - 1:
+                return False, f"Query cannot end with '{t}'"
+            i += 1
+            continue
+        if t in ("(", ")"):
+            i += 1
+            continue
+        # Expect: metric operator value
+        if i + 2 >= len(tokens):
+            if i + 1 == len(tokens):
+                # lone metric with no operator
+                return False, f"Incomplete expression: '{t}' — missing operator and value"
+            op = tokens[i + 1]
+            if op in operators:
+                return False, f"Incomplete expression: '{t} {op}' — missing value"
+        else:
+            op = tokens[i + 1]
+            if op not in operators:
+                return False, f"Unknown operator '{op}' — use >, <, >=, <=, ==, !="
+            # metric is valid?
+            if t not in METRIC_MAP and t not in ("Sector", "Industry"):
+                return False, f"Unknown metric '{t}' — see library for available metrics"
+        i += 3
+
+    return True, "Query syntax is valid"
+
+
 def evaluate_query(info: dict, query: str) -> bool:
     """Evaluate a full screener query against a stock's info.
 
