@@ -172,11 +172,15 @@ function BuildScreenContent() {
       setResults(rows);
       setResultsTotal(data.total ?? rows.length);
 
-      // Save the screen if name is provided and user is logged in
+      // Save or update the screen if name is provided and user is logged in
       if (name.trim() && token) {
         try {
-          const saveRes = await fetch(`${API_BASE}/api/alpha/screens`, {
-            method: "POST",
+          const url = editId
+            ? `${API_BASE}/api/alpha/screens/${editId}`
+            : `${API_BASE}/api/alpha/screens`;
+          const method = editId ? "PUT" : "POST";
+          const saveRes = await fetch(url, {
+            method,
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
@@ -194,9 +198,8 @@ function BuildScreenContent() {
             }),
           });
           if (saveRes.ok) {
-            setSaveSuccess(`Screen "${name}" saved successfully! Found ${rows.length} stocks.`);
-            // Navigate to alpha machine home after 2 seconds
-            setTimeout(() => router.push("/alpha-machine"), 2000);
+            setSaveSuccess(`Screen "${name}" ${editId ? "updated" : "saved"}! Found ${rows.length} stocks.`);
+            // Don't redirect — let user see results
           }
         } catch {
           // Save failed but screen was computed — show results anyway

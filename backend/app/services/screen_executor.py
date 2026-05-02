@@ -287,7 +287,10 @@ def run_screen(
         sp = price_map.get(sym)
         info = {}
         if si:
-            info["marketCap"] = si.market_cap or 0
+            # Store MarketCap in crores (÷1e7) so queries like "MarketCap > 500" mean 500 crore
+            raw_mcap = si.market_cap or 0
+            info["marketCap"] = round(raw_mcap / 1e7, 2) if raw_mcap else 0
+            info["MarketCap"] = info["marketCap"]  # alias
             info["sector"] = si.sector or ""
             info["industry"] = si.industry or ""
             info["shortName"] = si.name or sym
@@ -311,7 +314,7 @@ def run_screen(
                     "name": si.name if si else sym,
                     "sector": si.sector if si else "",
                     "industry": si.industry if si else "",
-                    "marketCap": si.market_cap if si else 0,
+                    "marketCap": round((si.market_cap or 0) / 1e7, 2) if si else 0,
                     "price": sp.close if sp else None,
                     "pe": None,
                     "pb": None,
