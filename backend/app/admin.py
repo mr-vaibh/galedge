@@ -13,10 +13,8 @@ from starlette.responses import RedirectResponse
 from app.database import engine
 from app.models.user import User
 from app.models.portfolio import Portfolio, PortfolioHolding, TrackerHolding
-from app.models.strategy import Strategy, StrategyConstraint, Backtest
+from app.models.strategy import Strategy, Backtest
 from app.models.screen import Screen, AlphaModel, CodeFile
-from app.models.market_data import StockInfo, IndexConstituent
-from app.models.factor import FactorModel, Factor
 
 
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@galedge.com")
@@ -114,37 +112,6 @@ class ScreenAdmin(ModelView, model=Screen):
     page_size = 50
 
 
-class StockInfoAdmin(ModelView, model=StockInfo):
-    name = "Stock Info"
-    name_plural = "Stock Info"
-    icon = "fa-solid fa-building"
-    column_list = ["id", "symbol", "name", "sector", "industry", "exchange", "market_cap"]
-    column_searchable_list = ["symbol", "name", "sector"]
-    column_sortable_list = ["symbol", "market_cap", "sector"]
-    column_filters = ["exchange", "sector"]
-    can_create = True
-    can_edit = True
-    page_size = 100
-
-
-class FactorModelAdmin(ModelView, model=FactorModel):
-    name = "Factor Model"
-    name_plural = "Factor Models"
-    icon = "fa-solid fa-atom"
-    column_list = ["id", "name", "description", "start_date"]
-    can_create = False
-    page_size = 20
-
-
-class FactorAdmin(ModelView, model=Factor):
-    name = "Factor"
-    name_plural = "Factors"
-    icon = "fa-solid fa-superscript"
-    column_list = ["id", "model_id", "name", "factor_type", "description"]
-    column_searchable_list = ["name", "factor_type"]
-    can_create = False
-    page_size = 50
-
 
 # ── Factory ───────────────────────────────────────────────────────────────────
 
@@ -164,8 +131,5 @@ def create_admin(app) -> Admin:
     admin.add_view(StrategyAdmin)
     admin.add_view(BacktestAdmin)
     admin.add_view(ScreenAdmin)
-    admin.add_view(StockInfoAdmin)
-    admin.add_view(FactorModelAdmin)
-    admin.add_view(FactorAdmin)
 
     return admin
