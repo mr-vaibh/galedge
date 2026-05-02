@@ -5,12 +5,12 @@ Only the admin credentials work — regular user accounts cannot access this.
 """
 
 import os
-from sqladmin import Admin, ModelView
+from sqladmin import Admin, ModelView, BaseView, expose
 from sqladmin.authentication import AuthenticationBackend
 from starlette.requests import Request
-from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse, HTMLResponse
 
-from app.database import engine
+from app.database import engine, SessionLocal, PricesSessionLocal
 from app.models.user import User
 from app.models.portfolio import Portfolio, PortfolioHolding, TrackerHolding
 from app.models.strategy import Strategy, Backtest
@@ -119,6 +119,116 @@ class ScreenAdmin(ModelView, model=Screen):
 
 
 
+# ── Dashboard ─────────────────────────────────────────────────────────────────
+
+class DashboardView(BaseView):
+    name = "Dashboard"
+    icon = "fa-solid fa-gauge"
+
+    @expose("/dashboard", methods=["GET"])
+    async def dashboard(self, request: Request):
+        if not request.session.get("admin"):
+            return RedirectResponse("/admin/login", status_code=302)
+
+        from app.models.portfolio import Portfolio, TrackerHolding
+        from app.models.strategy import Strategy, Backtest
+        from app.models.screen import Screen
+        from app.models.market_data import StockPrice, StockInfo
+        from sqlalchemy import func
+
+        db = SessionLocal()
+        pdb = PricesSessionLocal()
+        try:
+            users        = db.query(func.count(User.id)).scalar() or 0
+            portfolios   = db.query(func.count(Portfolio.id)).scalar() or 0
+            strategies   = db.query(func.count(Strategy.id)).scalar() or 0
+            backtests    = db.query(func.count(Backtest.id)).scalar() or 0
+            screens      = db.query(func.count(Screen.id)).scalar() or 0
+            tracker      = db.query(func.count(TrackerHolding.id)).scalar() or 0
+            active_users = db.query(func.count(User.id)).filter(User.is_active == True).scalar() or 0
+            prod_strats  = db.query(func.count(Strategy.id)).filter(Strategy.status == "production").scalar() or 0
+            price_rows   = pdb.query(func.count(StockPrice.id)).scalar() or 0
+            symbols      = pdb.query(func.count(func.distinct(StockPrice.symbol))).scalar() or 0
+            latest_date  = pdb.query(func.max(StockPrice.date)).scalar()
+            stock_info   = pdb.query(func.count(StockInfo.id)).scalar() or 0
+        finally:
+            db.close()
+            pdb.close()
+
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Galedge Admin Dashboard</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+            <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+            <style>
+                body {{ background: #f8f9fa; font-family: system-ui, sans-serif; }}
+                .stat-card {{ border-radius: 12px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,.08); }}
+                .stat-number {{ font-size: 2.5rem; font-weight: 700; }}
+                .section-title {{ font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; color: #6c757d; font-weight: 600; }}
+                a.back {{ text-decoration: none; color: #0d6efd; font-size: .9rem; }}
+            </style>
+        </head>
+        <body class="p-4">
+            <div class="d-flex align-items-center gap-3 mb-4">
+                <a href="/admin" class="back"><i class="fa fa-arrow-left"></i> Back to Admin</a>
+                <h4 class="mb-0 ms-2"><i class="fa-solid fa-gauge me-2 text-primary"></i>Galedge Dashboard</h4>
+            </div>
+
+            <p class="section-title mb-3">Users</p>
+            <div class="row g-3 mb-4">
+                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
+                    <div class="stat-number text-primary">{users}</div><div class="text-muted small">Total Users</div>
+                </div></div>
+                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
+                    <div class="stat-number text-success">{active_users}</div><div class="text-muted small">Active Users</div>
+                </div></div>
+                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
+                    <div class="stat-number text-info">{tracker}</div><div class="text-muted small">Tracker Holdings</div>
+                </div></div>
+                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
+                    <div class="stat-number text-warning">{portfolios}</div><div class="text-muted small">Portfolios</div>
+                </div></div>
+            </div>
+
+            <p class="section-title mb-3">Platform Activity</p>
+            <div class="row g-3 mb-4">
+                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
+                    <div class="stat-number text-danger">{strategies}</div><div class="text-muted small">Strategies</div>
+                </div></div>
+                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
+                    <div class="stat-number text-success">{prod_strats}</div><div class="text-muted small">In Production</div>
+                </div></div>
+                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
+                    <div class="stat-number text-secondary">{backtests}</div><div class="text-muted small">Backtests Run</div>
+                </div></div>
+                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
+                    <div class="stat-number text-dark">{screens}</div><div class="text-muted small">Screens Created</div>
+                </div></div>
+            </div>
+
+            <p class="section-title mb-3">Market Data</p>
+            <div class="row g-3">
+                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
+                    <div class="stat-number text-primary">{symbols}</div><div class="text-muted small">Symbols</div>
+                </div></div>
+                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
+                    <div class="stat-number text-success" style="font-size:1.8rem">{price_rows:,}</div><div class="text-muted small">Price Rows</div>
+                </div></div>
+                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
+                    <div class="stat-number text-info" style="font-size:1.8rem">{stock_info}</div><div class="text-muted small">Stock Info Records</div>
+                </div></div>
+                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
+                    <div class="stat-number text-warning" style="font-size:1.5rem">{str(latest_date) if latest_date else "N/A"}</div><div class="text-muted small">Latest Price Date</div>
+                </div></div>
+            </div>
+        </body>
+        </html>
+        """
+        return HTMLResponse(html)
+
+
 # ── Factory ───────────────────────────────────────────────────────────────────
 
 def create_admin(app) -> Admin:
@@ -131,6 +241,7 @@ def create_admin(app) -> Admin:
         base_url="/admin",
     )
 
+    admin.add_view(DashboardView)
     admin.add_view(UserAdmin)
     admin.add_view(PortfolioAdmin)
     admin.add_view(TrackerHoldingAdmin)
