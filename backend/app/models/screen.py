@@ -27,6 +27,9 @@ class Screen(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    def __str__(self):
+        return self.name
+
     user = relationship("User", back_populates="screens")
 
 
@@ -53,6 +56,9 @@ class AlphaModel(Base):
     results: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    def __str__(self):
+        return f"{self.name} ({self.model_type})"
 
     user = relationship("User", back_populates="alpha_models")
 

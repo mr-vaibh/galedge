@@ -26,6 +26,9 @@ class Strategy(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    def __str__(self):
+        return f"{self.fund_name} [{self.status}]"
+
     # Relationships
     user = relationship("User", back_populates="strategies")
     constraints = relationship("StrategyConstraint", back_populates="strategy", cascade="all, delete-orphan")
@@ -74,5 +77,8 @@ class Backtest(Base):
     status: Mapped[str] = mapped_column(String(50), default="pending")  # pending, running, completed, failed
     results: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # equity curve, trades, metrics
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    def __str__(self):
+        return f"Backtest #{self.id} [{self.status}] {self.start_date}→{self.end_date}"
 
     strategy = relationship("Strategy", back_populates="backtests")

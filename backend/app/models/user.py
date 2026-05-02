@@ -21,6 +21,9 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    def __str__(self):
+        return f"{self.email} ({self.full_name})" if self.full_name else self.email
+
     # Relationships
     portfolios = relationship("Portfolio", back_populates="user")
     strategies = relationship("Strategy", back_populates="user")
