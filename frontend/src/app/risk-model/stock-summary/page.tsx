@@ -37,6 +37,7 @@ export default function StockSummaryPage() {
   const [exposures, setExposures] = useState<Record<string, Record<string, number>>>({});
   const [loading, setLoading] = useState(false);
   const [factorNames, setFactorNames] = useState<string[]>([]);
+  const [chartStock, setChartStock] = useState<string | null>(null);
 
   const handleSearch = async (query: string) => {
     if (!query.trim()) {
@@ -336,33 +337,56 @@ export default function StockSummaryPage() {
         {/* Factor Exposure Chart */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2 flex-row items-center justify-between">
-            <CardTitle className="text-sm">Factor Exposures — {selected[0]?.symbol.replace(".NS", "") || "Select stock"}</CardTitle>
-            <CardControls title={`Factor Exposures — ${selected[0]?.symbol.replace(".NS", "") || "Select stock"}`} info="Bar chart of factor exposures for the selected stock. Positive = long exposure, negative = short." fullscreen expandContent={
-              selected.length > 0 && exposures[selected[0].symbol] ? (
-                <BarChartPanel
-                  data={Object.entries(exposures[selected[0].symbol] || {}).map(([f, v]) => ({
-                    name: f,
-                    value: parseFloat(v.toFixed(2)),
-                  }))}
-                  height={600}
-                />
-              ) : undefined
-            } />
+            <div className="flex items-center gap-2 flex-wrap">
+              <CardTitle className="text-sm">Factor Exposures</CardTitle>
+              <div className="flex gap-1 flex-wrap">
+                {selected.map((s) => (
+                  <button
+                    key={s.symbol}
+                    onClick={() => setChartStock(s.symbol)}
+                    className={`px-2 py-0.5 rounded text-[10px] font-medium border transition-all ${
+                      (chartStock ?? selected[0]?.symbol) === s.symbol
+                        ? "border-current opacity-100"
+                        : "border-border opacity-50 hover:opacity-80"
+                    }`}
+                    style={{ color: s.color }}
+                  >
+                    {s.symbol.replace(".NS", "")}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <CardControls
+              title={`Factor Exposures — ${(chartStock ?? selected[0]?.symbol)?.replace(".NS", "") || ""}`}
+              info="Bar chart of factor exposures for the selected stock."
+              fullscreen
+              expandContent={
+                (() => {
+                  const sym = chartStock ?? selected[0]?.symbol;
+                  return sym && exposures[sym] ? (
+                    <BarChartPanel
+                      data={Object.entries(exposures[sym] || {}).map(([f, v]) => ({ name: f, value: parseFloat(v.toFixed(2)) }))}
+                      height={600}
+                    />
+                  ) : undefined;
+                })()
+              }
+            />
           </CardHeader>
           <CardContent className="p-2">
-            {selected.length > 0 && exposures[selected[0].symbol] ? (
-              <BarChartPanel
-                data={Object.entries(exposures[selected[0].symbol] || {}).map(([f, v]) => ({
-                  name: f,
-                  value: parseFloat(v.toFixed(2)),
-                }))}
-                height={250}
-              />
-            ) : (
-              <div className="h-[250px] flex items-center justify-center text-muted-foreground text-xs">
-                Select stocks and load exposures to view chart
-              </div>
-            )}
+            {(() => {
+              const sym = chartStock ?? selected[0]?.symbol;
+              return sym && exposures[sym] ? (
+                <BarChartPanel
+                  data={Object.entries(exposures[sym] || {}).map(([f, v]) => ({ name: f, value: parseFloat(v.toFixed(2)) }))}
+                  height={250}
+                />
+              ) : (
+                <div className="h-[250px] flex items-center justify-center text-muted-foreground text-xs">
+                  Select stocks and load exposures to view chart
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       </div>
