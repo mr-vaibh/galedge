@@ -17,13 +17,13 @@ import {
 import { Button } from "@/components/ui/button";
 
 const PERIODS = [
-  { label: "1D", period: "1d", interval: "5m" },
-  { label: "1W", period: "5d", interval: "15m" },
-  { label: "1M", period: "1mo", interval: "1h" },
+  { label: "1M", period: "1mo", interval: "1d" },
   { label: "3M", period: "3mo", interval: "1d" },
   { label: "6M", period: "6mo", interval: "1d" },
   { label: "1Y", period: "1y", interval: "1d" },
-  { label: "5Y", period: "5y", interval: "1wk" },
+  { label: "2Y", period: "2y", interval: "1d" },
+  { label: "5Y", period: "5y", interval: "1d" },
+  { label: "Max", period: "max", interval: "1d" },
 ];
 
 const INDICATORS = [
