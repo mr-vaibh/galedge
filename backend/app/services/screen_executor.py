@@ -81,8 +81,8 @@ def _get_metric_value(info: dict, metric: str) -> Any:
         return (1 / pe * 100) if pe and pe > 0 else None
 
     if metric == "MarketCap":
-        val = info.get("marketCap")
-        return val / 1e7 if val else None  # Convert to crores
+        # marketCap in info is already in crores (converted in build_info)
+        return info.get("marketCap") or info.get("MarketCap")
 
     if key:
         return info.get(key)

@@ -12,6 +12,13 @@ from app.auth import require_user, get_current_user
 router = APIRouter(prefix="/api/alpha", tags=["alpha-machine"])
 
 
+class ScreenExecuteBody(BaseModel):
+    query: str = ""
+    universe: str = "all"
+    weight: str = "equal"
+    limit: int = 50
+
+
 class ScreenCreate(BaseModel):
     name: str
     description: str = ""
@@ -119,15 +126,12 @@ def run_screen_query(
 
 @router.post("/screens/execute")
 def execute_screen_query(
-    query: str = "",
-    universe: str = "all",
-    weight: str = "equal",
-    limit: int = 50,
+    body: ScreenExecuteBody,
     prices_db: Session = Depends(get_prices_db),
 ):
     """Execute a screen query directly without saving."""
     from app.services.screen_executor import run_screen
-    return run_screen(db=prices_db, query=query, portfolio_weight=weight, limit=limit)
+    return run_screen(db=prices_db, query=body.query, portfolio_weight=body.weight, limit=body.limit)
 
 
 @router.get("/metrics")
