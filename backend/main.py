@@ -1028,34 +1028,49 @@ async def get_backtest(
 
 @app.get("/api/search")
 async def search(q: str = Query(..., min_length=1)):
-    """Search for tickers by name or symbol — served from DB."""
-    import sys, os
+    """Search for tickers by name or symbol with fuzzy matching."""
+    import sys, os, difflib
     sys.path.insert(0, os.path.dirname(__file__))
     from app.database import PricesSessionLocal
     from app.models.market_data import StockInfo
     from sqlalchemy import or_
 
-    q_upper = q.upper()
     db = PricesSessionLocal()
     try:
-        results = db.query(StockInfo).filter(
+        # 1. Exact / prefix / contains match
+        exact = db.query(StockInfo).filter(
             or_(
                 StockInfo.symbol.ilike(f"{q}%"),
                 StockInfo.name.ilike(f"%{q}%"),
             )
         ).limit(10).all()
 
-        if not results:
-            # Fallback: search by symbol prefix in price data
-            from app.models.market_data import StockPrice
-            from sqlalchemy import func
-            syms = db.query(StockPrice.symbol).filter(
-                StockPrice.symbol.ilike(f"{q_upper}%")
-            ).distinct().limit(10).all()
-            return [{"symbol": r[0], "name": r[0], "exchange": "NSE" if r[0].endswith(".NS") else "US", "type": "EQUITY"} for r in syms]
+        if len(exact) >= 3:
+            return [{"symbol": r.symbol, "name": r.name or r.symbol,
+                     "exchange": r.exchange or ("NSE" if r.symbol.endswith(".NS") else "US"),
+                     "type": "EQUITY"} for r in exact]
+
+        # 2. Fuzzy fallback — score all stocks against query
+        all_stocks = db.query(StockInfo).all()
+        q_lower = q.lower()
+
+        scored = []
+        for r in all_stocks:
+            name_score = difflib.SequenceMatcher(None, q_lower, (r.name or "").lower()).ratio()
+            sym_score = difflib.SequenceMatcher(None, q_lower, r.symbol.lower()).ratio()
+            score = max(name_score, sym_score)
+            if score > 0.4:
+                scored.append((score, r))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        results = [r for _, r in scored[:10]]
+
+        # Merge exact + fuzzy, deduplicate
+        seen = {r.symbol for r in exact}
+        combined = list(exact) + [r for r in results if r.symbol not in seen]
 
         return [{"symbol": r.symbol, "name": r.name or r.symbol,
                  "exchange": r.exchange or ("NSE" if r.symbol.endswith(".NS") else "US"),
-                 "type": "EQUITY"} for r in results]
+                 "type": "EQUITY"} for r in combined[:10]]
     finally:
         db.close()
