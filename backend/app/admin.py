@@ -125,8 +125,8 @@ class DashboardView(BaseView):
     name = "Dashboard"
     icon = "fa-solid fa-gauge"
 
-    @expose("/", methods=["GET"])
-    async def index(self, request: Request):
+    @expose("/dashboard", methods=["GET"])
+    async def dashboard(self, request: Request):
         if not request.session.get("admin"):
             return RedirectResponse("/admin/login", status_code=302)
 
@@ -240,6 +240,7 @@ def create_admin(app) -> Admin:
         title="Galedge Admin",
         authentication_backend=authentication_backend,
         base_url="/admin",
+        custom_render_js="if(location.pathname==='/admin/')location.replace('/admin/dashboard');",
     )
 
     admin.add_view(DashboardView)
