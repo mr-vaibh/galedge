@@ -1,83 +1,132 @@
 {% extends "sqladmin/layout.html" %}
+
+{% block content_header %}{% endblock %}
+
 {% block content %}
 <style>
-.dw{padding:2rem 2.5rem}
-.dw-title{font-size:1.35rem;font-weight:700;color:#111827;margin:0 0 .25rem}
-.dw-sub{font-size:.83rem;color:#9ca3af;margin:0 0 2rem}
-.sec{font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b7280;margin:0 0 .85rem;display:flex;align-items:center;gap:.5rem}
-.sec::after{content:'';flex:1;height:1px;background:#e5e7eb}
+.dw{padding:1.5rem 2rem}
+.dw-hero{background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);border-radius:1rem;padding:1.75rem 2rem;margin-bottom:2rem;display:flex;align-items:center;justify-content:space-between}
+.dw-hero h2{color:#fff;font-size:1.4rem;font-weight:700;margin:0}
+.dw-hero p{color:rgba(255,255,255,.75);font-size:.83rem;margin:.2rem 0 0}
+.dw-hero-icon{font-size:3rem;opacity:.25;color:#fff}
+.sec{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#9ca3af;margin:0 0 .85rem;display:flex;align-items:center;gap:.75rem}
+.sec::after{content:'';flex:1;height:1px;background:#f3f4f6}
 .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem}
-.card{background:#fff;border-radius:.75rem;padding:1.25rem 1.5rem;border:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,.06);position:relative;overflow:hidden;transition:box-shadow .15s,transform .15s}
-.card:hover{box-shadow:0 4px 12px rgba(0,0,0,.1);transform:translateY(-1px)}
-.card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--ac);border-radius:.75rem 0 0 .75rem}
-.card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem}
-.ic{width:36px;height:36px;border-radius:.5rem;display:flex;align-items:center;justify-content:center;font-size:.9rem;background:color-mix(in srgb,var(--ac) 10%,#fff);color:var(--ac)}
-.pill{font-size:.6rem;font-weight:700;padding:.2rem .55rem;border-radius:999px;background:color-mix(in srgb,var(--ac) 10%,#fff);color:var(--ac)}
-.val{font-size:2rem;font-weight:800;color:#111827;line-height:1;margin-bottom:.2rem}
-.lbl{font-size:.78rem;color:#6b7280;font-weight:500}
+.card{background:#fff;border-radius:.875rem;padding:1.25rem 1.4rem;border:1px solid #f1f5f9;box-shadow:0 1px 4px rgba(0,0,0,.05),0 0 0 1px rgba(0,0,0,.03);position:relative;transition:box-shadow .15s,transform .15s;display:flex;flex-direction:column;gap:.6rem}
+.card:hover{box-shadow:0 6px 20px rgba(0,0,0,.09);transform:translateY(-2px)}
+.card-row{display:flex;align-items:center;justify-content:space-between}
+.ic{width:38px;height:38px;border-radius:.625rem;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0}
+.pill{font-size:.6rem;font-weight:700;padding:.2rem .6rem;border-radius:999px;border:1px solid currentColor;opacity:.85}
+.val{font-size:1.9rem;font-weight:800;color:#0f172a;line-height:1}
+.lbl{font-size:.76rem;color:#94a3b8;font-weight:500}
+.trend{font-size:.7rem;font-weight:600;display:flex;align-items:center;gap:.25rem}
 </style>
 
 <div class="dw">
-  <p class="dw-title">Platform Overview</p>
-  <p class="dw-sub">Real-time snapshot of Galedge Alpha</p>
+  <div class="dw-hero">
+    <div>
+      <h2>Platform Overview</h2>
+      <p>Real-time snapshot of Galedge Alpha</p>
+    </div>
+    <i class="fa-solid fa-gauge dw-hero-icon"></i>
+  </div>
 
-  <div class="sec">Users</div>
+  <div class="sec">Users & Portfolios</div>
   <div class="grid">
-    <div class="card" style="--ac:#6366f1">
-      <div class="card-top"><div class="ic"><i class="fa-solid fa-users"></i></div></div>
-      <div class="val">{{ total_users }}</div><div class="lbl">Total Users</div>
+    <div class="card">
+      <div class="card-row">
+        <div class="ic" style="background:#eef2ff;color:#6366f1"><i class="fa-solid fa-users"></i></div>
+      </div>
+      <div class="val" style="color:#6366f1">{{ total_users }}</div>
+      <div class="lbl">Total Users</div>
     </div>
-    <div class="card" style="--ac:#10b981">
-      <div class="card-top"><div class="ic"><i class="fa-solid fa-circle-check"></i></div><span class="pill">Active</span></div>
-      <div class="val">{{ active_users }}</div><div class="lbl">Active Users</div>
+    <div class="card">
+      <div class="card-row">
+        <div class="ic" style="background:#d1fae5;color:#10b981"><i class="fa-solid fa-circle-check"></i></div>
+        <span class="pill" style="color:#10b981;border-color:#10b981">Active</span>
+      </div>
+      <div class="val" style="color:#10b981">{{ active_users }}</div>
+      <div class="lbl">Active Users</div>
     </div>
-    <div class="card" style="--ac:#0ea5e9">
-      <div class="card-top"><div class="ic"><i class="fa-solid fa-chart-line"></i></div></div>
-      <div class="val">{{ tracker }}</div><div class="lbl">Tracker Holdings</div>
+    <div class="card">
+      <div class="card-row">
+        <div class="ic" style="background:#e0f2fe;color:#0ea5e9"><i class="fa-solid fa-chart-line"></i></div>
+      </div>
+      <div class="val" style="color:#0ea5e9">{{ tracker }}</div>
+      <div class="lbl">Tracker Holdings</div>
     </div>
-    <div class="card" style="--ac:#f59e0b">
-      <div class="card-top"><div class="ic"><i class="fa-solid fa-briefcase"></i></div></div>
-      <div class="val">{{ portfolios }}</div><div class="lbl">Portfolios</div>
+    <div class="card">
+      <div class="card-row">
+        <div class="ic" style="background:#fef3c7;color:#f59e0b"><i class="fa-solid fa-briefcase"></i></div>
+      </div>
+      <div class="val" style="color:#f59e0b">{{ portfolios }}</div>
+      <div class="lbl">Portfolios</div>
     </div>
   </div>
 
   <div class="sec">Platform Activity</div>
   <div class="grid">
-    <div class="card" style="--ac:#8b5cf6">
-      <div class="card-top"><div class="ic"><i class="fa-solid fa-chess"></i></div></div>
-      <div class="val">{{ strategies }}</div><div class="lbl">Strategies</div>
+    <div class="card">
+      <div class="card-row">
+        <div class="ic" style="background:#ede9fe;color:#8b5cf6"><i class="fa-solid fa-chess"></i></div>
+      </div>
+      <div class="val" style="color:#8b5cf6">{{ strategies }}</div>
+      <div class="lbl">Strategies</div>
     </div>
-    <div class="card" style="--ac:#10b981">
-      <div class="card-top"><div class="ic"><i class="fa-solid fa-rocket"></i></div><span class="pill">Live</span></div>
-      <div class="val">{{ prod_strats }}</div><div class="lbl">In Production</div>
+    <div class="card">
+      <div class="card-row">
+        <div class="ic" style="background:#d1fae5;color:#10b981"><i class="fa-solid fa-rocket"></i></div>
+        <span class="pill" style="color:#10b981;border-color:#10b981">Live</span>
+      </div>
+      <div class="val" style="color:#10b981">{{ prod_strats }}</div>
+      <div class="lbl">In Production</div>
     </div>
-    <div class="card" style="--ac:#64748b">
-      <div class="card-top"><div class="ic"><i class="fa-solid fa-flask"></i></div></div>
-      <div class="val">{{ backtests }}</div><div class="lbl">Backtests Run</div>
+    <div class="card">
+      <div class="card-row">
+        <div class="ic" style="background:#f1f5f9;color:#64748b"><i class="fa-solid fa-flask"></i></div>
+      </div>
+      <div class="val" style="color:#64748b">{{ backtests }}</div>
+      <div class="lbl">Backtests Run</div>
     </div>
-    <div class="card" style="--ac:#ec4899">
-      <div class="card-top"><div class="ic"><i class="fa-solid fa-filter"></i></div></div>
-      <div class="val">{{ screens }}</div><div class="lbl">Screens Created</div>
+    <div class="card">
+      <div class="card-row">
+        <div class="ic" style="background:#fce7f3;color:#ec4899"><i class="fa-solid fa-filter"></i></div>
+      </div>
+      <div class="val" style="color:#ec4899">{{ screens }}</div>
+      <div class="lbl">Screens Created</div>
     </div>
   </div>
 
   <div class="sec">Market Data</div>
   <div class="grid">
-    <div class="card" style="--ac:#6366f1">
-      <div class="card-top"><div class="ic"><i class="fa-solid fa-building-columns"></i></div></div>
-      <div class="val">{{ symbols }}</div><div class="lbl">Symbols Tracked</div>
+    <div class="card">
+      <div class="card-row">
+        <div class="ic" style="background:#eef2ff;color:#6366f1"><i class="fa-solid fa-building-columns"></i></div>
+      </div>
+      <div class="val" style="color:#6366f1">{{ symbols }}</div>
+      <div class="lbl">Symbols Tracked</div>
     </div>
-    <div class="card" style="--ac:#10b981">
-      <div class="card-top"><div class="ic"><i class="fa-solid fa-database"></i></div></div>
-      <div class="val">{{ price_rows }}</div><div class="lbl">Price Rows</div>
+    <div class="card">
+      <div class="card-row">
+        <div class="ic" style="background:#d1fae5;color:#10b981"><i class="fa-solid fa-database"></i></div>
+      </div>
+      <div class="val" style="color:#10b981;font-size:1.5rem">{{ price_rows }}</div>
+      <div class="lbl">Price Rows</div>
     </div>
-    <div class="card" style="--ac:#0ea5e9">
-      <div class="card-top"><div class="ic"><i class="fa-solid fa-circle-info"></i></div></div>
-      <div class="val">{{ stock_info }}</div><div class="lbl">Stock Info Records</div>
+    <div class="card">
+      <div class="card-row">
+        <div class="ic" style="background:#e0f2fe;color:#0ea5e9"><i class="fa-solid fa-circle-info"></i></div>
+      </div>
+      <div class="val" style="color:#0ea5e9">{{ stock_info }}</div>
+      <div class="lbl">Stock Info Records</div>
     </div>
-    <div class="card" style="--ac:#f59e0b">
-      <div class="card-top"><div class="ic"><i class="fa-solid fa-calendar-check"></i></div><span class="pill">EOD</span></div>
-      <div class="val" style="font-size:1.1rem">{{ latest_date }}</div><div class="lbl">Latest Price Date</div>
+    <div class="card">
+      <div class="card-row">
+        <div class="ic" style="background:#fef3c7;color:#f59e0b"><i class="fa-solid fa-calendar-check"></i></div>
+        <span class="pill" style="color:#f59e0b;border-color:#f59e0b">EOD</span>
+      </div>
+      <div class="val" style="color:#f59e0b;font-size:1.1rem">{{ latest_date }}</div>
+      <div class="lbl">Latest Price Date</div>
     </div>
   </div>
 </div>
