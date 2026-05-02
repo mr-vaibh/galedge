@@ -270,12 +270,12 @@ export default function StockSummaryPage() {
         <Card>
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Return Decomposition</CardTitle>
-            <CardControls data={factorNames.slice(0, 7).map(f => { const row: Record<string, unknown> = { Factor: f }; selected.slice(0, 3).forEach(s => { row[s.symbol.replace(".NS", "")] = exposures[s.symbol]?.[f] ?? 0; }); return row; })} filename="return_decomposition" title="Return Decomposition" info="How much of each stock's return is explained by factor exposures vs stock-specific movement." expandContent={
+            <CardControls data={factorNames.slice(0, 7).map(f => { const row: Record<string, unknown> = { Factor: f }; selected.forEach(s => { row[s.symbol.replace(".NS", "")] = exposures[s.symbol]?.[f] ?? 0; }); return row; })} filename="return_decomposition" title="Return Decomposition" info="How much of each stock's return is explained by factor exposures vs stock-specific movement." expandContent={
               <table className="w-full text-[11px]">
                 <thead>
                   <tr className="border-b border-border/50">
                     <th className="px-2 py-2 text-left font-medium text-muted-foreground">Factor</th>
-                    {selected.slice(0, 3).map((s) => (
+                    {selected.map((s) => (
                       <th key={s.symbol} className="px-2 py-2 text-right font-medium text-[10px]" style={{ color: s.color }}>
                         {s.symbol.replace(".NS", "")}
                       </th>
@@ -286,7 +286,7 @@ export default function StockSummaryPage() {
                   {factorNames.slice(0, 7).map((f) => (
                     <tr key={f} className="border-b border-border/30 hover:bg-muted/30">
                       <td className="px-2 py-1.5 font-medium text-muted-foreground">{f}</td>
-                      {selected.slice(0, 3).map((s) => {
+                      {selected.map((s) => {
                         const v = exposures[s.symbol]?.[f] ?? 0;
                         return (
                           <td key={s.symbol} className={`px-2 py-1.5 text-right tabular-nums ${v >= 0 ? "text-emerald-400" : "text-red-400"}`}>
@@ -306,7 +306,7 @@ export default function StockSummaryPage() {
                 <thead>
                   <tr className="border-b border-border/50">
                     <th className="px-2 py-2 text-left font-medium text-muted-foreground">Factor</th>
-                    {selected.slice(0, 3).map((s) => (
+                    {selected.map((s) => (
                       <th key={s.symbol} className="px-2 py-2 text-right font-medium text-[10px]" style={{ color: s.color }}>
                         {s.symbol.replace(".NS", "")}
                       </th>
@@ -317,7 +317,7 @@ export default function StockSummaryPage() {
                   {factorNames.slice(0, 7).map((f) => (
                     <tr key={f} className="border-b border-border/30 hover:bg-muted/30">
                       <td className="px-2 py-1.5 font-medium text-muted-foreground">{f}</td>
-                      {selected.slice(0, 3).map((s) => {
+                      {selected.map((s) => {
                         const v = exposures[s.symbol]?.[f] ?? 0;
                         return (
                           <td key={s.symbol} className={`px-2 py-1.5 text-right tabular-nums ${v >= 0 ? "text-emerald-400" : "text-red-400"}`}>
