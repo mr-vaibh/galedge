@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import get_db, get_prices_db
 from app.models.portfolio import Portfolio, PortfolioHolding
 from app.models.market_data import StockPrice, StockInfo, IndexConstituent
 from app.models.factor import FactorExposure, Factor
@@ -78,6 +78,7 @@ def get_performance_summary(
     portfolio_id: int,
     user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
+    prices_db: Session = Depends(get_prices_db),
 ):
     """Performance summary: P&L, risk, and valuation metrics for a portfolio.
 
@@ -126,7 +127,7 @@ def get_performance_summary(
             matched = False
             for suffix in [".NS", ".BO", ""]:
                 candidate = f"{s}{suffix}" if suffix else s
-                exists = db.query(StockPrice.id).filter(StockPrice.symbol == candidate).first()
+                exists = prices_db.query(StockPrice.id).filter(StockPrice.symbol == candidate).first()
                 if exists:
                     symbols.append(candidate)
                     symbol_map[candidate] = s
@@ -140,7 +141,7 @@ def get_performance_summary(
     # Fetch ALL available price data for holdings (not just portfolio date range)
     # This lets us compute returns even if portfolio was just uploaded today
     prices = (
-        db.query(StockPrice)
+        prices_db.query(StockPrice)
         .filter(
             StockPrice.symbol.in_(symbols),
         )
@@ -318,6 +319,7 @@ def get_holdings_with_exposures(
     holding_date: str | None = None,
     user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
+    prices_db: Session = Depends(get_prices_db),
 ):
     """Holdings enriched with sector info and factor exposures."""
     portfolio = db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
@@ -362,7 +364,7 @@ def get_holdings_with_exposures(
             matched = False
             for suffix in [".NS", ".BO", ""]:
                 candidate = f"{s}{suffix}" if suffix else s
-                exists = db.query(StockPrice.id).filter(StockPrice.symbol == candidate).first()
+                exists = prices_db.query(StockPrice.id).filter(StockPrice.symbol == candidate).first()
                 if exists:
                     symbols.append(candidate)
                     symbol_map[candidate] = s
@@ -374,19 +376,19 @@ def get_holdings_with_exposures(
                 symbol_map[f"{s}.NS"] = s
 
     # Stock info (sector, industry, market_cap)
-    info_rows = db.query(StockInfo).filter(StockInfo.symbol.in_(symbols)).all()
+    info_rows = prices_db.query(StockInfo).filter(StockInfo.symbol.in_(symbols)).all()
     info_map = {i.symbol: i for i in info_rows}
 
     # Factor exposures — find nearest available date (exposures may be stored for model end_date)
     nearest_exposure_date = (
-        db.query(FactorExposure.date)
+        prices_db.query(FactorExposure.date)
         .filter(FactorExposure.symbol.in_(symbols))
         .order_by(FactorExposure.date.desc())
         .first()
     )
     exposure_date = nearest_exposure_date[0] if nearest_exposure_date else target_date
     exposures = (
-        db.query(FactorExposure)
+        prices_db.query(FactorExposure)
         .filter(
             FactorExposure.symbol.in_(symbols),
             FactorExposure.date == exposure_date,
@@ -395,7 +397,7 @@ def get_holdings_with_exposures(
     )
     # Load factor names
     factor_ids = {e.factor_id for e in exposures}
-    factors = db.query(Factor).filter(Factor.id.in_(factor_ids)).all() if factor_ids else []
+    factors = prices_db.query(Factor).filter(Factor.id.in_(factor_ids)).all() if factor_ids else []
     factor_name_map = {f.id: f.name for f in factors}
 
     # Build exposure lookup: symbol -> {factor_name: exposure}
@@ -436,6 +438,7 @@ def get_return_decomposition(
     model_name: str = "INEC1",
     user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
+    prices_db: Session = Depends(get_prices_db),
 ):
     """Factor-based return decomposition: market, style, industry, idiosyncratic."""
     portfolio = db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()

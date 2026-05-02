@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import get_prices_db as get_db
 from app.models.market_data import StockPrice
 from app.services.optimizer import PortfolioOptimizer
 from app.services.data_ingestion import ALL_NSE_STOCKS

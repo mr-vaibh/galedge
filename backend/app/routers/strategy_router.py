@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import get_db, get_prices_db
 from app.models.user import User
 from app.models.market_data import StockPrice
 from app.models.strategy import Strategy, StrategyConstraint, StrategyObjective, Backtest
@@ -192,7 +192,7 @@ def demote_strategy(strategy_id: int, user: User = Depends(require_user), db: Se
 
 
 @router.post("/{strategy_id}/rebalance")
-def generate_rebalance(strategy_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+def generate_rebalance(strategy_id: int, user: User = Depends(require_user), db: Session = Depends(get_db), prices_db: Session = Depends(get_prices_db)):
     """Generate a live rebalance trade list using current market data."""
     strategy = db.query(Strategy).filter(Strategy.id == strategy_id, Strategy.user_id == user.id).first()
     if not strategy:
@@ -203,9 +203,9 @@ def generate_rebalance(strategy_id: int, user: User = Depends(require_user), db:
     # Get universe symbols
     symbols = UNIVERSE_MAP.get(strategy.universe, ALL_NSE_STOCKS[:50])
 
-    # Fetch prices
+    # Fetch prices from prices DB
     prices = (
-        db.query(StockPrice.symbol, StockPrice.date, StockPrice.close)
+        prices_db.query(StockPrice.symbol, StockPrice.date, StockPrice.close)
         .filter(StockPrice.symbol.in_(symbols))
         .order_by(StockPrice.date)
         .all()
