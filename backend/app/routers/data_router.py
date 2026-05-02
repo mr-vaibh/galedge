@@ -193,7 +193,10 @@ def get_factor_correlation(
     corr = df.corr()
 
     factor_names = list(corr.columns)
-    matrix = [[round(float(corr.loc[r, c]), 4) for c in factor_names] for r in factor_names]
+    matrix = [
+        [0.0 if np.isnan(corr.loc[r, c]) else round(float(corr.loc[r, c]), 4) for c in factor_names]
+        for r in factor_names
+    ]
 
     return {"factors": factor_names, "matrix": matrix}
 
