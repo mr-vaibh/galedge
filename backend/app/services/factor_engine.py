@@ -210,7 +210,7 @@ def build_factor_model(
     if not symbols:
         return {"error": "No price data available"}
 
-    symbols = list(symbols)[:200]  # cap for performance
+    symbols = list(symbols)  # use all available symbols
     logger.info("Using %d symbols", len(symbols))
 
     # Get price and volume matrices
