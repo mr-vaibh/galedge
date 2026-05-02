@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 
-from app.database import get_db
+from app.database import get_prices_db as get_db
 from app.models.user import User
 from app.models.market_data import StockPrice, StockInfo, IndexConstituent
 from app.models.factor import FactorModel, Factor, FactorReturn, FactorExposure

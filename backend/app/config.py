@@ -5,9 +5,16 @@ from pathlib import Path
 
 # ── Database ──────────────────────────────────────────────────────────────────
 
+# User data (users, portfolios, strategies) — never touched by import scripts
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
-    "sqlite:///./galedge_alpha.db"  # SQLite for local dev, PostgreSQL in production
+    "sqlite:///./galedge_alpha.db"
+)
+
+# Price data (OHLCV, stock info, index constituents) — safe to replace/reimport
+PRICES_DATABASE_URL = os.environ.get(
+    "PRICES_DATABASE_URL",
+    "sqlite:///./galedge_prices.db"
 )
 
 # For async (if using asyncpg):

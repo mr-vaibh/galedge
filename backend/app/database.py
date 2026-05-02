@@ -1,10 +1,17 @@
-"""Database engine, session, and base model."""
+"""Database engines and sessions.
+
+Two separate databases:
+- galedge_alpha.db  → user data (users, portfolios, strategies). Never overwritten by imports.
+- galedge_prices.db → market data (prices, stock info, index constituents). Replaceable.
+"""
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-from app.config import DATABASE_URL
+from app.config import DATABASE_URL, PRICES_DATABASE_URL
 
+
+# ── User data engine ──────────────────────────────────────────────────────────
 
 engine = create_engine(
     DATABASE_URL,
@@ -15,12 +22,23 @@ engine = create_engine(
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
+# ── Price data engine ─────────────────────────────────────────────────────────
+
+prices_engine = create_engine(
+    PRICES_DATABASE_URL,
+    connect_args={"check_same_thread": False} if "sqlite" in PRICES_DATABASE_URL else {},
+    echo=False,
+)
+
+PricesSessionLocal = sessionmaker(bind=prices_engine, autocommit=False, autoflush=False)
+
+
 class Base(DeclarativeBase):
     pass
 
 
 def get_db():
-    """FastAPI dependency — yields a database session."""
+    """FastAPI dependency — yields a user data session."""
     db = SessionLocal()
     try:
         yield db
@@ -28,6 +46,16 @@ def get_db():
         db.close()
 
 
+def get_prices_db():
+    """FastAPI dependency — yields a price data session."""
+    db = PricesSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 def init_db():
-    """Create all tables. Called on startup."""
+    """Create all tables on both databases."""
     Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=prices_engine)

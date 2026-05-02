@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 
 from app.models.market_data import StockPrice, StockInfo, IndexConstituent
+from app.database import PricesSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -252,23 +253,32 @@ def ingest_prices(
     total_rows = 0
     errors = 0
 
-    # Batch-fetch full history for new symbols
-    if fresh_symbols:
-        logger.info("Fetching full history for %d new symbols", len(fresh_symbols))
-        df = _fetch_prices_batch(fresh_symbols, "max")
-        rows, errs = _store_prices(db, fresh_symbols, df, latest_dates)
-        total_rows += rows
-        errors += errs
+    BATCH = 50  # yfinance hangs on very large single batch calls
 
-    # Batch-fetch recent data for already-ingested symbols (fast daily update)
+    # Batch-fetch full history for new symbols in chunks
+    if fresh_symbols:
+        logger.info("Fetching full history for %d new symbols in batches of %d", len(fresh_symbols), BATCH)
+        for i in range(0, len(fresh_symbols), BATCH):
+            chunk = fresh_symbols[i:i + BATCH]
+            logger.info("Batch %d/%d: %d symbols", i // BATCH + 1, -(-len(fresh_symbols) // BATCH), len(chunk))
+            df = _fetch_prices_batch(chunk, "max")
+            rows, errs = _store_prices(db, chunk, df, latest_dates)
+            db.commit()
+            total_rows += rows
+            errors += errs
+            logger.info("Batch done: %d rows ingested so far", total_rows)
+
+    # Batch-fetch recent data for already-ingested symbols
     if update_symbols:
         logger.info("Updating recent data for %d existing symbols", len(update_symbols))
-        df = _fetch_prices_batch(update_symbols, "5d")
-        rows, errs = _store_prices(db, update_symbols, df, latest_dates)
-        total_rows += rows
-        errors += errs
+        for i in range(0, len(update_symbols), BATCH):
+            chunk = update_symbols[i:i + BATCH]
+            df = _fetch_prices_batch(chunk, "5d")
+            rows, errs = _store_prices(db, chunk, df, latest_dates)
+            db.commit()
+            total_rows += rows
+            errors += errs
 
-    db.commit()
     logger.info("Price ingestion complete: %d rows, %d errors", total_rows, errors)
     return {"ingested": total_rows, "errors": errors}
 

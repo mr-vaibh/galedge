@@ -101,7 +101,7 @@ async def get_quote(symbol: str):
     """Get quote from DB (EOD)."""
     import sys, os
     sys.path.insert(0, os.path.dirname(__file__))
-    from app.database import SessionLocal
+    from app.database import PricesSessionLocal as SessionLocal
     from app.models.market_data import StockPrice, StockInfo
 
     sym = symbol.upper()
@@ -143,7 +143,7 @@ async def get_quotes(symbols: str = Query(..., description="Comma-separated symb
     """Get quotes — served from DB (EOD) for reliability."""
     import sys, os
     sys.path.insert(0, os.path.dirname(__file__))
-    from app.database import SessionLocal
+    from app.database import PricesSessionLocal as SessionLocal
     from app.models.market_data import StockPrice, StockInfo
     from sqlalchemy import func
 
@@ -202,7 +202,7 @@ async def get_history(
     """Get OHLCV history — served from DB for daily data, yfinance for intraday."""
     import sys, os
     sys.path.insert(0, os.path.dirname(__file__))
-    from app.database import SessionLocal
+    from app.database import PricesSessionLocal as SessionLocal
     from app.models.market_data import StockPrice
     from datetime import date, timedelta
 
@@ -315,7 +315,7 @@ async def get_fundamentals(
     """Get fundamental data from DB stock_info (no live yfinance calls)."""
     import sys, os
     sys.path.insert(0, os.path.dirname(__file__))
-    from app.database import SessionLocal
+    from app.database import PricesSessionLocal as SessionLocal
     from app.models.market_data import StockInfo, StockPrice
     from sqlalchemy import func
 
@@ -492,7 +492,7 @@ async def get_technicals(
     """Compute technical indicators from DB price history."""
     import sys, os
     sys.path.insert(0, os.path.dirname(__file__))
-    from app.database import SessionLocal
+    from app.database import PricesSessionLocal as SessionLocal
     from app.models.market_data import StockPrice
     from datetime import date, timedelta
 
