@@ -413,10 +413,14 @@ function BuildScreenContent() {
                   ["High52W", "52-week high price. e.g. High52W > 1000"],
                   ["Low52W", "52-week low price. e.g. Low52W < 500"],
                 ].map(([name, desc]) => (
-                  <div key={name} className="border border-border/30 rounded p-2">
+                  <button
+                    key={name}
+                    className="w-full text-left border border-border/30 rounded p-2 hover:bg-muted/50 transition-colors"
+                    onClick={() => setScreenerQuery((prev) => prev + (prev ? " AND " : "") + name)}
+                  >
                     <div className="font-semibold text-foreground">{name}</div>
                     <div className="text-muted-foreground mt-0.5">{desc}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -432,15 +436,18 @@ function BuildScreenContent() {
                   ["!=", "Not equals", 'Sector != "Energy"'],
                   ["AND", "Both conditions must be true", "PE < 20 AND ROE > 15"],
                   ["OR", "Either condition can be true", "Sector == \"IT\" OR Sector == \"Tech\""],
-                  ["( )", "Group conditions", "(PE < 15 OR PB < 2) AND ROE > 10"],
                 ].map(([op, desc, ex]) => (
-                  <div key={op} className="border border-border/30 rounded p-2">
+                  <button
+                    key={op}
+                    className="w-full text-left border border-border/30 rounded p-2 hover:bg-muted/50 transition-colors"
+                    onClick={() => setScreenerQuery((prev) => prev + (prev ? ` ${op} ` : `${op} `))}
+                  >
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-bold text-emerald-500">{op}</span>
                       <span className="text-muted-foreground">{desc}</span>
                     </div>
                     <div className="font-mono text-[10px] text-muted-foreground/70 mt-0.5">{ex}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
