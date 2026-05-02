@@ -13,15 +13,33 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          fetch-depth: 2  # need previous commit to detect what changed
+
+      - name: Detect changes
+        id: changes
+        run: |
+          git diff --name-only HEAD~1 HEAD > changed_files.txt
+          echo "Changed files:"
+          cat changed_files.txt
+          if grep -qE '^frontend/' changed_files.txt; then
+            echo "frontend=true" >> $GITHUB_OUTPUT
+          else
+            echo "frontend=false" >> $GITHUB_OUTPUT
+          fi
+          if grep -qE '^(backend|packages|scripts)/' changed_files.txt; then
+            echo "backend=true" >> $GITHUB_OUTPUT
+          else
+            echo "backend=false" >> $GITHUB_OUTPUT
+          fi
+          # Always deploy on workflow_dispatch
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "frontend=true" >> $GITHUB_OUTPUT
+            echo "backend=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build frontend
+        if: steps.changes.outputs.frontend == 'true'
         working-directory: frontend
         env:
           NEXT_PUBLIC_API_URL: https://galedge.byvaibhav.com
@@ -36,45 +54,79 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H 165.232.179.90 >> ~/.ssh/known_hosts
 
+      - name: Backup databases
+        run: |
+          ssh root@165.232.179.90 "/usr/local/bin/galedge-backup.sh"
+
       - name: Deploy backend
+        if: steps.changes.outputs.backend == 'true'
         run: |
           rsync -avz --delete \
-            --exclude='__pycache__' \
-            --exclude='*.pyc' \
-            --exclude='galedge_alpha.db' \
-            --exclude='galedge_prices.db' \
+            --exclude='__pycache__' --exclude='*.pyc' \
+            --exclude='galedge_alpha.db' --exclude='galedge_prices.db' \
             --exclude='uploads/' \
-            backend/app/ \
-            root@165.232.179.90:/opt/galedge/backend/app/
+            backend/app/ root@165.232.179.90:/opt/galedge/backend/app/
 
           rsync -avz backend/main.py root@165.232.179.90:/opt/galedge/backend/main.py
           rsync -avz scripts/ root@165.232.179.90:/opt/galedge/scripts/
 
-      - name: Deploy frontend build
-        run: |
-          rsync -avz --delete \
-            frontend/.next/ \
-            root@165.232.179.90:/opt/galedge/frontend/.next/
+          ssh root@165.232.179.90 "systemctl restart galedge-api"
+          echo "Backend deployed and restarted"
 
+      - name: Deploy frontend (atomic swap)
+        if: steps.changes.outputs.frontend == 'true'
+        run: |
+          # Rsync to staging dir first
+          ssh root@165.232.179.90 "mkdir -p /opt/galedge/frontend/.next.new"
+          rsync -avz --delete \
+            frontend/.next/ root@165.232.179.90:/opt/galedge/frontend/.next.new/
           rsync -avz frontend/public/ root@165.232.179.90:/opt/galedge/frontend/public/
 
-      - name: Restart services
-        run: |
+          # Atomic swap: old → .prev, new → active, restart
           ssh root@165.232.179.90 "
-            systemctl restart galedge-api
-            sleep 3
+            rm -rf /opt/galedge/frontend/.next.prev
+            mv /opt/galedge/frontend/.next /opt/galedge/frontend/.next.prev 2>/dev/null || true
+            mv /opt/galedge/frontend/.next.new /opt/galedge/frontend/.next
             systemctl restart galedge-frontend
-            sleep 3
-            systemctl is-active galedge-api galedge-frontend
           "
+          echo "Frontend deployed atomically"
 
-      - name: Verify deployment
+      - name: Health check
         run: |
-          sleep 5
-          STATUS=$(curl -sm10 -o /dev/null -w "%{http_code}" https://galedge.byvaibhav.com/api/health)
-          echo "API health: $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "❌ API health check failed"
-            exit 1
-          fi
-          echo "✅ Deployed successfully"
+          echo "Waiting for services to start..."
+          sleep 8
+          RETRIES=5
+          for i in $(seq 1 $RETRIES); do
+            API=$(curl -sm10 -o /dev/null -w "%{http_code}" https://galedge.byvaibhav.com/api/health || echo "000")
+            FE=$(curl -sm10 -o /dev/null -w "%{http_code}" https://galedge.byvaibhav.com/ || echo "000")
+            echo "Attempt $i — API: $API | Frontend: $FE"
+            if [ "$API" = "200" ] && [ "$FE" = "200" ]; then
+              echo "✅ All services healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "❌ Health check failed after $RETRIES attempts"
+          exit 1
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "🔄 Rolling back..."
+          ssh root@165.232.179.90 "
+            # Restore previous frontend build if exists
+            if [ -d /opt/galedge/frontend/.next.prev ]; then
+              rm -rf /opt/galedge/frontend/.next
+              mv /opt/galedge/frontend/.next.prev /opt/galedge/frontend/.next
+              systemctl restart galedge-frontend
+              echo 'Frontend rolled back'
+            fi
+            # Restore latest DB backup
+            LATEST_DB=\$(ls -t /opt/galedge/backups/galedge_alpha_*.db 2>/dev/null | head -1)
+            if [ -n \"\$LATEST_DB\" ]; then
+              cp \"\$LATEST_DB\" /opt/galedge/backend/galedge_alpha.db
+              systemctl restart galedge-api
+              echo \"DB restored from \$LATEST_DB\"
+            fi
+          "
+          echo "Rollback complete"
