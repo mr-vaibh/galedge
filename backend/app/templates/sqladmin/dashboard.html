@@ -1,6 +1,88 @@
 {% extends "sqladmin/layout.html" %}
 {% block content %}
-<div class="container-fluid py-4">
-{{ stats_html | safe }}
+<style>
+.dash-wrap{padding:2rem}
+.dash-title{font-size:1.4rem;font-weight:700;color:#f1f5f9;margin:0}
+.dash-sub{font-size:.85rem;color:#64748b;margin:.2rem 0 2rem}
+.section-label{font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:.85rem;display:block}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem}
+.stat-card{background:#1e293b;border-radius:.875rem;padding:1.4rem 1.5rem;border:1px solid #334155;position:relative;overflow:hidden;transition:transform .15s,box-shadow .15s;cursor:default}
+.stat-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--ac)}
+.ic{width:38px;height:38px;border-radius:.5rem;display:flex;align-items:center;justify-content:center;font-size:1rem;margin-bottom:.9rem;background:color-mix(in srgb,var(--ac) 12%,transparent);color:var(--ac)}
+.sv{font-size:1.9rem;font-weight:800;color:#f1f5f9;line-height:1;margin-bottom:.3rem}
+.sl{font-size:.78rem;color:#64748b;font-weight:500}
+.badge-pill{position:absolute;top:1.1rem;right:1.1rem;font-size:.6rem;font-weight:700;padding:.2rem .55rem;border-radius:999px;background:color-mix(in srgb,var(--ac) 15%,transparent);color:var(--ac)}
+</style>
+
+<div class="dash-wrap">
+  <div>
+    <p class="dash-title">Platform Overview</p>
+    <p class="dash-sub">Real-time snapshot of Galedge Alpha</p>
+  </div>
+
+  <span class="section-label">👤 &nbsp;Users</span>
+  <div class="stat-grid">
+    <div class="stat-card" style="--ac:#6366f1">
+      <div class="ic"><i class="fa-solid fa-users"></i></div>
+      <div class="sv">{{ total_users }}</div><div class="sl">Total Users</div>
+    </div>
+    <div class="stat-card" style="--ac:#10b981">
+      <div class="ic"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="sv">{{ active_users }}</div><div class="sl">Active Users</div>
+      <div class="badge-pill">Active</div>
+    </div>
+    <div class="stat-card" style="--ac:#0ea5e9">
+      <div class="ic"><i class="fa-solid fa-chart-line"></i></div>
+      <div class="sv">{{ tracker }}</div><div class="sl">Tracker Holdings</div>
+    </div>
+    <div class="stat-card" style="--ac:#f59e0b">
+      <div class="ic"><i class="fa-solid fa-briefcase"></i></div>
+      <div class="sv">{{ portfolios }}</div><div class="sl">Portfolios</div>
+    </div>
+  </div>
+
+  <span class="section-label">⚡ &nbsp;Platform Activity</span>
+  <div class="stat-grid">
+    <div class="stat-card" style="--ac:#8b5cf6">
+      <div class="ic"><i class="fa-solid fa-chess"></i></div>
+      <div class="sv">{{ strategies }}</div><div class="sl">Strategies</div>
+    </div>
+    <div class="stat-card" style="--ac:#10b981">
+      <div class="ic"><i class="fa-solid fa-rocket"></i></div>
+      <div class="sv">{{ prod_strats }}</div><div class="sl">In Production</div>
+      <div class="badge-pill">Live</div>
+    </div>
+    <div class="stat-card" style="--ac:#94a3b8">
+      <div class="ic"><i class="fa-solid fa-flask"></i></div>
+      <div class="sv">{{ backtests }}</div><div class="sl">Backtests Run</div>
+    </div>
+    <div class="stat-card" style="--ac:#ec4899">
+      <div class="ic"><i class="fa-solid fa-filter"></i></div>
+      <div class="sv">{{ screens }}</div><div class="sl">Screens Created</div>
+    </div>
+  </div>
+
+  <span class="section-label">📊 &nbsp;Market Data</span>
+  <div class="stat-grid">
+    <div class="stat-card" style="--ac:#6366f1">
+      <div class="ic"><i class="fa-solid fa-building-columns"></i></div>
+      <div class="sv">{{ symbols }}</div><div class="sl">Symbols Tracked</div>
+    </div>
+    <div class="stat-card" style="--ac:#10b981">
+      <div class="ic"><i class="fa-solid fa-database"></i></div>
+      <div class="sv">{{ price_rows }}</div><div class="sl">Price Rows</div>
+    </div>
+    <div class="stat-card" style="--ac:#0ea5e9">
+      <div class="ic"><i class="fa-solid fa-circle-info"></i></div>
+      <div class="sv">{{ stock_info }}</div><div class="sl">Stock Info Records</div>
+    </div>
+    <div class="stat-card" style="--ac:#f59e0b">
+      <div class="ic"><i class="fa-solid fa-calendar-check"></i></div>
+      <div class="sv" style="font-size:1.1rem">{{ latest_date }}</div>
+      <div class="sl">Latest Price Date</div>
+      <div class="badge-pill">EOD</div>
+    </div>
+  </div>
 </div>
 {% endblock %}

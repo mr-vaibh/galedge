@@ -155,42 +155,20 @@ class DashboardView(BaseView):
             db.close()
             pdb.close()
 
-        stats = [
-            ("Users", [
-                ("Total Users", users, "text-primary"),
-                ("Active Users", active_users, "text-success"),
-                ("Tracker Holdings", tracker, "text-info"),
-                ("Portfolios", portfolios, "text-warning"),
-            ]),
-            ("Platform Activity", [
-                ("Strategies", strategies, "text-danger"),
-                ("In Production", prod_strats, "text-success"),
-                ("Backtests Run", backtests, "text-secondary"),
-                ("Screens Created", screens, "text-dark"),
-            ]),
-            ("Market Data", [
-                ("Symbols", symbols, "text-primary"),
-                ("Price Rows", f"{price_rows:,}", "text-success"),
-                ("Stock Info Records", stock_info, "text-info"),
-                ("Latest Price Date", str(latest_date) if latest_date else "N/A", "text-warning"),
-            ]),
-        ]
-
-        cards_html = ""
-        for section, items in stats:
-            cards_html += f'<h6 class="text-muted text-uppercase small fw-semibold mt-4 mb-3" style="letter-spacing:.08em">{section}</h6>'
-            cards_html += '<div class="row g-3 mb-2">'
-            for label, value, color in items:
-                cards_html += f'''<div class="col-6 col-md-3">
-                  <div class="card border-0 shadow-sm rounded-3 p-3 text-center">
-                    <div class="fw-bold {color}" style="font-size:2rem">{value}</div>
-                    <div class="text-muted small mt-1">{label}</div>
-                  </div></div>'''
-            cards_html += '</div>'
-
-        return await self.templates.TemplateResponse(
-            request, "sqladmin/dashboard.html", {"stats_html": cards_html}
-        )
+        return await self.templates.TemplateResponse(request, "sqladmin/dashboard.html", {
+            "total_users": users,
+            "active_users": active_users,
+            "tracker": tracker,
+            "portfolios": portfolios,
+            "strategies": strategies,
+            "prod_strats": prod_strats,
+            "backtests": backtests,
+            "screens": screens,
+            "symbols": symbols,
+            "price_rows": f"{price_rows:,}",
+            "stock_info": stock_info,
+            "latest_date": str(latest_date) if latest_date else "N/A",
+        })
 
 
 # ── Factory ───────────────────────────────────────────────────────────────────
