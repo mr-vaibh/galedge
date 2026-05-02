@@ -54,6 +54,20 @@ def create_screen(data: ScreenCreate, user: User = Depends(require_user), db: Se
     return {"id": screen.id, "name": screen.name}
 
 
+@router.get("/screens/{screen_id}")
+def get_screen(screen_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    screen = db.query(Screen).filter(Screen.id == screen_id, Screen.user_id == user.id).first()
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    return {
+        "id": screen.id, "name": screen.name, "description": screen.description,
+        "parent_universe": screen.parent_universe, "sector": screen.sector,
+        "industry": screen.industry, "portfolio_weight": screen.portfolio_weight,
+        "screener_query": screen.screener_query, "score_equation": screen.score_equation,
+        "score_variable": screen.score_variable,
+    }
+
+
 @router.put("/screens/{screen_id}")
 def update_screen(screen_id: int, data: ScreenCreate, user: User = Depends(require_user), db: Session = Depends(get_db)):
     screen = db.query(Screen).filter(Screen.id == screen_id, Screen.user_id == user.id).first()

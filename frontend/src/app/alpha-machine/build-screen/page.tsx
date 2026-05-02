@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
@@ -59,8 +59,10 @@ const EXAMPLES = [
   "MarketCap > 1000 AND PB < 3 AND EPS_Growth > 10",
 ];
 
-export default function BuildScreenPage() {
+function BuildScreenContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("id");
   const { token } = useAuth();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -102,6 +104,28 @@ export default function BuildScreenPage() {
         // keep fallback metrics on error
       });
   }, []);
+
+  // Pre-populate when editing an existing screen
+  useEffect(() => {
+    if (!editId || !token) return;
+    fetch(`${API_BASE}/api/alpha/screens/${editId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((s) => {
+        if (!s.id) return;
+        setName(s.name || "");
+        setDescription(s.description || "");
+        setParentUniverse(s.parent_universe || "");
+        setSector(s.sector || "");
+        setIndustry(s.industry || "");
+        setPortfolioWeight(s.portfolio_weight || "");
+        setScreenerQuery(s.screener_query || "");
+        setScoreEquation(s.score_equation || "");
+        setScoreVariable(s.score_variable || "");
+      })
+      .catch(() => {});
+  }, [editId, token]);
 
   // Verify Query (dry-run with limit=1)
   const handleVerify = useCallback(async () => {
@@ -478,5 +502,13 @@ export default function BuildScreenPage() {
         ) : null}
       </Card>
     </div>
+  );
+}
+
+export default function BuildScreenPage() {
+  return (
+    <Suspense fallback={null}>
+      <BuildScreenContent />
+    </Suspense>
   );
 }
