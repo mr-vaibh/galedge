@@ -1,19 +1,20 @@
-"""Fetch latest EOD prices for all symbols and export to /tmp/prices_export.csv"""
-import sys
-sys.path.insert(0, '/Users/vaibhav.shukla/Developer/galedge/backend')
+"""Fetch latest EOD prices for all symbols and export to /tmp/prices_export.csv.
+Standalone — runs on GitHub Actions or locally. No app imports needed.
+"""
+import sys, os
+sys.path.insert(0, os.path.dirname(__file__))
 
 import pandas as pd
 import yfinance as yf
-from app.services.data_ingestion import ALL_NSE_STOCKS, US_STOCKS
+from symbols import ALL_SYMBOLS
 
-all_symbols = ALL_NSE_STOCKS + US_STOCKS
-print(f"Fetching {len(all_symbols)} symbols...", flush=True)
+print(f"Fetching {len(ALL_SYMBOLS)} symbols in batches of 50...", flush=True)
 
 rows = []
 BATCH = 50
-for i in range(0, len(all_symbols), BATCH):
-    chunk = all_symbols[i:i + BATCH]
-    print(f"Batch {i//BATCH + 1}/{-(-len(all_symbols)//BATCH)}: {chunk[0]}...", flush=True)
+for i in range(0, len(ALL_SYMBOLS), BATCH):
+    chunk = ALL_SYMBOLS[i:i + BATCH]
+    print(f"Batch {i//BATCH + 1}/{-(-len(ALL_SYMBOLS)//BATCH)}: {chunk[0]}...", flush=True)
     try:
         df = yf.download(chunk, period="5d", interval="1d", group_by="ticker",
                          progress=False, threads=True, auto_adjust=True)
