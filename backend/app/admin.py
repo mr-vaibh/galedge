@@ -62,7 +62,7 @@ class PortfolioAdmin(ModelView, model=Portfolio):
     column_list = ["id", "user_id", "fund_name", "scheme_name", "portfolio_type", "benchmark", "created_at"]
     column_searchable_list = ["fund_name", "scheme_name"]
     column_sortable_list = ["id", "created_at", "portfolio_type"]
-    can_create = False
+    can_create = True
     page_size = 50
 
 
@@ -73,7 +73,7 @@ class TrackerHoldingAdmin(ModelView, model=TrackerHolding):
     column_list = ["id", "user_id", "symbol", "shares", "buy_price", "buy_date", "created_at"]
     column_searchable_list = ["symbol"]
     column_sortable_list = ["id", "user_id", "symbol", "buy_date"]
-    can_create = False
+    can_create = True
     page_size = 100
 
 
@@ -84,7 +84,7 @@ class StrategyAdmin(ModelView, model=Strategy):
     column_list = ["id", "user_id", "fund_name", "status", "universe", "benchmark", "created_at"]
     column_searchable_list = ["fund_name"]
     column_sortable_list = ["id", "created_at", "status"]
-    can_create = False
+    can_create = True
     page_size = 50
 
 
@@ -94,7 +94,7 @@ class BacktestAdmin(ModelView, model=Backtest):
     icon = "fa-solid fa-flask"
     column_list = ["id", "strategy_id", "status", "start_date", "end_date", "created_at"]
     column_sortable_list = ["id", "created_at", "status"]
-    can_create = False
+    can_create = True
     page_size = 50
 
 
@@ -104,7 +104,7 @@ class ScreenAdmin(ModelView, model=Screen):
     icon = "fa-solid fa-filter"
     column_list = ["id", "user_id", "name", "created_at"]
     column_searchable_list = ["name"]
-    can_create = False
+    can_create = True
     page_size = 50
 
 
