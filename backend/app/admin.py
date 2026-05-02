@@ -155,79 +155,66 @@ class DashboardView(BaseView):
             db.close()
             pdb.close()
 
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Galedge Admin Dashboard</title>
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-            <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-            <style>
-                body {{ background: #f8f9fa; font-family: system-ui, sans-serif; }}
-                .stat-card {{ border-radius: 12px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,.08); }}
-                .stat-number {{ font-size: 2.5rem; font-weight: 700; }}
-                .section-title {{ font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; color: #6c757d; font-weight: 600; }}
-                a.back {{ text-decoration: none; color: #0d6efd; font-size: .9rem; }}
-            </style>
-        </head>
-        <body class="p-4">
-            <div class="d-flex align-items-center gap-3 mb-4">
-                <a href="/admin/user/list" class="back"><i class="fa fa-users me-1"></i> Users</a>
-                <a href="/admin/portfolio/list" class="back ms-3"><i class="fa fa-briefcase me-1"></i> Portfolios</a>
-                <h4 class="mb-0 ms-2"><i class="fa-solid fa-gauge me-2 text-primary"></i>Galedge Dashboard</h4>
-            </div>
+        stats = [
+            ("Users", [
+                ("Total Users", users, "text-primary"),
+                ("Active Users", active_users, "text-success"),
+                ("Tracker Holdings", tracker, "text-info"),
+                ("Portfolios", portfolios, "text-warning"),
+            ]),
+            ("Platform Activity", [
+                ("Strategies", strategies, "text-danger"),
+                ("In Production", prod_strats, "text-success"),
+                ("Backtests Run", backtests, "text-secondary"),
+                ("Screens Created", screens, "text-dark"),
+            ]),
+            ("Market Data", [
+                ("Symbols", symbols, "text-primary"),
+                ("Price Rows", f"{price_rows:,}", "text-success"),
+                ("Stock Info Records", stock_info, "text-info"),
+                ("Latest Price Date", str(latest_date) if latest_date else "N/A", "text-warning"),
+            ]),
+        ]
 
-            <p class="section-title mb-3">Users</p>
-            <div class="row g-3 mb-4">
-                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
-                    <div class="stat-number text-primary">{users}</div><div class="text-muted small">Total Users</div>
-                </div></div>
-                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
-                    <div class="stat-number text-success">{active_users}</div><div class="text-muted small">Active Users</div>
-                </div></div>
-                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
-                    <div class="stat-number text-info">{tracker}</div><div class="text-muted small">Tracker Holdings</div>
-                </div></div>
-                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
-                    <div class="stat-number text-warning">{portfolios}</div><div class="text-muted small">Portfolios</div>
-                </div></div>
-            </div>
+        cards_html = ""
+        for section, items in stats:
+            cards_html += f'<h6 class="text-muted text-uppercase small fw-semibold mt-4 mb-3" style="letter-spacing:.08em">{section}</h6>'
+            cards_html += '<div class="row g-3 mb-2">'
+            for label, value, color in items:
+                cards_html += f'''<div class="col-6 col-md-3">
+                  <div class="card border-0 shadow-sm rounded-3 p-3 text-center">
+                    <div class="fw-bold {color}" style="font-size:2rem">{value}</div>
+                    <div class="text-muted small mt-1">{label}</div>
+                  </div></div>'''
+            cards_html += '</div>'
 
-            <p class="section-title mb-3">Platform Activity</p>
-            <div class="row g-3 mb-4">
-                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
-                    <div class="stat-number text-danger">{strategies}</div><div class="text-muted small">Strategies</div>
-                </div></div>
-                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
-                    <div class="stat-number text-success">{prod_strats}</div><div class="text-muted small">In Production</div>
-                </div></div>
-                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
-                    <div class="stat-number text-secondary">{backtests}</div><div class="text-muted small">Backtests Run</div>
-                </div></div>
-                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
-                    <div class="stat-number text-dark">{screens}</div><div class="text-muted small">Screens Created</div>
-                </div></div>
-            </div>
-
-            <p class="section-title mb-3">Market Data</p>
-            <div class="row g-3">
-                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
-                    <div class="stat-number text-primary">{symbols}</div><div class="text-muted small">Symbols</div>
-                </div></div>
-                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
-                    <div class="stat-number text-success" style="font-size:1.8rem">{price_rows:,}</div><div class="text-muted small">Price Rows</div>
-                </div></div>
-                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
-                    <div class="stat-number text-info" style="font-size:1.8rem">{stock_info}</div><div class="text-muted small">Stock Info Records</div>
-                </div></div>
-                <div class="col-6 col-md-3"><div class="card stat-card p-3 text-center">
-                    <div class="stat-number text-warning" style="font-size:1.5rem">{str(latest_date) if latest_date else "N/A"}</div><div class="text-muted small">Latest Price Date</div>
-                </div></div>
-            </div>
-        </body>
-        </html>
-        """
-        return HTMLResponse(html)
+        return HTMLResponse(f"""<!DOCTYPE html>
+<html><head><title>Galedge Admin</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  body{{margin:0;font-family:system-ui,sans-serif;background:#f8f9fa;}}
+  .sidebar{{width:240px;min-height:100vh;background:#fff;border-right:1px solid #dee2e6;padding:1rem;position:fixed;top:0;left:0;}}
+  .sidebar a{{display:block;padding:.5rem .75rem;border-radius:.375rem;color:#495057;text-decoration:none;margin-bottom:.25rem;}}
+  .sidebar a:hover{{background:#e9ecef;}}
+  .sidebar .brand{{font-weight:700;font-size:1.1rem;padding:.5rem .75rem 1rem;color:#212529;}}
+  .main{{margin-left:240px;padding:2rem;}}
+</style></head>
+<body>
+<div class="sidebar">
+  <div class="brand"><i class="fa-solid fa-gauge me-2 text-primary"></i>Galedge Admin</div>
+  <a href="/admin/dashboard"><i class="fa-solid fa-gauge me-2"></i>Dashboard</a>
+  <a href="/admin/user/list"><i class="fa-solid fa-users me-2"></i>Users</a>
+  <a href="/admin/portfolio/list"><i class="fa-solid fa-briefcase me-2"></i>Portfolios</a>
+  <a href="/admin/trackerholding/list"><i class="fa-solid fa-chart-line me-2"></i>Tracker Holdings</a>
+  <a href="/admin/strategy/list"><i class="fa-solid fa-chess me-2"></i>Strategies</a>
+  <a href="/admin/backtest/list"><i class="fa-solid fa-flask me-2"></i>Backtests</a>
+  <a href="/admin/screen/list"><i class="fa-solid fa-filter me-2"></i>Screens</a>
+  <hr>
+  <a href="/admin/logout" class="text-danger"><i class="fa-solid fa-right-from-bracket me-2"></i>Logout</a>
+</div>
+<div class="main">{cards_html}</div>
+</body></html>""")
 
 
 # ── Factory ───────────────────────────────────────────────────────────────────
