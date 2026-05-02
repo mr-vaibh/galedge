@@ -39,6 +39,32 @@ class StockInfo(Base):
     listing_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     face_value: Mapped[float] = mapped_column(Float, default=10.0)
 
+    # Fundamentals — updated via nightly ingestion
+    pe: Mapped[float | None] = mapped_column(Float, nullable=True)
+    forward_pe: Mapped[float | None] = mapped_column(Float, nullable=True)
+    pb: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ps: Mapped[float | None] = mapped_column(Float, nullable=True)
+    peg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ev_ebitda: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dividend_yield: Mapped[float | None] = mapped_column(Float, nullable=True)
+    roe: Mapped[float | None] = mapped_column(Float, nullable=True)
+    roa: Mapped[float | None] = mapped_column(Float, nullable=True)
+    profit_margin: Mapped[float | None] = mapped_column(Float, nullable=True)
+    operating_margin: Mapped[float | None] = mapped_column(Float, nullable=True)
+    gross_margin: Mapped[float | None] = mapped_column(Float, nullable=True)
+    revenue_growth: Mapped[float | None] = mapped_column(Float, nullable=True)
+    earnings_growth: Mapped[float | None] = mapped_column(Float, nullable=True)
+    eps: Mapped[float | None] = mapped_column(Float, nullable=True)
+    debt_to_equity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    current_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    free_cash_flow: Mapped[float | None] = mapped_column(Float, nullable=True)
+    book_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    beta: Mapped[float | None] = mapped_column(Float, nullable=True)
+    revenue: Mapped[float | None] = mapped_column(Float, nullable=True)
+    net_income: Mapped[float | None] = mapped_column(Float, nullable=True)
+    high_52w: Mapped[float | None] = mapped_column(Float, nullable=True)
+    low_52w: Mapped[float | None] = mapped_column(Float, nullable=True)
+
 
 class IndexConstituent(Base):
     """Index membership over time (point-in-time)."""

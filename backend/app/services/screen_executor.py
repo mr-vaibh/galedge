@@ -334,13 +334,37 @@ def run_screen(
         sp = price_map.get(sym)
         info = {}
         if si:
-            # Store MarketCap in crores (÷1e7) so queries like "MarketCap > 500" mean 500 crore
             raw_mcap = si.market_cap or 0
             info["marketCap"] = round(raw_mcap / 1e7, 2) if raw_mcap else 0
-            info["MarketCap"] = info["marketCap"]  # alias
+            info["MarketCap"] = info["marketCap"]
             info["sector"] = si.sector or ""
             info["industry"] = si.industry or ""
             info["shortName"] = si.name or sym
+            # Fundamentals from DB
+            info["trailingPE"] = si.pe
+            info["forwardPE"] = si.forward_pe
+            info["priceToBook"] = si.pb
+            info["priceToSalesTrailing12Months"] = si.ps
+            info["pegRatio"] = si.peg
+            info["enterpriseToEbitda"] = si.ev_ebitda
+            info["dividendYield"] = si.dividend_yield
+            info["returnOnEquity"] = si.roe
+            info["returnOnAssets"] = si.roa
+            info["profitMargins"] = si.profit_margin
+            info["operatingMargins"] = si.operating_margin
+            info["grossMargins"] = si.gross_margin
+            info["revenueGrowth"] = si.revenue_growth
+            info["earningsGrowth"] = si.earnings_growth
+            info["trailingEps"] = si.eps
+            info["debtToEquity"] = si.debt_to_equity
+            info["currentRatio"] = si.current_ratio
+            info["freeCashflow"] = si.free_cash_flow
+            info["bookValue"] = si.book_value
+            info["beta"] = si.beta
+            info["totalRevenue"] = si.revenue
+            info["netIncomeToCommon"] = si.net_income
+            info["fiftyTwoWeekHigh"] = si.high_52w
+            info["fiftyTwoWeekLow"] = si.low_52w
         if sp:
             info["currentPrice"] = sp.close
             info["price"] = sp.close

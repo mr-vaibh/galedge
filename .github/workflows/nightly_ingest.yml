@@ -1,14 +1,14 @@
-name: Nightly Price Ingestion
+name: Nightly Data Ingestion
 
 on:
   schedule:
     - cron: '30 18 * * 1-5'  # 18:30 UTC = midnight IST, weekdays only
-  workflow_dispatch:           # allow manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
   ingest:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -26,6 +26,9 @@ jobs:
       - name: Fetch latest prices
         run: python scripts/fetch_prices.py
 
+      - name: Fetch fundamentals
+        run: python scripts/fetch_fundamentals.py
+
       - name: Set up SSH key
         run: |
           mkdir -p ~/.ssh
@@ -33,10 +36,21 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H 165.232.179.90 >> ~/.ssh/known_hosts
 
-      - name: Upload CSV to server
-        run: scp -i ~/.ssh/id_ed25519 /tmp/prices_export.csv root@165.232.179.90:/tmp/prices_export.csv
+      - name: Upload CSVs to server
+        run: |
+          scp -i ~/.ssh/id_ed25519 /tmp/prices_export.csv root@165.232.179.90:/tmp/prices_export.csv
+          scp -i ~/.ssh/id_ed25519 /tmp/fundamentals_export.csv root@165.232.179.90:/tmp/fundamentals_export.csv
 
-      - name: Import into DB
+      - name: Import prices into DB
         run: |
           ssh -i ~/.ssh/id_ed25519 root@165.232.179.90 \
-            "cd /opt/galedge/backend && /opt/galedge/.venv/bin/python /tmp/import_prices.py > /tmp/import.log 2>&1 && tail -3 /tmp/import.log"
+            "/opt/galedge/.venv/bin/python /tmp/import_prices.py > /tmp/import_prices.log 2>&1 && tail -3 /tmp/import_prices.log"
+
+      - name: Import fundamentals into DB
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@165.232.179.90 \
+            "/opt/galedge/.venv/bin/python /tmp/import_fundamentals.py > /tmp/import_fundamentals.log 2>&1 && tail -3 /tmp/import_fundamentals.log"
+
+      - name: Verify
+        run: |
+          curl -sm10 https://galedge.byvaibhav.com/api/data/stats
