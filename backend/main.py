@@ -98,35 +98,42 @@ def _safe_info(info: dict, keys: list[str]) -> dict:
 
 @app.get("/api/quote/{symbol}")
 async def get_quote(symbol: str):
-    """Get live quote for a single ticker."""
+    """Get quote from DB (EOD)."""
+    import sys, os
+    sys.path.insert(0, os.path.dirname(__file__))
+    from app.database import SessionLocal
+    from app.models.market_data import StockPrice, StockInfo
+
+    sym = symbol.upper()
+    db = SessionLocal()
     try:
-        t = _ticker(symbol)
-        fi = t.fast_info
-        info = t.info
-
-        hist = t.history(period="2d", interval="1d")
-        prev_close = fi.previous_close
-        price = fi.last_price
-        change = price - prev_close if prev_close else 0
-        change_pct = (change / prev_close * 100) if prev_close else 0
-
+        rows = db.query(StockPrice).filter(StockPrice.symbol == sym).order_by(StockPrice.date.desc()).limit(2).all()
+        if not rows:
+            raise HTTPException(status_code=404, detail=f"No data for {sym}")
+        info = db.query(StockInfo).filter(StockInfo.symbol == sym).first()
+        price = rows[0].close
+        prev = rows[1].close if len(rows) > 1 else price
+        change = price - prev
+        change_pct = (change / prev * 100) if prev else 0
+        cur = "INR" if sym.endswith(".NS") or sym.endswith(".BO") else "USD"
         return {
-            "symbol": symbol.upper(),
-            "price": price,
+            "symbol": sym,
+            "price": round(price, 2),
             "change": round(change, 2),
             "changePercent": round(change_pct, 2),
-            "open": fi.open,
-            "high": fi.day_high,
-            "low": fi.day_low,
-            "previousClose": prev_close,
-            "volume": fi.last_volume,
-            "marketCap": fi.market_cap,
-            "name": info.get("shortName", symbol.upper()),
-            "exchange": _exchange_name(info.get("exchange", "")),
-            "currency": info.get("currency", "USD"),
+            "open": round(rows[0].open, 2),
+            "high": round(rows[0].high, 2),
+            "low": round(rows[0].low, 2),
+            "previousClose": round(prev, 2),
+            "volume": rows[0].volume,
+            "marketCap": info.market_cap if info else 0,
+            "name": info.name if info else sym,
+            "exchange": "NSE" if sym.endswith(".NS") else "BSE" if sym.endswith(".BO") else "NASDAQ/NYSE",
+            "currency": cur,
+            "asOf": str(rows[0].date),
         }
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Could not fetch quote for {symbol}: {e}")
+    finally:
+        db.close()
 
 
 # ── Multi-quote ───────────────────────────────────────────────────────────────
@@ -305,53 +312,45 @@ async def get_fundamentals(
         "quarterly_financials", "quarterly_balance_sheet", "quarterly_cashflow",
     ]),
 ):
-    """Get fundamental data for a ticker."""
-    try:
-        t = _ticker(symbol)
+    """Get fundamental data from DB stock_info (no live yfinance calls)."""
+    import sys, os
+    sys.path.insert(0, os.path.dirname(__file__))
+    from app.database import SessionLocal
+    from app.models.market_data import StockInfo, StockPrice
+    from sqlalchemy import func
 
-        if sheet == "info":
-            info = t.info
-            keys = [
-                "shortName", "sector", "industry", "fullTimeEmployees", "website",
-                "marketCap", "enterpriseValue", "trailingPE", "forwardPE", "pegRatio",
-                "priceToBook", "trailingEps", "forwardEps", "totalRevenue",
-                "profitMargins", "operatingMargins", "grossMargins", "returnOnEquity",
-                "dividendYield", "payoutRatio", "beta",
-                "fiftyTwoWeekHigh", "fiftyTwoWeekLow", "fiftyDayAverage",
-                "twoHundredDayAverage", "bookValue", "debtToEquity",
-                "totalCash", "totalDebt", "revenueGrowth", "earningsGrowth",
-            ]
+    sym = symbol.upper()
+
+    if sheet == "info":
+        db = SessionLocal()
+        try:
+            info = db.query(StockInfo).filter(StockInfo.symbol == sym).first()
+            prices = db.query(StockPrice).filter(StockPrice.symbol == sym).order_by(StockPrice.date.desc()).limit(252).all()
+            if not info and not prices:
+                raise HTTPException(status_code=404, detail=f"No data for {sym}")
+            closes = [p.close for p in reversed(prices)]
+            high_52w = max((p.high for p in prices), default=0)
+            low_52w = min((p.low for p in prices), default=0)
             return {
-                "symbol": symbol.upper(),
+                "symbol": sym,
                 "sheet": "info",
-                "data": _safe_info(info, keys),
+                "data": {
+                    "shortName": info.name if info else sym,
+                    "sector": info.sector if info else "",
+                    "industry": info.industry if info else "",
+                    "marketCap": info.market_cap if info else 0,
+                    "fiftyTwoWeekHigh": round(high_52w, 2),
+                    "fiftyTwoWeekLow": round(low_52w, 2),
+                },
             }
+        finally:
+            db.close()
 
-        attr_map = {
-            "financials": "financials",
-            "balance_sheet": "balance_sheet",
-            "cashflow": "cashflow",
-            "quarterly_financials": "quarterly_financials",
-            "quarterly_balance_sheet": "quarterly_balance_sheet",
-            "quarterly_cashflow": "quarterly_cashflow",
-        }
+    # Financial statements not available in DB — return empty
+    return {"symbol": sym, "sheet": sheet, "count": 0, "data": [], "note": "Financial statements not available"}
 
-        df = getattr(t, attr_map[sheet])
-        if df is None or df.empty:
-            raise HTTPException(status_code=404, detail=f"No {sheet} data for {symbol}")
-
-        # Transpose: rows = dates, columns = metrics
-        df = df.T
-        df.index.name = "date"
-        df = df.reset_index()
-        df["date"] = df["date"].astype(str)
-
-        return {
-            "symbol": symbol.upper(),
-            "sheet": sheet,
-            "count": len(df),
-            "data": _df_to_records(df),
-        }
+    try:
+        pass
     except HTTPException:
         raise
     except Exception as e:
@@ -490,11 +489,43 @@ async def get_technicals(
     period: str = Query("6mo"),
     interval: str = Query("1d"),
 ):
-    """Compute technical indicators for a ticker."""
+    """Compute technical indicators from DB price history."""
+    import sys, os
+    sys.path.insert(0, os.path.dirname(__file__))
+    from app.database import SessionLocal
+    from app.models.market_data import StockPrice
+    from datetime import date, timedelta
+
+    sym = symbol.upper()
+    if interval == "1d":
+        db = SessionLocal()
+        try:
+            period_days = {"1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730}
+            days = period_days.get(period, 180)
+            cutoff = date.today() - timedelta(days=days)
+            rows = db.query(StockPrice).filter(
+                StockPrice.symbol == sym, StockPrice.date >= cutoff
+            ).order_by(StockPrice.date.asc()).all()
+            if not rows:
+                raise HTTPException(status_code=404, detail=f"No data for {sym}")
+            import pandas as pd
+            _dates = [str(r.date) for r in rows]
+            df = pd.DataFrame([{"Close": r.close, "High": r.high, "Low": r.low, "Volume": r.volume} for r in rows])
+            df.index = _dates
+        finally:
+            db.close()
+    else:
+        try:
+            t = _ticker(symbol)
+            df = t.history(period=period, interval=interval)
+            if df.empty:
+                raise HTTPException(status_code=404, detail=f"No data for {symbol}")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
     try:
-        t = _ticker(symbol)
-        df = t.history(period=period, interval=interval)
-        if df.empty:
+        close = df["Close"]
+        if close.empty:
             raise HTTPException(status_code=404, detail=f"No data for {symbol}")
 
         close = df["Close"]
