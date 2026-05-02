@@ -80,7 +80,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (stored) {
       setToken(stored);
       fetchMe(stored).then((valid) => {
-        if (!valid) clearToken();
+        if (!valid) {
+          // Keep token — API might be temporarily slow. Only clear on explicit logout.
+          setToken(stored);
+        }
         setLoading(false);
       });
     } else {

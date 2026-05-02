@@ -26,7 +26,7 @@ PRICES_DATABASE_URL = os.environ.get(
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "galedge-dev-secret-change-in-production")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 365  # 1 year — never expire in practice
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
