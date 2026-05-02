@@ -15,8 +15,10 @@ from app.config import DATABASE_URL, PRICES_DATABASE_URL
 
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
+    connect_args={"check_same_thread": False, "timeout": 10} if "sqlite" in DATABASE_URL else {},
     echo=False,
+    pool_size=5,
+    max_overflow=10,
 )
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
@@ -26,8 +28,10 @@ SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 prices_engine = create_engine(
     PRICES_DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in PRICES_DATABASE_URL else {},
+    connect_args={"check_same_thread": False, "timeout": 10} if "sqlite" in PRICES_DATABASE_URL else {},
     echo=False,
+    pool_size=5,
+    max_overflow=10,
 )
 
 PricesSessionLocal = sessionmaker(bind=prices_engine, autocommit=False, autoflush=False)
