@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from datetime import datetime
+import asyncio
 
 import math
 import time
@@ -15,6 +16,20 @@ import pandas as pd
 import yfinance as yf
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+
+# Thread pool for blocking yfinance calls — prevents blocking the async event loop
+_executor = ThreadPoolExecutor(max_workers=4)
+
+async def run_in_thread(fn, *args, timeout=20, **kwargs):
+    """Run a blocking function in a thread pool with a timeout."""
+    loop = asyncio.get_event_loop()
+    try:
+        return await asyncio.wait_for(
+            loop.run_in_executor(_executor, lambda: fn(*args, **kwargs)),
+            timeout=timeout,
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=503, detail="Data source timeout — try again")
 
 
 @asynccontextmanager
@@ -273,27 +288,26 @@ async def get_options(
     kind: str = Query("calls", enum=["calls", "puts"]),
 ):
     """Get options chain for a ticker."""
-    try:
+    def _fetch():
         t = _ticker(symbol)
         expirations = t.options
-
         if not expirations:
-            raise HTTPException(status_code=404, detail=f"No options for {symbol}")
-
+            return None, None, None
         target_expiry = expiry if expiry and expiry in expirations else expirations[0]
         chain = t.option_chain(target_expiry)
         df = chain.calls if kind == "calls" else chain.puts
+        return expirations, target_expiry, df
 
+    try:
+        expirations, target_expiry, df = await run_in_thread(_fetch)
+        if expirations is None:
+            raise HTTPException(status_code=404, detail=f"No options for {symbol}")
         cols = ["strike", "lastPrice", "bid", "ask", "volume", "openInterest",
                 "impliedVolatility", "inTheMoney", "change", "percentChange"]
         available = [c for c in cols if c in df.columns]
-
         return {
-            "symbol": symbol.upper(),
-            "expiry": target_expiry,
-            "kind": kind,
-            "expirations": list(expirations),
-            "count": len(df),
+            "symbol": symbol.upper(), "expiry": target_expiry, "kind": kind,
+            "expirations": list(expirations), "count": len(df),
             "data": _df_to_records(df[available]),
         }
     except HTTPException:
@@ -368,60 +382,42 @@ async def get_intel(
     ]),
 ):
     """Get market intelligence — insiders, institutions, analysts, news."""
-    try:
+    def _fetch():
         t = _ticker(symbol)
         result = {"symbol": symbol.upper()}
-
-        sections_to_fetch = (
+        sections = (
             ["insider_transactions", "institutional_holders", "mutual_fund_holders", "recommendations", "news"]
-            if kind == "all"
-            else [kind]
+            if kind == "all" else [kind]
         )
-
-        for section in sections_to_fetch:
-            if section == "news":
-                news_list = t.news or []
-                items = []
-                for item in news_list:
-                    content = item.get("content", {})
-                    items.append({
-                        "title": content.get("title", ""),
-                        "publisher": content.get("provider", {}).get("displayName", ""),
-                        "publishedAt": content.get("pubDate", ""),
-                        "summary": content.get("summary", ""),
-                        "link": content.get("canonicalUrl", {}).get("url", ""),
-                    })
-                result["news"] = items
-
-            elif section == "recommendations":
-                df = t.recommendations
-                if df is not None and not df.empty:
-                    result["recommendations"] = _df_to_records(df)
-                else:
-                    result["recommendations"] = []
-
-            elif section == "insider_transactions":
-                df = t.insider_transactions
-                if df is not None and not df.empty:
-                    result["insider_transactions"] = _df_to_records(df)
-                else:
-                    result["insider_transactions"] = []
-
-            elif section == "institutional_holders":
-                df = t.institutional_holders
-                if df is not None and not df.empty:
-                    result["institutional_holders"] = _df_to_records(df)
-                else:
-                    result["institutional_holders"] = []
-
-            elif section == "mutual_fund_holders":
-                df = t.mutualfund_holders
-                if df is not None and not df.empty:
-                    result["mutual_fund_holders"] = _df_to_records(df)
-                else:
-                    result["mutual_fund_holders"] = []
-
+        for section in sections:
+            try:
+                if section == "news":
+                    news_list = t.news or []
+                    result["news"] = [{"title": i.get("content", {}).get("title", ""),
+                        "publisher": i.get("content", {}).get("provider", {}).get("displayName", ""),
+                        "publishedAt": i.get("content", {}).get("pubDate", ""),
+                        "summary": i.get("content", {}).get("summary", ""),
+                        "link": i.get("content", {}).get("canonicalUrl", {}).get("url", "")} for i in news_list]
+                elif section == "recommendations":
+                    df = t.recommendations
+                    result["recommendations"] = _df_to_records(df) if df is not None and not df.empty else []
+                elif section == "insider_transactions":
+                    df = t.insider_transactions
+                    result["insider_transactions"] = _df_to_records(df) if df is not None and not df.empty else []
+                elif section == "institutional_holders":
+                    df = t.institutional_holders
+                    result["institutional_holders"] = _df_to_records(df) if df is not None and not df.empty else []
+                elif section == "mutual_fund_holders":
+                    df = t.mutualfund_holders
+                    result["mutual_fund_holders"] = _df_to_records(df) if df is not None and not df.empty else []
+            except Exception:
+                result[section] = []
         return result
+
+    try:
+        return await run_in_thread(_fetch)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -596,46 +592,34 @@ async def compare_stocks(
     if len(symbol_list) < 1:
         raise HTTPException(status_code=400, detail="At least one symbol required")
 
-    info_keys = [
-        "marketCap", "trailingPE", "forwardPE", "sector", "industry",
-        "profitMargins", "operatingMargins", "dividendYield", "beta",
-        "fiftyTwoWeekHigh", "fiftyTwoWeekLow",
-    ]
+    info_keys = ["marketCap", "trailingPE", "forwardPE", "sector", "industry",
+                 "profitMargins", "operatingMargins", "dividendYield", "beta",
+                 "fiftyTwoWeekHigh", "fiftyTwoWeekLow"]
 
-    price_data: dict = {}
-    fundamentals: dict = {}
-
-    for sym in symbol_list:
-        try:
-            t = _ticker(sym)
-            hist = t.history(period=period, interval=interval)
-            if hist.empty:
+    def _fetch():
+        price_data: dict = {}
+        fundamentals: dict = {}
+        for sym in symbol_list:
+            try:
+                t = _ticker(sym)
+                hist = t.history(period=period, interval=interval)
+                if hist.empty:
+                    continue
+                close = hist["Close"]
+                first_val = close.iloc[0]
+                normalized = (close / first_val * 100) if first_val else close
+                price_data[sym] = _df_to_records(pd.DataFrame({
+                    "datetime": hist.index.astype(str),
+                    "close": close.values,
+                    "normalized": normalized.values,
+                }))
+                info = t.info
+                fundamentals[sym] = {k: _clean_value(info.get(k)) for k in info_keys}
+            except Exception:
                 continue
-            close = hist["Close"]
-            first_val = close.iloc[0]
-            normalized = (close / first_val * 100) if first_val else close
+        return {"symbols": symbol_list, "period": period, "price_data": price_data, "fundamentals": fundamentals}
 
-            pdf = pd.DataFrame({
-                "datetime": hist.index.astype(str),
-                "close": close.values,
-                "normalized": normalized.values,
-            })
-            price_data[sym] = _df_to_records(pdf)
-
-            info = t.info
-            fund = {}
-            for k in info_keys:
-                fund[k] = _clean_value(info.get(k))
-            fundamentals[sym] = fund
-        except Exception:
-            continue
-
-    return {
-        "symbols": symbol_list,
-        "period": period,
-        "price_data": price_data,
-        "fundamentals": fundamentals,
-    }
+    return await run_in_thread(_fetch)
 
 
 # ── Correlation ──────────────────────────────────────────────────────────────
@@ -651,13 +635,20 @@ async def get_correlation(
     if len(symbol_list) < 2:
         raise HTTPException(status_code=400, detail="At least 2 symbols required")
 
-    try:
-        closes: dict = {}
+    def _fetch_closes():
+        closes = {}
         for sym in symbol_list:
-            t = _ticker(sym)
-            hist = t.history(period=period, interval=interval)
-            if not hist.empty:
-                closes[sym] = hist["Close"]
+            try:
+                t = _ticker(sym)
+                hist = t.history(period=period, interval=interval)
+                if not hist.empty:
+                    closes[sym] = hist["Close"]
+            except Exception:
+                pass
+        return closes
+
+    try:
+        closes = await run_in_thread(_fetch_closes)
 
         if len(closes) < 2:
             raise HTTPException(status_code=404, detail="Not enough data to compute correlation")
@@ -823,7 +814,9 @@ async def get_heatmap(
 ):
     """Get market heatmap data grouped by sector."""
     try:
-        return _build_heatmap(market)
+        return await run_in_thread(_build_heatmap, market, timeout=30)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -926,7 +919,9 @@ async def stock_screener(
 ):
     """Screen stocks by fundamental filters."""
     try:
-        all_stocks = _build_screener()
+        all_stocks = await run_in_thread(_build_screener, timeout=30)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
