@@ -54,7 +54,7 @@ function QuoteCard({ q }: { q: QuoteSummary }) {
       </div>
       <div className="mt-2 flex justify-between text-xs text-zinc-600">
         <span>Vol {formatCurrencyCompact(q.volume, cur)}</span>
-        <span>MCap {formatCurrencyCompact(q.marketCap, cur)}</span>
+        {q.asOf && <span className="text-zinc-700">EOD {q.asOf}</span>}
       </div>
     </button>
   );
@@ -106,9 +106,12 @@ export default function HomePage() {
           Free Stock Market Data
         </h1>
         <p className="text-zinc-500 max-w-xl mx-auto">
-          Real-time prices, interactive charts, options chains, fundamentals,
-          insider trades, and analyst ratings — all free, no signup required.
+          End-of-day prices for 400+ NSE and US stocks. Updated daily.
         </p>
+        <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 inline-block" />
+          EOD data — prices reflect previous trading session close
+        </div>
       </div>
 
       <div className="space-y-10">

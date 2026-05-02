@@ -34,6 +34,7 @@ export interface QuoteSummary {
   changePercent: number;
   volume: number;
   marketCap: number;
+  asOf?: string;
 }
 
 export interface HistoryPoint {
