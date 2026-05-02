@@ -367,33 +367,83 @@ function BuildScreenContent() {
               </TabsList>
             </Tabs>
 
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-              <Input
-                placeholder="Search Metrics"
-                value={metricSearch}
-                onChange={(e) => setMetricSearch(e.target.value)}
-                className="h-7 text-xs pl-7"
-              />
-            </div>
+            {metricTab === "library" && (
+              <>
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                  <Input
+                    placeholder="Search Metrics"
+                    value={metricSearch}
+                    onChange={(e) => setMetricSearch(e.target.value)}
+                    className="h-7 text-xs pl-7"
+                  />
+                </div>
+                <div className="text-[10px] text-muted-foreground">{filteredMetrics.length} Metrics Available</div>
+                <div className="h-40 overflow-y-auto border border-border/30 rounded-md">
+                  {filteredMetrics.map((m) => (
+                    <button
+                      key={m}
+                      className="w-full text-left px-2 py-1 text-[11px] hover:bg-muted/50 border-b border-border/20"
+                      onClick={() => setScreenerQuery((prev) => prev + (prev ? " AND " : "") + m)}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
 
-            <div className="text-[10px] text-muted-foreground">
-              {filteredMetrics.length} Metrics Available
-            </div>
+            {metricTab === "metric" && (
+              <div className="h-52 overflow-y-auto space-y-1.5 text-[11px]">
+                {[
+                  ["MarketCap", "Market capitalisation in crores (₹). e.g. MarketCap > 500"],
+                  ["PE", "Price-to-Earnings ratio. e.g. PE < 20"],
+                  ["PB", "Price-to-Book ratio. e.g. PB < 3"],
+                  ["ROE", "Return on Equity in %. e.g. ROE > 15"],
+                  ["ROCE", "Return on Capital (approx ROE) in %. e.g. ROCE > 20"],
+                  ["ROA", "Return on Assets in %. e.g. ROA > 10"],
+                  ["DividendYield", "Dividend yield in %. e.g. DividendYield > 2"],
+                  ["DebtToEquity", "Debt-to-Equity ratio. e.g. DebtToEquity < 1"],
+                  ["ProfitMargin", "Net profit margin in %. e.g. ProfitMargin > 10"],
+                  ["EPS", "Earnings per share. e.g. EPS > 0"],
+                  ["Beta", "Volatility vs market. e.g. Beta < 1.2"],
+                  ["RevenueGrowth", "Revenue growth YoY in %. e.g. RevenueGrowth > 10"],
+                  ["CurrentRatio", "Current assets / liabilities. e.g. CurrentRatio > 1.5"],
+                  ["Sector", "Stock sector. e.g. Sector == \"Technology\""],
+                  ["High52W", "52-week high price. e.g. High52W > 1000"],
+                  ["Low52W", "52-week low price. e.g. Low52W < 500"],
+                ].map(([name, desc]) => (
+                  <div key={name} className="border border-border/30 rounded p-2">
+                    <div className="font-semibold text-foreground">{name}</div>
+                    <div className="text-muted-foreground mt-0.5">{desc}</div>
+                  </div>
+                ))}
+              </div>
+            )}
 
-            <div className="h-40 overflow-y-auto border border-border/30 rounded-md">
-              {filteredMetrics.map((m) => (
-                <button
-                  key={m}
-                  className="w-full text-left px-2 py-1 text-[11px] hover:bg-muted/50 border-b border-border/20"
-                  onClick={() => {
-                    setScreenerQuery((prev) => prev + (prev ? " AND " : "") + m);
-                  }}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
+            {metricTab === "operator" && (
+              <div className="h-52 overflow-y-auto space-y-1.5 text-[11px]">
+                {[
+                  [">", "Greater than", "MarketCap > 500"],
+                  [">=", "Greater than or equal", "PE >= 10"],
+                  ["<", "Less than", "PE < 20"],
+                  ["<=", "Less than or equal", "DebtToEquity <= 1"],
+                  ["==", "Equals (use for text)", 'Sector == "Technology"'],
+                  ["!=", "Not equals", 'Sector != "Energy"'],
+                  ["AND", "Both conditions must be true", "PE < 20 AND ROE > 15"],
+                  ["OR", "Either condition can be true", "Sector == \"IT\" OR Sector == \"Tech\""],
+                  ["( )", "Group conditions", "(PE < 15 OR PB < 2) AND ROE > 10"],
+                ].map(([op, desc, ex]) => (
+                  <div key={op} className="border border-border/30 rounded p-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-emerald-500">{op}</span>
+                      <span className="text-muted-foreground">{desc}</span>
+                    </div>
+                    <div className="font-mono text-[10px] text-muted-foreground/70 mt-0.5">{ex}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
