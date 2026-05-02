@@ -8,55 +8,73 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          command_timeout: 30m
-          script: |
-            set -e
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
-            # Ensure swap exists
-            if ! sudo swapon --show | grep -q '/swapfile'; then
-              sudo fallocate -l 2G /swapfile
-              sudo chmod 600 /swapfile
-              sudo mkswap /swapfile
-              sudo swapon /swapfile
-              echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-            fi
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: https://galedge.byvaibhav.com
+        run: |
+          npm ci --prefer-offline --no-audit --no-fund
+          npm run build
 
-            cd /opt/galedge
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H 165.232.179.90 >> ~/.ssh/known_hosts
 
-            # Pull latest code (preserve runtime data)
-            git fetch --depth=1 --no-tags origin main
-            git reset --hard origin/main
-            git clean -fd -e backend/uploads/ -e backend/galedge_alpha.db -e frontend/.next/ -e workspace/
+      - name: Deploy backend
+        run: |
+          rsync -avz --delete \
+            --exclude='__pycache__' \
+            --exclude='*.pyc' \
+            --exclude='galedge_alpha.db' \
+            --exclude='galedge_prices.db' \
+            --exclude='uploads/' \
+            backend/app/ \
+            root@165.232.179.90:/opt/galedge/backend/app/
 
-            # ── Backend ──
-            cd /opt/galedge/backend
-            source /opt/galedge/.venv/bin/activate
-            export MAX_JOBS=1
-            pip install --prefer-binary --no-build-isolation --no-cache-dir -r requirements.txt -q 2>&1 | tail -3
-            pip install --no-build-isolation --no-cache-dir -e /opt/galedge/packages/galedge-core -q 2>&1 | tail -1
-            pip install --no-build-isolation --no-cache-dir -e /opt/galedge/packages/galedge-ml -q 2>&1 | tail -1
+          rsync -avz backend/main.py root@165.232.179.90:/opt/galedge/backend/main.py
+          rsync -avz scripts/ root@165.232.179.90:/opt/galedge/scripts/
 
-            sudo systemctl daemon-reload
-            sudo systemctl restart galedge-api
+      - name: Deploy frontend build
+        run: |
+          rsync -avz --delete \
+            frontend/.next/ \
+            root@165.232.179.90:/opt/galedge/frontend/.next/
 
-            # ── Frontend ──
-            cd /opt/galedge/frontend
-            npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -3
+          rsync -avz frontend/public/ root@165.232.179.90:/opt/galedge/frontend/public/
 
-            # Build with more memory and retry once on failure
-            NODE_OPTIONS="--max-old-space-size=1024" npm run build 2>&1 | tail -20 || {
-              echo "First build attempt failed, retrying..."
-              rm -rf .next/cache
-              NODE_OPTIONS="--max-old-space-size=1024" npm run build 2>&1 | tail -20
-            }
+      - name: Restart services
+        run: |
+          ssh root@165.232.179.90 "
+            systemctl restart galedge-api
+            sleep 3
+            systemctl restart galedge-frontend
+            sleep 3
+            systemctl is-active galedge-api galedge-frontend
+          "
 
-            sudo systemctl restart galedge-frontend
-
-            echo "✅ Deployed successfully"
+      - name: Verify deployment
+        run: |
+          sleep 5
+          STATUS=$(curl -sm10 -o /dev/null -w "%{http_code}" https://galedge.byvaibhav.com/api/health)
+          echo "API health: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ API health check failed"
+            exit 1
+          fi
+          echo "✅ Deployed successfully"
