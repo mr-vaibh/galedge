@@ -81,11 +81,33 @@ def _get_metric_value(info: dict, metric: str) -> Any:
         return (1 / pe * 100) if pe and pe > 0 else None
 
     if metric == "MarketCap":
-        # marketCap in info is already in crores (converted in build_info)
         return info.get("marketCap") or info.get("MarketCap")
 
+    if metric == "ROCE":
+        # Approximate ROCE using ROE as proxy (×100 to convert decimal to %)
+        val = info.get("returnOnEquity")
+        return val * 100 if val is not None else None
+
+    if metric == "InterestCoverage":
+        # Approximate: EBITDA margin / DebtToEquity as proxy
+        ebitda_margin = info.get("ebitdaMargins")
+        de = info.get("debtToEquity")
+        if ebitda_margin and de and de > 0:
+            return ebitda_margin / (de / 100)
+        return None
+
     if key:
-        return info.get(key)
+        val = info.get(key)
+        # Convert decimal ratios to percentages for intuitive querying
+        # e.g. ROE=0.48 → 48, DividendYield=0.02 → 2
+        pct_metrics = {
+            "returnOnEquity", "returnOnAssets", "profitMargins",
+            "operatingMargins", "grossMargins", "revenueGrowth",
+            "earningsGrowth", "dividendYield",
+        }
+        if key in pct_metrics and val is not None:
+            return val * 100
+        return val
     return None
 
 
@@ -365,6 +387,8 @@ def run_screen(
             info["netIncomeToCommon"] = si.net_income
             info["fiftyTwoWeekHigh"] = si.high_52w
             info["fiftyTwoWeekLow"] = si.low_52w
+            # ROCE proxy: use ROE (returnOnEquity) as stored
+            info["returnOnEquity"] = si.roe
         if sp:
             info["currentPrice"] = sp.close
             info["price"] = sp.close
