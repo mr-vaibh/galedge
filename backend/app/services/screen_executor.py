@@ -253,58 +253,71 @@ def run_screen(
     portfolio_weight: str = "equal",
     limit: int = 100,
 ) -> dict:
-    """Run a screener query against the stock universe.
-
-    Args:
-        db: Database session
-        query: Screener query (e.g., "MarketCap > 500 AND PE < 15")
-        universe: Optional list of symbols to screen
-        score_equation: Optional score formula
-        portfolio_weight: Weighting method (equal, market_cap)
-        limit: Max results
-
-    Returns:
-        Dict with matching stocks, their metrics, and weights
-    """
-    from concurrent.futures import ThreadPoolExecutor
+    """Run a screener query against the stock universe using DB data."""
     from app.services.data_ingestion import ALL_NSE_STOCKS
+    from sqlalchemy import func
 
+    # Get symbols to screen
     if not universe:
-        # Get all stocks from DB
         symbols = db.execute(select(StockInfo.symbol)).scalars().all()
         universe = list(symbols) if symbols else ALL_NSE_STOCKS[:50]
 
     logger.info("Running screen on %d stocks: %s", len(universe), query[:50])
 
-    # Fetch info for all stocks
-    def fetch_info(sym):
-        try:
-            return sym, yf.Ticker(sym).info
-        except Exception:
-            return sym, {}
+    # Fetch all StockInfo records in one query
+    info_rows = db.query(StockInfo).filter(StockInfo.symbol.in_(universe)).all()
+    info_map = {r.symbol: r for r in info_rows}
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        results = list(executor.map(fetch_info, universe[:limit * 2]))
+    # Fetch latest prices for each symbol
+    latest_prices = (
+        db.query(StockPrice.symbol, func.max(StockPrice.date).label("max_date"))
+        .filter(StockPrice.symbol.in_(universe))
+        .group_by(StockPrice.symbol)
+        .subquery()
+    )
+    price_rows = db.query(StockPrice).join(
+        latest_prices,
+        (StockPrice.symbol == latest_prices.c.symbol) & (StockPrice.date == latest_prices.c.max_date)
+    ).all()
+    price_map = {r.symbol: r for r in price_rows}
+
+    # Build info dict per symbol from DB data
+    def build_info(sym):
+        si = info_map.get(sym)
+        sp = price_map.get(sym)
+        info = {}
+        if si:
+            info["marketCap"] = si.market_cap or 0
+            info["sector"] = si.sector or ""
+            info["industry"] = si.industry or ""
+            info["shortName"] = si.name or sym
+        if sp:
+            info["currentPrice"] = sp.close
+            info["price"] = sp.close
+        return info
 
     # Filter by query
     matches = []
-    for sym, info in results:
+    for sym in universe[:limit * 4]:
+        info = build_info(sym)
         if not info:
             continue
         try:
-            if evaluate_query(info, query):
+            if not query or evaluate_query(info, query):
+                si = info_map.get(sym)
+                sp = price_map.get(sym)
                 matches.append({
                     "symbol": sym,
-                    "name": info.get("shortName", sym),
-                    "sector": info.get("sector", ""),
-                    "industry": info.get("industry", ""),
-                    "marketCap": info.get("marketCap", 0),
-                    "pe": info.get("trailingPE"),
-                    "pb": info.get("priceToBook"),
-                    "roe": info.get("returnOnEquity"),
-                    "dividendYield": info.get("dividendYield"),
-                    "beta": info.get("beta"),
-                    "price": info.get("currentPrice", info.get("regularMarketPrice")),
+                    "name": si.name if si else sym,
+                    "sector": si.sector if si else "",
+                    "industry": si.industry if si else "",
+                    "marketCap": si.market_cap if si else 0,
+                    "price": sp.close if sp else None,
+                    "pe": None,
+                    "pb": None,
+                    "roe": None,
+                    "dividendYield": None,
+                    "beta": None,
                 })
         except Exception as e:
             logger.warning("Query evaluation failed for %s: %s", sym, e)

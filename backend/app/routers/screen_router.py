@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import get_db, get_prices_db
 from app.models.user import User
 from app.models.screen import Screen, AlphaModel, CodeFile
 from app.auth import require_user, get_current_user
@@ -82,6 +82,7 @@ def run_screen_query(
     screen_id: int,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
+    prices_db: Session = Depends(get_prices_db),
 ):
     """Execute a saved screen query and return matching stocks."""
     screen = db.query(Screen).filter(Screen.id == screen_id, Screen.user_id == user.id).first()
@@ -90,7 +91,7 @@ def run_screen_query(
 
     from app.services.screen_executor import run_screen
     result = run_screen(
-        db=db,
+        db=prices_db,
         query=screen.screener_query,
         portfolio_weight=screen.portfolio_weight.lower().replace(" ", "_"),
     )
@@ -108,11 +109,11 @@ def execute_screen_query(
     universe: str = "all",
     weight: str = "equal",
     limit: int = 50,
-    db: Session = Depends(get_db),
+    prices_db: Session = Depends(get_prices_db),
 ):
     """Execute a screen query directly without saving."""
     from app.services.screen_executor import run_screen
-    return run_screen(db=db, query=query, portfolio_weight=weight, limit=limit)
+    return run_screen(db=prices_db, query=query, portfolio_weight=weight, limit=limit)
 
 
 @router.get("/metrics")
