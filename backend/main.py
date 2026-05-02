@@ -18,10 +18,13 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 # Thread pool for blocking yfinance calls — prevents blocking the async event loop
-_executor = ThreadPoolExecutor(max_workers=4)
+# Large pool so zombie timed-out threads can't fill it
+_executor = ThreadPoolExecutor(max_workers=20)
 
-async def run_in_thread(fn, *args, timeout=20, **kwargs):
-    """Run a blocking function in a thread pool with a timeout."""
+async def run_in_thread(fn, *args, timeout=15, **kwargs):
+    """Run a blocking function in a thread pool with a timeout.
+    Note: timed-out threads keep running in background but don't block new requests.
+    """
     loop = asyncio.get_event_loop()
     try:
         return await asyncio.wait_for(
@@ -252,8 +255,8 @@ async def get_history(
         finally:
             db.close()
 
-    # Intraday falls back to yfinance (might be slow/unavailable)
-    try:
+    # Intraday falls back to yfinance — run in thread to avoid blocking event loop
+    def _fetch_intraday():
         t = _ticker(symbol)
         kwargs = {"interval": interval}
         if start:
@@ -262,7 +265,10 @@ async def get_history(
                 kwargs["end"] = end
         else:
             kwargs["period"] = period
-        df = t.history(**kwargs)
+        return t.history(**kwargs)
+
+    try:
+        df = await run_in_thread(_fetch_intraday)
         if df.empty:
             raise HTTPException(status_code=404, detail=f"No data for {symbol}")
         df.columns = [c.lower().replace(" ", "_") for c in df.columns]
@@ -512,10 +518,11 @@ async def get_technicals(
             db.close()
     else:
         try:
-            t = _ticker(symbol)
-            df = t.history(period=period, interval=interval)
+            df = await run_in_thread(lambda: _ticker(symbol).history(period=period, interval=interval))
             if df.empty:
                 raise HTTPException(status_code=404, detail=f"No data for {symbol}")
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
 
