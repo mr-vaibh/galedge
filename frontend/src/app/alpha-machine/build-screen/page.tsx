@@ -168,9 +168,9 @@ function BuildScreenContent() {
         throw new Error(err.detail || err.message || "Execution failed");
       }
       const data = await res.json();
-      const rows: ScreenResult[] = Array.isArray(data) ? data : data.results ?? data.data ?? [];
+      const rows: ScreenResult[] = Array.isArray(data) ? data : data.stocks ?? data.results ?? data.data ?? [];
       setResults(rows);
-      setResultsTotal(data.total ?? rows.length);
+      setResultsTotal(data.total_matches ?? data.total ?? rows.length);
 
       // Save or update the screen if name is provided and user is logged in
       if (name.trim() && token) {
