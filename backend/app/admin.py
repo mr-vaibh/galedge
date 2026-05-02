@@ -46,9 +46,10 @@ class UserAdmin(ModelView, model=User):
     name = "User"
     name_plural = "Users"
     icon = "fa-solid fa-users"
-    column_list = ["id", "email", "full_name", "is_active", "created_at"]
+    column_list = ["id", "email", "full_name", "is_active", "is_admin", "created_at"]
     column_searchable_list = ["email", "full_name"]
     column_sortable_list = ["id", "email", "created_at"]
+    form_columns = ["email", "full_name", "organization", "hashed_password", "is_active", "is_admin"]
     can_create = True
     can_delete = True
     can_edit = True
@@ -62,6 +63,7 @@ class PortfolioAdmin(ModelView, model=Portfolio):
     column_list = ["id", "user_id", "fund_name", "scheme_name", "portfolio_type", "benchmark", "created_at"]
     column_searchable_list = ["fund_name", "scheme_name"]
     column_sortable_list = ["id", "created_at", "portfolio_type"]
+    form_columns = ["user", "fund_name", "scheme_name", "benchmark", "portfolio_type", "initial_aum"]
     can_create = True
     page_size = 50
 
@@ -84,6 +86,7 @@ class StrategyAdmin(ModelView, model=Strategy):
     column_list = ["id", "user_id", "fund_name", "status", "universe", "benchmark", "created_at"]
     column_searchable_list = ["fund_name"]
     column_sortable_list = ["id", "created_at", "status"]
+    form_columns = ["user", "fund_name", "scheme_name", "universe", "benchmark", "status"]
     can_create = True
     page_size = 50
 
@@ -104,6 +107,7 @@ class ScreenAdmin(ModelView, model=Screen):
     icon = "fa-solid fa-filter"
     column_list = ["id", "user_id", "name", "created_at"]
     column_searchable_list = ["name"]
+    form_columns = ["user", "name"]
     can_create = True
     page_size = 50
 
