@@ -240,7 +240,6 @@ def create_admin(app) -> Admin:
         title="Galedge Admin",
         authentication_backend=authentication_backend,
         base_url="/admin",
-        custom_render_js="if(location.pathname==='/admin/')location.replace('/admin/dashboard');",
     )
 
     admin.add_view(DashboardView)
