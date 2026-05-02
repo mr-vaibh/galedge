@@ -125,8 +125,8 @@ class DashboardView(BaseView):
     name = "Dashboard"
     icon = "fa-solid fa-gauge"
 
-    @expose("/dashboard", methods=["GET"])
-    async def dashboard(self, request: Request):
+    @expose("/", methods=["GET"])
+    async def index(self, request: Request):
         if not request.session.get("admin"):
             return RedirectResponse("/admin/login", status_code=302)
 
@@ -172,7 +172,8 @@ class DashboardView(BaseView):
         </head>
         <body class="p-4">
             <div class="d-flex align-items-center gap-3 mb-4">
-                <a href="/admin" class="back"><i class="fa fa-arrow-left"></i> Back to Admin</a>
+                <a href="/admin/user/list" class="back"><i class="fa fa-users me-1"></i> Users</a>
+                <a href="/admin/portfolio/list" class="back ms-3"><i class="fa fa-briefcase me-1"></i> Portfolios</a>
                 <h4 class="mb-0 ms-2"><i class="fa-solid fa-gauge me-2 text-primary"></i>Galedge Dashboard</h4>
             </div>
 
