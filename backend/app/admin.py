@@ -49,7 +49,6 @@ class UserAdmin(ModelView, model=User):
     column_list = ["id", "email", "full_name", "is_active", "created_at"]
     column_searchable_list = ["email", "full_name"]
     column_sortable_list = ["id", "email", "created_at"]
-    column_filters = ["is_active"]
     can_create = False
     can_delete = True
     can_edit = True
@@ -63,7 +62,6 @@ class PortfolioAdmin(ModelView, model=Portfolio):
     column_list = ["id", "user_id", "fund_name", "scheme_name", "portfolio_type", "benchmark", "created_at"]
     column_searchable_list = ["fund_name", "scheme_name"]
     column_sortable_list = ["id", "created_at", "portfolio_type"]
-    column_filters = ["portfolio_type"]
     can_create = False
     page_size = 50
 
@@ -86,7 +84,6 @@ class StrategyAdmin(ModelView, model=Strategy):
     column_list = ["id", "user_id", "fund_name", "status", "universe", "benchmark", "created_at"]
     column_searchable_list = ["fund_name"]
     column_sortable_list = ["id", "created_at", "status"]
-    column_filters = ["status", "universe"]
     can_create = False
     page_size = 50
 
@@ -97,7 +94,6 @@ class BacktestAdmin(ModelView, model=Backtest):
     icon = "fa-solid fa-flask"
     column_list = ["id", "strategy_id", "status", "start_date", "end_date", "created_at"]
     column_sortable_list = ["id", "created_at", "status"]
-    column_filters = ["status"]
     can_create = False
     page_size = 50
 
