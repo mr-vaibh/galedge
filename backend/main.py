@@ -294,6 +294,7 @@ async def get_options(
     kind: str = Query("calls", enum=["calls", "puts"]),
 ):
     """Get options chain for a ticker."""
+    raise HTTPException(status_code=503, detail="Options data unavailable")
     def _fetch():
         t = _ticker(symbol)
         expirations = t.options
@@ -388,6 +389,7 @@ async def get_intel(
     ]),
 ):
     """Get market intelligence — insiders, institutions, analysts, news."""
+    raise HTTPException(status_code=503, detail="Intel data unavailable")
     def _fetch():
         t = _ticker(symbol)
         result = {"symbol": symbol.upper()}
@@ -594,39 +596,42 @@ async def compare_stocks(
     period: str = Query("6mo"),
     interval: str = Query("1d"),
 ):
-    """Compare multiple stocks — normalized prices and fundamentals."""
+    """Compare multiple stocks — normalized prices from DB."""
     symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()][:5]
     if len(symbol_list) < 1:
         raise HTTPException(status_code=400, detail="At least one symbol required")
 
-    info_keys = ["marketCap", "trailingPE", "forwardPE", "sector", "industry",
-                 "profitMargins", "operatingMargins", "dividendYield", "beta",
-                 "fiftyTwoWeekHigh", "fiftyTwoWeekLow"]
+    import sys, os
+    sys.path.insert(0, os.path.dirname(__file__))
+    from app.database import PricesSessionLocal
+    from app.models.market_data import StockPrice, StockInfo
+    from datetime import date, timedelta
 
-    def _fetch():
+    period_days = {"1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825, "max": 9999}
+    days = period_days.get(period, 180)
+    cutoff = date.today() - timedelta(days=days)
+
+    db = PricesSessionLocal()
+    try:
         price_data: dict = {}
         fundamentals: dict = {}
         for sym in symbol_list:
-            try:
-                t = _ticker(sym)
-                hist = t.history(period=period, interval=interval)
-                if hist.empty:
-                    continue
-                close = hist["Close"]
-                first_val = close.iloc[0]
-                normalized = (close / first_val * 100) if first_val else close
-                price_data[sym] = _df_to_records(pd.DataFrame({
-                    "datetime": hist.index.astype(str),
-                    "close": close.values,
-                    "normalized": normalized.values,
-                }))
-                info = t.info
-                fundamentals[sym] = {k: _clean_value(info.get(k)) for k in info_keys}
-            except Exception:
+            rows = db.query(StockPrice).filter(
+                StockPrice.symbol == sym, StockPrice.date >= cutoff
+            ).order_by(StockPrice.date.asc()).all()
+            if not rows:
                 continue
+            closes = [r.close for r in rows]
+            first_val = closes[0]
+            price_data[sym] = [{"datetime": str(r.date), "close": r.close,
+                                 "normalized": round(r.close / first_val * 100, 4) if first_val else 100}
+                                for r in rows]
+            info = db.query(StockInfo).filter(StockInfo.symbol == sym).first()
+            fundamentals[sym] = {"sector": info.sector if info else "", "industry": info.industry if info else "",
+                                  "marketCap": info.market_cap if info else 0}
         return {"symbols": symbol_list, "period": period, "price_data": price_data, "fundamentals": fundamentals}
-
-    return await run_in_thread(_fetch)
+    finally:
+        db.close()
 
 
 # ── Correlation ──────────────────────────────────────────────────────────────
@@ -637,45 +642,42 @@ async def get_correlation(
     period: str = Query("1y"),
     interval: str = Query("1d"),
 ):
-    """Compute Pearson correlation matrix of daily returns."""
+    """Compute Pearson correlation matrix of daily returns from DB."""
     symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()][:10]
     if len(symbol_list) < 2:
         raise HTTPException(status_code=400, detail="At least 2 symbols required")
 
-    def _fetch_closes():
-        closes = {}
-        for sym in symbol_list:
-            try:
-                t = _ticker(sym)
-                hist = t.history(period=period, interval=interval)
-                if not hist.empty:
-                    closes[sym] = hist["Close"]
-            except Exception:
-                pass
-        return closes
+    import sys, os
+    sys.path.insert(0, os.path.dirname(__file__))
+    from app.database import PricesSessionLocal
+    from app.models.market_data import StockPrice
+    from datetime import date, timedelta
+
+    period_days = {"1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825, "max": 9999}
+    days = period_days.get(period, 365)
+    cutoff = date.today() - timedelta(days=days)
 
     try:
-        closes = await run_in_thread(_fetch_closes)
+        db = PricesSessionLocal()
+        try:
+            closes = {}
+            for sym in symbol_list:
+                rows = db.query(StockPrice.date, StockPrice.close).filter(
+                    StockPrice.symbol == sym, StockPrice.date >= cutoff
+                ).order_by(StockPrice.date).all()
+                if rows:
+                    closes[sym] = pd.Series([r.close for r in rows], index=[r.date for r in rows])
+        finally:
+            db.close()
 
         if len(closes) < 2:
-            raise HTTPException(status_code=404, detail="Not enough data to compute correlation")
+            raise HTTPException(status_code=404, detail="Not enough data")
 
         df = pd.DataFrame(closes)
         corr = df.pct_change().corr()
-
-        # Clean matrix values
-        matrix = []
-        for row_sym in corr.index:
-            row = []
-            for col_sym in corr.columns:
-                row.append(_clean_value(float(corr.loc[row_sym, col_sym])))
-            matrix.append(row)
-
-        return {
-            "symbols": list(corr.index),
-            "period": period,
-            "matrix": matrix,
-        }
+        matrix = [[0.0 if pd.isna(corr.loc[r, c]) else round(float(corr.loc[r, c]), 4)
+                   for c in corr.columns] for r in corr.index]
+        return {"symbols": list(corr.index), "period": period, "matrix": matrix}
     except HTTPException:
         raise
     except Exception as e:
@@ -1026,18 +1028,34 @@ async def get_backtest(
 
 @app.get("/api/search")
 async def search(q: str = Query(..., min_length=1)):
-    """Search for tickers by name or symbol."""
+    """Search for tickers by name or symbol — served from DB."""
+    import sys, os
+    sys.path.insert(0, os.path.dirname(__file__))
+    from app.database import PricesSessionLocal
+    from app.models.market_data import StockInfo
+    from sqlalchemy import or_
+
+    q_upper = q.upper()
+    db = PricesSessionLocal()
     try:
-        import yfinance as yf
-        results = yf.Search(q)
-        quotes = []
-        for item in (results.quotes or [])[:10]:
-            quotes.append({
-                "symbol": item.get("symbol", ""),
-                "name": item.get("shortname") or item.get("longname", ""),
-                "exchange": _exchange_name(item.get("exchange", "")),
-                "type": item.get("quoteType", ""),
-            })
-        return quotes
-    except Exception:
-        return []
+        results = db.query(StockInfo).filter(
+            or_(
+                StockInfo.symbol.ilike(f"{q}%"),
+                StockInfo.name.ilike(f"%{q}%"),
+            )
+        ).limit(10).all()
+
+        if not results:
+            # Fallback: search by symbol prefix in price data
+            from app.models.market_data import StockPrice
+            from sqlalchemy import func
+            syms = db.query(StockPrice.symbol).filter(
+                StockPrice.symbol.ilike(f"{q_upper}%")
+            ).distinct().limit(10).all()
+            return [{"symbol": r[0], "name": r[0], "exchange": "NSE" if r[0].endswith(".NS") else "US", "type": "EQUITY"} for r in syms]
+
+        return [{"symbol": r.symbol, "name": r.name or r.symbol,
+                 "exchange": r.exchange or ("NSE" if r.symbol.endswith(".NS") else "US"),
+                 "type": "EQUITY"} for r in results]
+    finally:
+        db.close()
