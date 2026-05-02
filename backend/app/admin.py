@@ -63,7 +63,9 @@ class PortfolioAdmin(ModelView, model=Portfolio):
     column_list = ["id", "user_id", "fund_name", "scheme_name", "portfolio_type", "benchmark", "created_at"]
     column_searchable_list = ["fund_name", "scheme_name"]
     column_sortable_list = ["id", "created_at", "portfolio_type"]
-    form_columns = ["user", "fund_name", "scheme_name", "benchmark", "portfolio_type", "initial_aum"]
+    form_columns = ["user", "fund_name", "scheme_name", "iteration", "benchmark", "portfolio_type",
+                    "initial_aum", "enable_transaction_cost", "start_date", "end_date",
+                    "analytics_status", "lite_analytics_status"]
     can_create = True
     page_size = 50
 
@@ -75,6 +77,7 @@ class TrackerHoldingAdmin(ModelView, model=TrackerHolding):
     column_list = ["id", "user_id", "symbol", "shares", "buy_price", "buy_date", "created_at"]
     column_searchable_list = ["symbol"]
     column_sortable_list = ["id", "user_id", "symbol", "buy_date"]
+    form_columns = ["user", "client_id", "symbol", "shares", "buy_price", "buy_date"]
     can_create = True
     page_size = 100
 
@@ -86,7 +89,8 @@ class StrategyAdmin(ModelView, model=Strategy):
     column_list = ["id", "user_id", "fund_name", "status", "universe", "benchmark", "created_at"]
     column_searchable_list = ["fund_name"]
     column_sortable_list = ["id", "created_at", "status"]
-    form_columns = ["user", "fund_name", "scheme_name", "universe", "benchmark", "status"]
+    form_columns = ["user", "fund_name", "scheme_name", "iteration_name", "universe", "benchmark",
+                    "include_futures", "status", "is_production", "rebalance_status", "analytics_status"]
     can_create = True
     page_size = 50
 
@@ -97,6 +101,7 @@ class BacktestAdmin(ModelView, model=Backtest):
     icon = "fa-solid fa-flask"
     column_list = ["id", "strategy_id", "status", "start_date", "end_date", "created_at"]
     column_sortable_list = ["id", "created_at", "status"]
+    form_columns = ["strategy", "start_date", "end_date", "rebalance_frequency", "status"]
     can_create = True
     page_size = 50
 
@@ -107,7 +112,8 @@ class ScreenAdmin(ModelView, model=Screen):
     icon = "fa-solid fa-filter"
     column_list = ["id", "user_id", "name", "created_at"]
     column_searchable_list = ["name"]
-    form_columns = ["user", "name"]
+    form_columns = ["user", "name", "description", "parent_universe", "sector", "industry",
+                    "portfolio_weight", "screener_query", "score_equation", "score_variable"]
     can_create = True
     page_size = 50
 
