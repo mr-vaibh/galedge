@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
 from app.models.user import User
-from app.models.portfolio import Portfolio, PortfolioHolding
+from app.models.portfolio import Portfolio, PortfolioHolding, TrackerHolding
 from app.models.market_data import StockPrice
 from app.auth import require_user, get_current_user
 
@@ -244,5 +244,55 @@ def delete_portfolio(
     if not portfolio:
         raise HTTPException(status_code=404, detail="Portfolio not found")
     db.delete(portfolio)
+    db.commit()
+    return {"deleted": True}
+
+
+# ── Portfolio Tracker ─────────────────────────────────────────────────────────
+
+tracker_router = APIRouter(prefix="/api/tracker", tags=["tracker"])
+
+class TrackerHoldingIn(BaseModel):
+    id: str  # client-generated UUID
+    symbol: str
+    shares: float
+    buyPrice: float
+    buyDate: str
+
+@tracker_router.get("/holdings")
+def get_tracker_holdings(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    holdings = db.query(TrackerHolding).filter(TrackerHolding.user_id == user.id).all()
+    return [{"id": h.client_id, "symbol": h.symbol, "shares": h.shares,
+             "buyPrice": h.buy_price, "buyDate": h.buy_date} for h in holdings]
+
+@tracker_router.post("/holdings")
+def upsert_tracker_holdings(
+    holdings: list[TrackerHoldingIn],
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Replace all holdings for the user (full sync)."""
+    db.query(TrackerHolding).filter(TrackerHolding.user_id == user.id).delete()
+    for h in holdings:
+        db.add(TrackerHolding(
+            user_id=user.id, client_id=h.id, symbol=h.symbol,
+            shares=h.shares, buy_price=h.buyPrice, buy_date=h.buyDate,
+        ))
+    db.commit()
+    return {"saved": len(holdings)}
+
+@tracker_router.delete("/holdings/{holding_id}")
+def delete_tracker_holding(
+    holding_id: str,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    h = db.query(TrackerHolding).filter(
+        TrackerHolding.user_id == user.id,
+        TrackerHolding.client_id == holding_id,
+    ).first()
+    if not h:
+        raise HTTPException(status_code=404, detail="Holding not found")
+    db.delete(h)
     db.commit()
     return {"deleted": True}

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { api, Quote } from "@/lib/api";
-import { Holding, getHoldings, addHolding, removeHolding } from "@/lib/portfolio";
+import { Holding, getHoldings, addHolding, removeHolding, migrateLocalToServer } from "@/lib/portfolio";
 import { ExportButton } from "@/components/ExportButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +36,7 @@ export default function PortfolioPage() {
   const [form, setForm] = useState({ symbol: "", shares: "", buyPrice: "", buyDate: "" });
 
   const loadHoldings = useCallback(async () => {
-    const stored = getHoldings();
+    const stored = await getHoldings();
     if (!stored.length) { setHoldings([]); return; }
 
     setLoading(true);
@@ -58,9 +58,11 @@ export default function PortfolioPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { loadHoldings(); }, [loadHoldings]);
+  useEffect(() => {
+    migrateLocalToServer().then(() => loadHoldings());
+  }, [loadHoldings]);
 
-  function handleAdd() {
+  async function handleAdd() {
     if (!form.symbol || !form.shares || !form.buyPrice) return;
     const sym = form.symbol.toUpperCase();
     const nativeCur = sym.endsWith(".NS") || sym.endsWith(".BO") ? "INR" : "USD";
@@ -70,7 +72,7 @@ export default function PortfolioPage() {
       if (currency === "INR" && nativeCur === "USD") buyPrice = buyPrice / rate;
       else if (currency === "USD" && nativeCur === "INR") buyPrice = buyPrice * rate;
     }
-    addHolding({
+    await addHolding({
       symbol: sym,
       shares: parseFloat(form.shares),
       buyPrice,
@@ -81,8 +83,8 @@ export default function PortfolioPage() {
     loadHoldings();
   }
 
-  function handleRemove(id: string) {
-    removeHolding(id);
+  async function handleRemove(id: string) {
+    await removeHolding(id);
     loadHoldings();
   }
 

@@ -45,3 +45,19 @@ class PortfolioHolding(Base):
 
     # Relationships
     portfolio = relationship("Portfolio", back_populates="holdings")
+
+
+class TrackerHolding(Base):
+    """Simple per-user portfolio tracker holding — buy price, shares, date."""
+    __tablename__ = "tracker_holdings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    client_id: Mapped[str] = mapped_column(String(64), index=True)  # UUID from client
+    symbol: Mapped[str] = mapped_column(String(50), index=True)
+    shares: Mapped[float] = mapped_column(Float)
+    buy_price: Mapped[float] = mapped_column(Float)
+    buy_date: Mapped[str] = mapped_column(String(20))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    user = relationship("User")
