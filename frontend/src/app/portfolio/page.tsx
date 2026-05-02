@@ -33,7 +33,8 @@ export default function PortfolioPage() {
   const [holdings, setHoldings] = useState<HoldingWithQuote[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ symbol: "", shares: "", buyPrice: "", buyDate: "" });
+  const today = new Date().toISOString().slice(0, 10);
+  const [form, setForm] = useState({ symbol: "", shares: "", buyPrice: "", buyDate: today });
 
   const loadHoldings = useCallback(async () => {
     const stored = await getHoldings();
@@ -78,7 +79,7 @@ export default function PortfolioPage() {
       buyPrice,
       buyDate: form.buyDate || new Date().toISOString().slice(0, 10),
     });
-    setForm({ symbol: "", shares: "", buyPrice: "", buyDate: "" });
+    setForm({ symbol: "", shares: "", buyPrice: "", buyDate: today });
     setShowForm(false);
     loadHoldings();
   }
