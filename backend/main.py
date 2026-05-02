@@ -133,30 +133,50 @@ async def get_quote(symbol: str):
 
 @app.get("/api/quotes")
 async def get_quotes(symbols: str = Query(..., description="Comma-separated symbols")):
-    """Get live quotes for multiple tickers."""
+    """Get quotes — served from DB (EOD) for reliability."""
+    import sys, os
+    sys.path.insert(0, os.path.dirname(__file__))
+    from app.database import SessionLocal
+    from app.models.market_data import StockPrice, StockInfo
+    from sqlalchemy import func
+
     ticker_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
     results = []
-    for sym in ticker_list[:20]:  # cap at 20
-        try:
-            t = _ticker(sym)
-            fi = t.fast_info
-            info = t.info
-            prev_close = fi.previous_close
-            price = fi.last_price
-            change = price - prev_close if prev_close else 0
-            change_pct = (change / prev_close * 100) if prev_close else 0
+    db = SessionLocal()
+    try:
+        for sym in ticker_list[:20]:
+            try:
+                # Get last 2 trading days from DB
+                rows = (
+                    db.query(StockPrice)
+                    .filter(StockPrice.symbol == sym)
+                    .order_by(StockPrice.date.desc())
+                    .limit(2)
+                    .all()
+                )
+                if not rows:
+                    continue
 
-            results.append({
-                "symbol": sym,
-                "name": info.get("shortName", sym),
-                "price": price,
-                "change": round(change, 2),
-                "changePercent": round(change_pct, 2),
-                "volume": fi.last_volume,
-                "marketCap": fi.market_cap,
-            })
-        except Exception:
-            pass
+                info = db.query(StockInfo).filter(StockInfo.symbol == sym).first()
+                price = rows[0].close
+                prev_close = rows[1].close if len(rows) > 1 else price
+                change = price - prev_close
+                change_pct = (change / prev_close * 100) if prev_close else 0
+
+                results.append({
+                    "symbol": sym,
+                    "name": info.name if info else sym,
+                    "price": round(price, 2),
+                    "change": round(change, 2),
+                    "changePercent": round(change_pct, 2),
+                    "volume": rows[0].volume,
+                    "marketCap": info.market_cap if info else 0,
+                    "asOf": str(rows[0].date),
+                })
+            except Exception:
+                pass
+    finally:
+        db.close()
     return results
 
 
@@ -172,7 +192,45 @@ async def get_history(
     start: str | None = Query(None),
     end: str | None = Query(None),
 ):
-    """Get OHLCV history for a ticker."""
+    """Get OHLCV history — served from DB for daily data, yfinance for intraday."""
+    import sys, os
+    sys.path.insert(0, os.path.dirname(__file__))
+    from app.database import SessionLocal
+    from app.models.market_data import StockPrice
+    from datetime import date, timedelta
+
+    sym = symbol.upper()
+
+    # Serve daily from DB (fast, no yfinance)
+    if interval == "1d":
+        db = SessionLocal()
+        try:
+            q = db.query(StockPrice).filter(StockPrice.symbol == sym)
+            if start:
+                q = q.filter(StockPrice.date >= start)
+                if end:
+                    q = q.filter(StockPrice.date <= end)
+            else:
+                period_days = {"1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825, "max": 9999}
+                days = period_days.get(period, 180)
+                cutoff = date.today() - timedelta(days=days)
+                q = q.filter(StockPrice.date >= cutoff)
+
+            rows = q.order_by(StockPrice.date.asc()).all()
+            if not rows:
+                raise HTTPException(status_code=404, detail=f"No data for {sym}")
+
+            return {
+                "symbol": sym,
+                "interval": interval,
+                "count": len(rows),
+                "data": [{"datetime": str(r.date), "open": r.open, "high": r.high,
+                          "low": r.low, "close": r.close, "volume": r.volume} for r in rows],
+            }
+        finally:
+            db.close()
+
+    # Intraday falls back to yfinance (might be slow/unavailable)
     try:
         t = _ticker(symbol)
         kwargs = {"interval": interval}
@@ -182,20 +240,15 @@ async def get_history(
                 kwargs["end"] = end
         else:
             kwargs["period"] = period
-
         df = t.history(**kwargs)
         if df.empty:
             raise HTTPException(status_code=404, detail=f"No data for {symbol}")
-
         df.columns = [c.lower().replace(" ", "_") for c in df.columns]
         df.index.name = "datetime"
         df = df.reset_index()
         df["datetime"] = df["datetime"].astype(str)
-
         return {
-            "symbol": symbol.upper(),
-            "interval": interval,
-            "count": len(df),
+            "symbol": sym, "interval": interval, "count": len(df),
             "data": df[["datetime", "open", "high", "low", "close", "volume"]].to_dict(orient="records"),
         }
     except HTTPException:
