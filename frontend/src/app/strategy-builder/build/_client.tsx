@@ -156,6 +156,7 @@ export default function BuildStrategyPageInner() {
   const [backtestEquity, setBacktestEquity] = useState<Record<string, unknown>[]>([]);
   const [benchmarkCurve, setBenchmarkCurve] = useState<Record<string, unknown>[]>([]);
   const [backtestRebalances, setBacktestRebalances] = useState<Record<string, unknown>[]>([]);
+  const [lastBacktestBenchmark, setLastBacktestBenchmark] = useState<string>("NIFTY 50");
 
   // Configure Backtest dialog state
   const [configTab, setConfigTab] = useState<string | number>("regular");
@@ -243,6 +244,11 @@ export default function BuildStrategyPageInner() {
   const runBacktest = useCallback(async () => {
     setBacktestLoading(true);
     setBacktestError(null);
+    // Clear previous results so user knows a new run is happening
+    setBacktestResults(null);
+    setBacktestEquity([]);
+    setBenchmarkCurve([]);
+    setBacktestRebalances([]);
     try {
       // Step 1: Save strategy (reuse existing if editing)
       const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("galedge_auth_token") : null);
@@ -364,6 +370,7 @@ export default function BuildStrategyPageInner() {
       setBacktestEquity(data.equity_curve || []);
       setBenchmarkCurve(data.benchmark_curve || []);
       setBacktestRebalances(data.rebalances || []);
+      setLastBacktestBenchmark(benchmark || "NIFTY 50");
       setShowConfigDialog(false);
     } catch (e) {
       setBacktestError(e instanceof Error ? e.message : "Backtest failed");
@@ -744,7 +751,7 @@ export default function BuildStrategyPageInner() {
                   </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-[10px] text-muted-foreground">{benchmark || "NIFTY 50"}</div>
+                  <div className="text-[10px] text-muted-foreground">{lastBacktestBenchmark}</div>
                   <div className={`text-sm font-bold ${Number(backtestResults.benchmark_return) >= 0 ? "text-emerald-500" : "text-red-500"}`}>
                     {Number(backtestResults.benchmark_return) >= 0 ? "+" : ""}{String(backtestResults.benchmark_return)}%
                   </div>
@@ -761,7 +768,7 @@ export default function BuildStrategyPageInner() {
                 }))}
                 series={[
                   { key: "value", name: "Your Strategy", color: "#f97316" },
-                  ...(benchmarkCurve.length > 0 ? [{ key: "benchmark", name: benchmark || "NIFTY 50", color: "#6366f1" }] : []),
+                  ...(benchmarkCurve.length > 0 ? [{ key: "benchmark", name: lastBacktestBenchmark, color: "#6366f1" }] : []),
                 ]}
                 height={200}
                 yFormatter={(v) => formatCurrencyCompact(v, "INR")}
