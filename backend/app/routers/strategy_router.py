@@ -19,13 +19,21 @@ from app.services.data_ingestion import ALL_NSE_STOCKS
 
 logger = logging.getLogger(__name__)
 
-UNIVERSE_MAP = {
+_UNIVERSE_MAP_RAW = {
     "NIFTY 50": ALL_NSE_STOCKS[:50],
     "NIFTY 100": ALL_NSE_STOCKS[:100],
     "NIFTY NEXT 50": ALL_NSE_STOCKS[50:100],
+    "NIFTY 200": ALL_NSE_STOCKS[:200],
     "NIFTY 500": ALL_NSE_STOCKS,
+    "NIFTY MIDCAP 150": ALL_NSE_STOCKS[100:250],
+    "NIFTY SMALLCAP 250": ALL_NSE_STOCKS[250:500],
     "NIFTY": ALL_NSE_STOCKS[:50],
 }
+UNIVERSE_MAP = {k.upper(): v for k, v in _UNIVERSE_MAP_RAW.items()}
+
+
+def _get_universe(name: str) -> list[str]:
+    return UNIVERSE_MAP.get((name or "").upper(), ALL_NSE_STOCKS[:50])
 
 router = APIRouter(prefix="/api/strategies", tags=["strategies"])
 
@@ -201,7 +209,7 @@ def generate_rebalance(strategy_id: int, user: User = Depends(require_user), db:
         raise HTTPException(status_code=400, detail="Only production strategies can generate rebalance trades")
 
     # Get universe symbols
-    symbols = UNIVERSE_MAP.get(strategy.universe, ALL_NSE_STOCKS[:50])
+    symbols = _get_universe(strategy.universe)
 
     # Fetch prices from prices DB
     prices = (

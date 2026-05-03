@@ -38,12 +38,23 @@ class BacktestRequest(BaseModel):
     optimizer_constraints: list[dict] = []
 
 
-UNIVERSE_MAP = {
+_UNIVERSE_MAP_RAW = {
     "NIFTY 50": ALL_NSE_STOCKS[:50],
     "NIFTY 100": ALL_NSE_STOCKS[:100],
     "NIFTY NEXT 50": ALL_NSE_STOCKS[50:100],
+    "NIFTY 200": ALL_NSE_STOCKS[:200],
+    "NIFTY 500": ALL_NSE_STOCKS[:500],
+    "NIFTY MIDCAP 150": ALL_NSE_STOCKS[100:250],
+    "NIFTY SMALLCAP 250": ALL_NSE_STOCKS[250:500],
     "CUSTOM": [],
 }
+# Case-insensitive lookup map
+UNIVERSE_MAP = {k.upper(): v for k, v in _UNIVERSE_MAP_RAW.items()}
+
+
+def _get_universe(name: str) -> list[str]:
+    """Case-insensitive universe lookup with fallback."""
+    return UNIVERSE_MAP.get((name or "").upper(), ALL_NSE_STOCKS[:50])
 
 
 def _equal_weight_fn(symbols: list[str]):
@@ -180,7 +191,7 @@ def run_strategy_backtest(
     if req.symbols:
         symbols = req.symbols
     else:
-        symbols = UNIVERSE_MAP.get(req.universe, ALL_NSE_STOCKS[:50])
+        symbols = _get_universe(req.universe)
 
     if not symbols:
         raise HTTPException(status_code=400, detail="No symbols specified")
@@ -204,7 +215,7 @@ def run_strategy_backtest(
     )
 
     # Use benchmark symbols for comparison curve
-    benchmark_syms = UNIVERSE_MAP.get(req.benchmark or "NIFTY 50", ALL_NSE_STOCKS[:50])
+    benchmark_syms = _get_universe(req.benchmark or "NIFTY 50")
 
     try:
         result = run_backtest(prices_db, symbols, weight_fn, config, benchmark_symbols=benchmark_syms)
@@ -256,7 +267,7 @@ def quick_backtest(
     prices_db: Session = Depends(get_prices_db),
 ):
     """Quick backtest without auth — for demo/testing."""
-    symbols = UNIVERSE_MAP.get(universe, ALL_NSE_STOCKS[:50])
+    symbols = _get_universe(universe)
 
     weight_fn = _momentum_weight_fn(symbols) if method == "momentum" else _equal_weight_fn(symbols)
 
