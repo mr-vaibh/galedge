@@ -1,355 +1,405 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
-import { BarChartPanel } from "@/components/charts/BarChartPanel";
+import { Loader2, BarChart3, X, Plus } from "lucide-react";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
-import { useAuth } from "@/lib/auth";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+const TOKEN_KEY = "galedge_auth_token";
 
-const peerTabs = [
-  { label: "Peer Returns and Risks", href: "/analytics/peer-intelligence" },
-  { label: "Peer Breakdown", href: "/analytics/peer-intelligence/peer-breakdown" },
+interface PeerEntry {
+  label: string;
+  source: "portfolio" | "strategy";
+  sourceId: number;
+  backtestId?: number;
+  benchmark: string;
+  data: Record<string, unknown> | null;
+  loading: boolean;
+  error: string | null;
+}
+
+interface SelectorOption {
+  label: string;
+  source: "portfolio" | "strategy";
+  sourceId: number;
+  backtestId?: number;
+}
+
+interface SelectorData {
+  portfolios: Array<{ id: number; fund_name: string; scheme_name: string; benchmark: string }>;
+  strategies: Array<{
+    id: number;
+    fund_name: string;
+    scheme_name: string;
+    iteration_name: string;
+    backtests: Array<{ id: number; start_date: string; end_date: string; status: string }>;
+  }>;
+}
+
+const COLORS = ["#f97316", "#10b981", "#3b82f6", "#a855f7", "#eab308"];
+
+function fmt(v: unknown, decimals = 2): string {
+  if (v == null || v === "") return "—";
+  const n = Number(v);
+  if (isNaN(n)) return String(v);
+  return n.toFixed(decimals);
+}
+
+const METRICS = [
+  { label: "Total Return (%)", path: ["pnl_metrics", "total_return_pct"] },
+  { label: "CAGR (%)", path: ["pnl_metrics", "cagr_pct"] },
+  { label: "Sharpe Ratio", path: ["pnl_metrics", "sharpe"] },
+  { label: "Sortino Ratio", path: ["pnl_metrics", "sortino"] },
+  { label: "Beta", path: ["pnl_metrics", "beta"] },
+  { label: "Max Drawdown (%)", path: ["pnl_metrics", "max_drawdown_pct"] },
+  { label: "Volatility (%)", path: ["pnl_metrics", "volatility_pct"] },
 ];
 
-interface EquityPoint { date: string; value: number; drawdown?: number }
+function getNestedValue(data: Record<string, unknown>, path: string[]): unknown {
+  let cur: unknown = data;
+  for (const key of path) {
+    if (cur == null || typeof cur !== "object") return null;
+    cur = (cur as Record<string, unknown>)[key];
+  }
+  return cur;
+}
 
-interface FactorBreakdown {
-  factor: string;
-  factor_type?: string;
-  return_contribution: number;
-  risk_contribution: number;
-  exposure: number;
+async function fetchAnalytics(
+  source: "portfolio" | "strategy",
+  sourceId: number,
+  backtestId: number | undefined,
+  benchmark: string
+): Promise<Record<string, unknown>> {
+  const token = typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
+  if (!token) throw new Error("Not authenticated");
+
+  const params = new URLSearchParams({ source, source_id: String(sourceId), benchmark });
+  if (backtestId != null) params.set("backtest_id", String(backtestId));
+
+  const res = await fetch(`${API_BASE}/api/analytics/v2/compute?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Failed" }));
+    throw new Error(typeof err?.detail === "string" ? err.detail : "Analytics failed");
+  }
+  return res.json();
+}
+
+async function fetchSelector(): Promise<SelectorData> {
+  const token = typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
+  if (!token) throw new Error("Not authenticated");
+  const res = await fetch(`${API_BASE}/api/analytics/v2/selector`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("Selector fetch failed");
+  return res.json();
 }
 
 export default function PeerIntelligencePage() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const { selectedPortfolioId, selectedFundName } = usePortfolio();
-  const { token } = useAuth();
+  const { selectedBenchmark } = usePortfolio();
+  const [peers, setPeers] = useState<PeerEntry[]>([]);
+  const [showPicker, setShowPicker] = useState(false);
+  const [selectorData, setSelectorData] = useState<SelectorData | null>(null);
+  const [selectorLoading, setSelectorLoading] = useState(false);
 
-  const [equityCurve, setEquityCurve] = useState<EquityPoint[]>([]);
-  const [factors, setFactors] = useState<FactorBreakdown[]>([]);
-  const [perfData, setPerfData] = useState<Record<string, unknown> | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [contributorTab, setContributorTab] = useState<"overall" | "style" | "industry">("overall");
-
-  const fetchData = useCallback(async () => {
-    if (!selectedPortfolioId || !token) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const [perfRes, decompRes] = await Promise.all([
-        fetch(`${API_BASE}/api/analytics/performance/${selectedPortfolioId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${API_BASE}/api/analytics/return-decomposition/${selectedPortfolioId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-      ]);
-
-      if (perfRes.ok) {
-        const data = await perfRes.json();
-        setPerfData(data);
-        setEquityCurve(data.equity_curve || []);
+  const openPicker = async () => {
+    setShowPicker(true);
+    if (!selectorData) {
+      setSelectorLoading(true);
+      try {
+        const data = await fetchSelector();
+        setSelectorData(data);
+      } catch {
+        // ignore
+      } finally {
+        setSelectorLoading(false);
       }
-
-      if (decompRes.ok) {
-        const data = await decompRes.json();
-        setFactors(data.factors || []);
-      }
-    } catch {
-      setError("Could not connect to API");
-    } finally {
-      setLoading(false);
     }
-  }, [selectedPortfolioId, token]);
+  };
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const addPeer = useCallback(async (opt: SelectorOption) => {
+    setShowPicker(false);
+    if (peers.length >= 5) return;
+    if (peers.some((p) => p.source === opt.source && p.sourceId === opt.sourceId && p.backtestId === opt.backtestId)) return;
 
-  // Build return chart: portfolio cumulative return vs benchmark
-  const returnChartData = equityCurve.length > 0
-    ? equityCurve.map((p) => ({
-        date: p.date,
-        portfolio: ((p.value - equityCurve[0].value) / equityCurve[0].value) * 100,
-      }))
-    : [];
+    const newPeer: PeerEntry = {
+      label: opt.label,
+      source: opt.source,
+      sourceId: opt.sourceId,
+      backtestId: opt.backtestId,
+      benchmark: selectedBenchmark,
+      data: null,
+      loading: true,
+      error: null,
+    };
 
-  // Factor bar chart: top contributors/detractors sorted by absolute contribution
-  const sortedFactors = [...factors].sort((a, b) => b.return_contribution - a.return_contribution);
-  const factorBarData = sortedFactors
-    .filter((f) => f.return_contribution !== 0)
-    .map((f) => ({
-      name: f.factor,
-      value: parseFloat((f.return_contribution * 100).toFixed(2)),
-    }));
+    setPeers((prev) => [...prev, newPeer]);
 
-  // Filter factors by tab
-  const filteredFactors = contributorTab === "overall"
-    ? sortedFactors
-    : contributorTab === "style"
-      ? sortedFactors.filter((f) => f.factor_type === "Style")
-      : sortedFactors.filter((f) => f.factor_type === "Industry" || f.factor_type === "Market");
+    try {
+      const data = await fetchAnalytics(opt.source, opt.sourceId, opt.backtestId, selectedBenchmark);
+      setPeers((prev) =>
+        prev.map((p) =>
+          p.source === opt.source && p.sourceId === opt.sourceId && p.backtestId === opt.backtestId
+            ? { ...p, data, loading: false }
+            : p
+        )
+      );
+    } catch (e: unknown) {
+      setPeers((prev) =>
+        prev.map((p) =>
+          p.source === opt.source && p.sourceId === opt.sourceId && p.backtestId === opt.backtestId
+            ? { ...p, loading: false, error: e instanceof Error ? e.message : "Failed" }
+            : p
+        )
+      );
+    }
+  }, [peers, selectedBenchmark]);
 
-  const topContributors = filteredFactors.filter((f) => f.return_contribution > 0).slice(0, 5);
-  const topDetractors = [...filteredFactors].sort((a, b) => a.return_contribution - b.return_contribution).filter((f) => f.return_contribution < 0).slice(0, 5);
+  const removePeer = (idx: number) => {
+    setPeers((prev) => prev.filter((_, i) => i !== idx));
+  };
 
-  // If no detractors with negative contribution, show lowest
-  const detractors = topDetractors.length > 0
-    ? topDetractors
-    : [...filteredFactors].sort((a, b) => a.return_contribution - b.return_contribution).slice(0, 5);
-
-  if (!selectedPortfolioId) {
-    return (
-      <div className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Peer Intelligence</h1>
-          <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
-            {peerTabs.map((tab) => (
-              <Button key={tab.href} variant={pathname === tab.href ? "secondary" : "ghost"} size="sm" onClick={() => router.push(tab.href)} className="h-7 text-[10px]">{tab.label}</Button>
-            ))}
-          </div>
-        </div>
-        <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
-            No portfolio selected. <button className="underline text-blue-400" onClick={() => router.push("/portfolio-construction/select")}>Select a portfolio</button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+  // Build options from selector data
+  const options: SelectorOption[] = [];
+  if (selectorData) {
+    selectorData.portfolios.forEach((p) => {
+      options.push({ label: `${p.fund_name} (Portfolio)`, source: "portfolio", sourceId: p.id });
+    });
+    selectorData.strategies.forEach((s) => {
+      s.backtests.filter((bt) => bt.status === "completed").forEach((bt) => {
+        options.push({
+          label: `${s.fund_name} — ${bt.start_date.slice(0, 7)}→${bt.end_date.slice(0, 7)}`,
+          source: "strategy",
+          sourceId: s.id,
+          backtestId: bt.id,
+        });
+      });
+    });
   }
+
+  // Build performance comparison table rows
+  const perfTableRows = METRICS.map(({ label, path }) => {
+    const cells = peers.map((p) =>
+      p.data ? fmt(getNestedValue(p.data, path)) : p.loading ? "..." : "—"
+    );
+    return { label, cells };
+  });
+
+  // Build factor exposure grouped bar chart
+  const peerFactors = peers.map((p) => {
+    if (!p.data) return { label: p.label, factors: [] as { name: string; value: number }[] };
+    const fd = (p.data.factor_detail as Array<Record<string, unknown>> | undefined) ?? [];
+    const top5 = [...fd]
+      .sort((a, b) => Math.abs(Number(b.exposure_pct ?? 0)) - Math.abs(Number(a.exposure_pct ?? 0)))
+      .slice(0, 5)
+      .map((f) => ({ name: String(f.factor_name ?? f.factor ?? ""), value: Number(f.exposure_pct ?? 0) }));
+    return { label: p.label, factors: top5 };
+  });
+
+  // Build market cap comparison
+  const mcapKeys = ["large_cap_pct", "mid_cap_pct", "small_cap_pct"];
+  const mcapLabels = ["Large Cap", "Mid Cap", "Small Cap"];
+  const mcapBarData = peers.map((p) => {
+    const ms = (p.data?.mcap_slicing as Array<Record<string, unknown>> | undefined) ?? [];
+    const row: Record<string, unknown> = { name: p.label };
+    mcapLabels.forEach((l, i) => {
+      const found = ms.find((x) => String(x.bucket ?? x.name ?? "").toLowerCase().includes(l.split(" ")[0].toLowerCase()));
+      row[l] = found ? Number(found.weight_pct ?? found.total_return_pct ?? 0) : 0;
+    });
+    return row;
+  });
 
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">Peer Intelligence</h1>
-          {selectedFundName && (
-            <p className="text-xs text-muted-foreground">Portfolio: <span className="font-medium text-foreground">{selectedFundName}</span></p>
-          )}
-        </div>
-        <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
-          {peerTabs.map((tab) => (
-            <Button key={tab.href} variant={pathname === tab.href ? "secondary" : "ghost"} size="sm" onClick={() => router.push(tab.href)} className="h-7 text-[10px]">{tab.label}</Button>
-          ))}
+          <p className="text-xs text-muted-foreground">Compare up to 5 portfolios or strategies</p>
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          <span className="ml-2 text-sm text-muted-foreground">Loading peer analysis...</span>
+      {/* Peer chips */}
+      <div className="flex flex-wrap items-center gap-2">
+        {peers.map((p, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-full border text-[10px] font-medium"
+            style={{ borderColor: COLORS[i % COLORS.length] + "60", backgroundColor: COLORS[i % COLORS.length] + "15" }}
+          >
+            {p.loading && <Loader2 className="h-3 w-3 animate-spin" />}
+            <span style={{ color: COLORS[i % COLORS.length] }}>{p.label}</span>
+            {p.error && <span className="text-red-400 ml-1">!</span>}
+            <button onClick={() => removePeer(i)} className="ml-1 text-muted-foreground hover:text-foreground">
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ))}
+
+        {peers.length < 5 && (
+          <button
+            onClick={openPicker}
+            className="flex items-center gap-1 px-2 py-1 rounded-full border border-dashed border-border text-[10px] text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
+          >
+            <Plus className="h-3 w-3" /> Add Portfolio
+          </button>
+        )}
+      </div>
+
+      {/* Picker modal */}
+      {showPicker && (
+        <Card className="border-primary/30">
+          <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+            <CardTitle className="text-[11px]">Select Portfolio / Strategy</CardTitle>
+            <button onClick={() => setShowPicker(false)} className="text-muted-foreground hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          </CardHeader>
+          <CardContent className="p-2 max-h-48 overflow-y-auto">
+            {selectorLoading ? (
+              <div className="flex items-center justify-center py-4 gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-xs text-muted-foreground">Loading...</span>
+              </div>
+            ) : options.length === 0 ? (
+              <p className="text-xs text-muted-foreground p-2">No portfolios or completed strategies found</p>
+            ) : (
+              options.map((opt, i) => (
+                <button
+                  key={i}
+                  onClick={() => addPeer(opt)}
+                  className="w-full text-left px-2 py-1.5 text-[10px] rounded hover:bg-muted/30 transition-colors"
+                >
+                  {opt.label}
+                </button>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {peers.length === 0 ? (
+        <div className="rounded-lg border bg-card p-12 text-center space-y-3">
+          <BarChart3 className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+          <p className="text-sm text-muted-foreground">Add portfolios above to compare their analytics</p>
         </div>
-      ) : error ? (
-        <Card><CardContent className="p-4 text-center text-amber-400">{error}</CardContent></Card>
       ) : (
         <>
-          {/* Summary row */}
-          {perfData && (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-              {[
-                ["Total Return", `${perfData.total_return}%`],
-                ["Benchmark Return", perfData.benchmark_metrics ? `${(perfData.benchmark_metrics as Record<string, number>).total_return}%` : "—"],
-                ["Excess", perfData.benchmark_metrics ? `${((perfData.total_return as number) - (perfData.benchmark_metrics as Record<string, number>).total_return).toFixed(2)}%` : "—"],
-                ["Sharpe", `${perfData.sharpe_ratio}`],
-                ["Max DD", `${perfData.max_drawdown}%`],
-              ].map(([label, value]) => (
-                <Card key={String(label)}>
-                  <CardContent className="p-2 text-center">
-                    <div className="text-[9px] text-muted-foreground">{String(label)}</div>
-                    <div className={`text-sm font-bold tabular-nums ${String(value).startsWith("-") ? "text-red-400" : "text-emerald-400"}`}>{String(value)}</div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+          {/* Performance Summary Table */}
+          <Card>
+            <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+              <CardTitle className="text-[11px]">Performance Comparison</CardTitle>
+              <CardControls />
+            </CardHeader>
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full text-[10px]">
+                <thead>
+                  <tr className="border-b border-border/50">
+                    <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Metric</th>
+                    {peers.map((p, i) => (
+                      <th key={i} className="px-2 py-1.5 text-right font-medium whitespace-nowrap"
+                        style={{ color: COLORS[i % COLORS.length] }}>
+                        {p.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {perfTableRows.map(({ label, cells }) => (
+                    <tr key={label} className="border-b border-border/30">
+                      <td className="px-2 py-1.5 text-muted-foreground">{label}</td>
+                      {cells.map((cell, i) => {
+                        const n = parseFloat(cell);
+                        return (
+                          <td key={i} className={`px-2 py-1.5 text-right tabular-nums ${
+                            !isNaN(n) ? n >= 0 ? "text-emerald-500" : "text-red-400" : ""
+                          }`}>{cell}</td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+
+          {/* Factor Exposure Comparison */}
+          {peerFactors.some((p) => p.factors.length > 0) && (
+            <Card>
+              <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+                <CardTitle className="text-[11px]">Top 5 Factor Exposures</CardTitle>
+                <CardControls />
+              </CardHeader>
+              <CardContent className="p-2">
+                <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${peers.length}, 1fr)` }}>
+                  {peerFactors.map((pf, i) => (
+                    <div key={i}>
+                      <div className="text-[9px] font-medium mb-1 truncate" style={{ color: COLORS[i % COLORS.length] }}>
+                        {pf.label}
+                      </div>
+                      {pf.factors.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={120}>
+                          <BarChart data={pf.factors} margin={{ top: 2, right: 4, bottom: 2, left: 0 }}>
+                            <XAxis dataKey="name" tick={{ fontSize: 7, fill: "#71717a" }} tickLine={false} />
+                            <YAxis tick={{ fontSize: 7, fill: "#71717a" }} tickLine={false} width={25} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 8, fontSize: 10 }}
+                              formatter={(v) => [Number(v).toFixed(2)]}
+                            />
+                            <Bar dataKey="value" fill={COLORS[i % COLORS.length]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-[120px] flex items-center justify-center text-[9px] text-muted-foreground">
+                          {peers[i].loading ? "Loading..." : "No data"}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Market Cap Comparison */}
+          {mcapBarData.length > 0 && mcapBarData.some((r) => mcapLabels.some((l) => Number(r[l]) !== 0)) && (
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-                <CardTitle className="text-[11px]">Cumulative Return (%)</CardTitle>
-                <CardControls filename="peer_return" title="Cumulative Return (%)" info="Cumulative return of your portfolio over the analysis period." fullscreen expandContent={
-                  returnChartData.length > 1 ? (
-                    <TimeSeriesChart
-                      data={returnChartData}
-                      series={[
-                        { key: "portfolio", name: selectedFundName || "Portfolio", color: "#f97316" },
-                      ]}
-                      height={600}
-                      yFormatter={(v) => `${v.toFixed(1)}%`}
+                <CardTitle className="text-[11px]">Market Cap Breakdown Comparison</CardTitle>
+                <CardControls />
+              </CardHeader>
+              <CardContent className="p-2">
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={mcapBarData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                    <XAxis dataKey="name" tick={{ fontSize: 8, fill: "#71717a" }} tickLine={false} />
+                    <YAxis tick={{ fontSize: 8, fill: "#71717a" }} tickLine={false} width={35}
+                      tickFormatter={(v) => `${Number(v).toFixed(0)}%`} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 8, fontSize: 11 }}
+                      formatter={(v) => [`${Number(v).toFixed(1)}%`]}
                     />
-                  ) : undefined
-                } />
-              </CardHeader>
-              <CardContent className="p-2">
-                {returnChartData.length > 1 ? (
-                  <TimeSeriesChart
-                    data={returnChartData}
-                    series={[
-                      { key: "portfolio", name: selectedFundName || "Portfolio", color: "#f97316" },
-                    ]}
-                    height={220}
-                    yFormatter={(v) => `${v.toFixed(1)}%`}
-                  />
-                ) : (
-                  <div className="h-[220px] flex items-center justify-center text-muted-foreground text-xs">No data</div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-                <CardTitle className="text-[11px]">Factor Return Contributions (%)</CardTitle>
-                <CardControls filename="factor_contributions" title="Factor Return Contributions (%)" info="How much each factor contributed to or detracted from portfolio returns." fullscreen expandContent={
-                  factorBarData.length > 0 ? (
-                    <BarChartPanel data={factorBarData} height={600} />
-                  ) : undefined
-                } />
-              </CardHeader>
-              <CardContent className="p-2">
-                {factorBarData.length > 0 ? (
-                  <BarChartPanel data={factorBarData} height={220} />
-                ) : (
-                  <div className="h-[220px] flex items-center justify-center text-muted-foreground text-xs">No factor data</div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Contributors and Detractors */}
-          <div className="flex items-center gap-3 mb-2">
-            <h2 className="text-sm font-semibold">Contributors and Detractors</h2>
-            <div className="flex gap-1 bg-card border rounded-lg p-0.5">
-              {(["overall", "style", "industry"] as const).map((tab) => (
-                <Button
-                  key={tab}
-                  variant={contributorTab === tab ? "secondary" : "ghost"}
-                  size="sm"
-                  className="h-7 text-[10px] px-3"
-                  onClick={() => setContributorTab(tab)}
-                >
-                  {tab === "overall" ? "Overall" : tab === "style" ? "Style" : "Industry/Market"}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Card>
-              <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-                <CardTitle className="text-[11px]">Top Contributors</CardTitle>
-                <CardControls title="Top Contributors" info="Factors with the largest positive return contribution to the portfolio." fullscreen expandContent={
-                  <table className="w-full text-[10px]">
-                    <thead>
-                      <tr className="border-b border-border/50">
-                        {["Factor Type", "Factor Name", "Exposure", "Return Contrib (%)"].map(h => (
-                          <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {topContributors.map((f, i) => (
-                        <tr key={i} className="border-b border-border/30">
-                          <td className="px-2 py-1 tabular-nums">{f.factor_type ?? "Style"}</td>
-                          <td className="px-2 py-1 tabular-nums font-medium">{f.factor}</td>
-                          <td className="px-2 py-1 tabular-nums">{f.exposure.toFixed(2)}</td>
-                          <td className="px-2 py-1 tabular-nums text-emerald-400">{(f.return_contribution * 100).toFixed(2)}%</td>
-                        </tr>
-                      ))}
-                      {topContributors.length === 0 && (
-                        <tr><td colSpan={4} className="px-2 py-4 text-center text-muted-foreground">No contributors</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                } />
-              </CardHeader>
-              <CardContent className="p-0">
-                <table className="w-full text-[10px]">
-                  <thead>
-                    <tr className="border-b border-border/50">
-                      {["Factor Type", "Factor Name", "Exposure", "Return Contrib (%)"].map(h => (
-                        <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {topContributors.map((f, i) => (
-                      <tr key={i} className="border-b border-border/30">
-                        <td className="px-2 py-1 tabular-nums">{f.factor_type ?? "Style"}</td>
-                        <td className="px-2 py-1 tabular-nums font-medium">{f.factor}</td>
-                        <td className="px-2 py-1 tabular-nums">{f.exposure.toFixed(2)}</td>
-                        <td className="px-2 py-1 tabular-nums text-emerald-400">{(f.return_contribution * 100).toFixed(2)}%</td>
-                      </tr>
+                    <Legend wrapperStyle={{ fontSize: 9 }} />
+                    {mcapLabels.map((l, i) => (
+                      <Bar key={l} dataKey={l} stackId="a" fill={COLORS[i % COLORS.length]} />
                     ))}
-                    {topContributors.length === 0 && (
-                      <tr><td colSpan={4} className="px-2 py-4 text-center text-muted-foreground">No contributors</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                  </BarChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-                <CardTitle className="text-[11px]">Top Detractors</CardTitle>
-                <CardControls title="Top Detractors" info="Factors with the largest negative impact on portfolio returns." fullscreen expandContent={
-                  <table className="w-full text-[10px]">
-                    <thead>
-                      <tr className="border-b border-border/50">
-                        {["Factor Type", "Factor Name", "Exposure", "Return Contrib (%)"].map(h => (
-                          <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detractors.map((f, i) => (
-                        <tr key={i} className="border-b border-border/30">
-                          <td className="px-2 py-1 tabular-nums">{f.factor_type ?? "Style"}</td>
-                          <td className="px-2 py-1 tabular-nums font-medium">{f.factor}</td>
-                          <td className="px-2 py-1 tabular-nums">{f.exposure.toFixed(2)}</td>
-                          <td className="px-2 py-1 tabular-nums text-red-400">{(f.return_contribution * 100).toFixed(2)}%</td>
-                        </tr>
-                      ))}
-                      {detractors.length === 0 && (
-                        <tr><td colSpan={4} className="px-2 py-4 text-center text-muted-foreground">No detractors</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                } />
-              </CardHeader>
-              <CardContent className="p-0">
-                <table className="w-full text-[10px]">
-                  <thead>
-                    <tr className="border-b border-border/50">
-                      {["Factor Type", "Factor Name", "Exposure", "Return Contrib (%)"].map(h => (
-                        <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detractors.map((f, i) => (
-                      <tr key={i} className="border-b border-border/30">
-                        <td className="px-2 py-1 tabular-nums">{f.factor_type ?? "Style"}</td>
-                        <td className="px-2 py-1 tabular-nums font-medium">{f.factor}</td>
-                        <td className="px-2 py-1 tabular-nums">{f.exposure.toFixed(2)}</td>
-                        <td className="px-2 py-1 tabular-nums text-red-400">{(f.return_contribution * 100).toFixed(2)}%</td>
-                      </tr>
-                    ))}
-                    {detractors.length === 0 && (
-                      <tr><td colSpan={4} className="px-2 py-4 text-center text-muted-foreground">No detractors</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-          </div>
+          )}
         </>
       )}
     </div>

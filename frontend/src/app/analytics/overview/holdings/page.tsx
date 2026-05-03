@@ -1,123 +1,84 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChartPanel } from "@/components/charts/BarChartPanel";
+import { Loader2, BarChart3 } from "lucide-react";
+import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
-import { useAuth } from "@/lib/auth";
-import { useCurrency } from "@/lib/currency";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
-
-const overviewTabs = [
-  { label: "Performance Summary", href: "/analytics/overview/performance" },
-  { label: "Peer Comparison", href: "/analytics/overview/peer-comparison" },
-  { label: "Holdings Summary", href: "/analytics/overview/holdings" },
-  { label: "Period Analysis", href: "/analytics/overview/period-analysis" },
-];
-
-
-interface Holding {
-  symbol: string;
-  weight: number;
-  sector: string;
-  market_cap?: number;
-  factor_exposures?: Record<string, number>;
+function fmt(v: unknown, decimals = 2): string {
+  if (v == null || v === "") return "—";
+  const n = Number(v);
+  if (isNaN(n)) return String(v);
+  return n.toFixed(decimals);
 }
 
+function ColoredCell({ value }: { value: unknown }) {
+  const n = Number(value);
+  const s = fmt(value);
+  if (s === "—") return <span className="tabular-nums">{s}</span>;
+  return <span className={`tabular-nums ${n >= 0 ? "text-emerald-500" : "text-red-400"}`}>{s}</span>;
+}
+
+interface HoldingDetail {
+  symbol: string;
+  holdings_pct?: number;
+  raw_return_pct?: number;
+  total_return_contribution_pct?: number;
+  total_risk_contribution_pct?: number;
+  idio_return_pct?: number;
+  [key: string]: unknown;
+}
+
+interface FactorDetail {
+  factor_type?: string;
+  factor_name?: string;
+  factor?: string;
+  exposure_pct?: number;
+  raw_return_pct?: number;
+  return_contribution_pct?: number;
+  risk_contribution_pct?: number;
+  [key: string]: unknown;
+}
+
+const COLORS = ["#f97316", "#10b981", "#3b82f6", "#a855f7", "#eab308", "#ef4444", "#06b6d4", "#ec4899"];
+
 export default function HoldingsSummaryPage() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const { selectedPortfolioId, selectedFundName } = usePortfolio();
-  const { token } = useAuth();
-  const { formatCurrencyCompact } = useCurrency();
+  const { analyticsData, analyticsLoading, selectedSourceId } = usePortfolio();
 
-  const [holdings, setHoldings] = useState<Holding[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedSymbols, setSelectedSymbols] = useState<Set<string>>(new Set());
+  const [selectedHoldings, setSelectedHoldings] = useState<Set<string>>(new Set());
+  const [selectedFactors, setSelectedFactors] = useState<Set<string>>(new Set());
 
-  const fetchHoldings = useCallback(async () => {
-    if (!selectedPortfolioId || !token) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`${API_BASE}/api/analytics/holdings/${selectedPortfolioId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`Failed to fetch holdings: ${res.status}`);
-      const data = await res.json();
-      const holdingsArr: Holding[] = Array.isArray(data) ? data : data.holdings ?? [];
-      setHoldings(holdingsArr);
-      setSelectedSymbols(new Set(holdingsArr.map((h: Holding) => h.symbol)));
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to fetch holdings");
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedPortfolioId, token]);
-
-  useEffect(() => {
-    fetchHoldings();
-  }, [fetchHoldings]);
-
-  if (!selectedPortfolioId) {
+  if (analyticsLoading) {
     return (
-      <div className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold">Holdings Summary</h1>
-            <p className="text-xs text-amber-400">No portfolio selected.</p>
-          </div>
-          <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
-            {overviewTabs.map((tab) => (
-              <Button key={tab.href} variant={pathname === tab.href ? "secondary" : "ghost"} size="sm" onClick={() => router.push(tab.href)} className="h-7 text-[10px]">{tab.label}</Button>
-            ))}
-          </div>
-        </div>
-        <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
-            No portfolio selected. Go to Portfolio Construction to upload and select one.
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-sm text-muted-foreground">Computing analytics...</span>
       </div>
     );
   }
 
-  // Build factor data from holdings
-  const factorMap: Record<string, { totalExposure: number; count: number }> = {};
-  holdings.forEach((h) => {
-    if (h.factor_exposures) {
-      Object.entries(h.factor_exposures).forEach(([factor, exposure]) => {
-        if (!factorMap[factor]) factorMap[factor] = { totalExposure: 0, count: 0 };
-        factorMap[factor].totalExposure += exposure;
-        factorMap[factor].count += 1;
-      });
-    }
-  });
-  const factorSummary = Object.entries(factorMap).map(([factor, v]) => ({
-    factor,
-    exposure: (v.totalExposure / v.count).toFixed(2),
-  }));
+  if (!analyticsData || !selectedSourceId) {
+    return (
+      <div className="p-6 space-y-4">
+        <h1 className="text-xl font-bold">Holdings &amp; Factor Summary</h1>
+        <div className="rounded-lg border bg-card p-12 text-center space-y-3">
+          <BarChart3 className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+          <p className="text-sm text-muted-foreground">Select a portfolio or strategy from the sidebar to begin</p>
+        </div>
+      </div>
+    );
+  }
 
-  // Build bar chart data from selected holdings (all selected, no limit)
-  const chartSymbols = Array.from(selectedSymbols);
-  const holdingsBarData = chartSymbols.map((sym) => {
-    const h = holdings.find((x) => x.symbol === sym);
-    return { name: sym, value: h ? parseFloat((h.weight * 100).toFixed(2)) : 0 };
-  });
+  const holdings: HoldingDetail[] = (analyticsData.holdings_detail as HoldingDetail[] | undefined) ?? [];
+  const factors: FactorDetail[] = (analyticsData.factor_detail as FactorDetail[] | undefined) ?? [];
+  const factorDecompTs: Record<string, unknown>[] = (analyticsData.factor_decomp_ts as Record<string, unknown>[] | undefined) ?? [];
+  const equityCurve: Record<string, unknown>[] = (analyticsData.equity_curve as Record<string, unknown>[] | undefined) ?? [];
 
-  // Factor exposure bar chart data
-  const factorBarData = factorSummary.map((f) => ({
-    name: f.factor,
-    value: parseFloat(f.exposure),
-  }));
-
-  function toggleSymbol(sym: string) {
-    setSelectedSymbols((prev) => {
+  function toggleHolding(sym: string) {
+    setSelectedHoldings((prev) => {
       const next = new Set(prev);
       if (next.has(sym)) next.delete(sym);
       else next.add(sym);
@@ -125,200 +86,201 @@ export default function HoldingsSummaryPage() {
     });
   }
 
+  function toggleFactor(name: string) {
+    setSelectedFactors((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }
+
+  // Build holdings weight time series (flat lines from equity curve dates)
+  const holdingChartData = equityCurve.map((pt) => {
+    const row: Record<string, unknown> = { date: pt.date };
+    Array.from(selectedHoldings).forEach((sym) => {
+      const h = holdings.find((x) => x.symbol === sym);
+      row[sym] = h ? Number(h.holdings_pct ?? 0) : 0;
+    });
+    return row;
+  });
+
+  const holdingSeries = Array.from(selectedHoldings).map((sym, i) => ({
+    key: sym,
+    name: sym,
+    color: COLORS[i % COLORS.length],
+  }));
+
+  // Build factor exposure time series from factor_decomp_ts
+  const factorChartData = factorDecompTs.map((pt) => {
+    const row: Record<string, unknown> = { date: pt.date };
+    Array.from(selectedFactors).forEach((fn) => {
+      row[fn] = Number(pt[fn] ?? 0);
+    });
+    return row;
+  });
+
+  const factorSeries = Array.from(selectedFactors).map((fn, i) => ({
+    key: fn,
+    name: fn,
+    color: COLORS[i % COLORS.length],
+  }));
+
   return (
     <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">Holdings Summary</h1>
-          <p className="text-xs text-muted-foreground">Portfolio: <span className="font-medium text-foreground">{selectedFundName}</span></p>
-        </div>
-        <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
-          {overviewTabs.map((tab) => (
-            <Button key={tab.href} variant={pathname === tab.href ? "secondary" : "ghost"} size="sm" onClick={() => router.push(tab.href)} className="h-7 text-[10px]">{tab.label}</Button>
-          ))}
-        </div>
+      <div>
+        <h1 className="text-xl font-bold">Holdings &amp; Factor Summary</h1>
+        <p className="text-xs text-muted-foreground">{holdings.length} holdings · {factors.length} factors</p>
       </div>
 
-      {loading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
-        </div>
-      )}
-
-      {error && (
-        <Card><CardContent className="p-4 text-center text-red-400">{error}</CardContent></Card>
-      )}
-
-      {!loading && !error && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {/* Holdings Table */}
-          <Card>
-            <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-[11px]">Holdings Summary</CardTitle>
-                <span className="text-[9px] text-muted-foreground">{selectedSymbols.size}/{holdings.length} Selected</span>
-              </div>
-              <CardControls data={holdings.map(h => ({symbol: h.symbol, weight: (h.weight*100).toFixed(2)+'%', sector: h.sector, market_cap: h.market_cap || 0}))} filename="holdings" title="Holdings Summary" info="Current portfolio holdings with weight, sector, and market capitalization for each stock." expandContent={
-                <table className="w-full text-[10px]">
-                  <thead>
-                    <tr className="border-b border-border/50">
-                      {["", "Symbol", "Weight", "Sector", "Market Cap"].map(h => (
-                        <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {holdings.map((h) => (
-                      <tr key={h.symbol} className="border-b border-border/30 hover:bg-muted/20">
-                        <td className="px-2 py-1">
-                          <input type="checkbox" checked={selectedSymbols.has(h.symbol)} onChange={() => toggleSymbol(h.symbol)} className="h-3 w-3" />
-                        </td>
-                        <td className="px-2 py-1 font-medium">{h.symbol}</td>
-                        <td className="px-2 py-1 tabular-nums">{(h.weight * 100).toFixed(2)}%</td>
-                        <td className="px-2 py-1">{h.sector || "—"}</td>
-                        <td className="px-2 py-1 tabular-nums">{h.market_cap ? formatCurrencyCompact(h.market_cap * 1e7, "INR") : "—"}</td>
-                      </tr>
-                    ))}
-                    {holdings.length === 0 && (
-                      <tr><td colSpan={5} className="px-2 py-4 text-center text-muted-foreground">No holdings data available</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              } />
-            </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full text-[10px]">
-                <thead>
-                  <tr className="border-b border-border/50">
-                    {["", "Symbol", "Weight", "Sector", "Market Cap"].map(h => (
-                      <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {holdings.map((h) => (
-                    <tr key={h.symbol} className="border-b border-border/30 hover:bg-muted/20">
-                      <td className="px-2 py-1">
-                        <input
-                          type="checkbox"
-                          checked={selectedSymbols.has(h.symbol)}
-                          onChange={() => toggleSymbol(h.symbol)}
-                          className="h-3 w-3"
-                        />
-                      </td>
-                      <td className="px-2 py-1 font-medium">{h.symbol}</td>
-                      <td className="px-2 py-1 tabular-nums">{(h.weight * 100).toFixed(2)}%</td>
-                      <td className="px-2 py-1">{h.sector || "—"}</td>
-                      <td className="px-2 py-1 tabular-nums">{h.market_cap ? formatCurrencyCompact(h.market_cap * 1e7, "INR") : "—"}</td>
-                    </tr>
+      {/* Top section: two tables side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Holdings Summary Table */}
+        <Card>
+          <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-[11px]">Holdings Summary</CardTitle>
+              <span className="text-[9px] text-muted-foreground">{selectedHoldings.size}/{holdings.length} selected</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="ghost" className="text-[9px] h-5 px-1.5"
+                onClick={() => setSelectedHoldings(new Set(holdings.map(h => h.symbol)))}>All</Button>
+              <Button size="sm" variant="ghost" className="text-[9px] h-5 px-1.5"
+                onClick={() => setSelectedHoldings(new Set())}>None</Button>
+              <CardControls />
+            </div>
+          </CardHeader>
+          <CardContent className="p-0 max-h-64 overflow-y-auto">
+            <table className="w-full text-[10px]">
+              <thead className="sticky top-0 bg-card">
+                <tr className="border-b border-border/50">
+                  <th className="px-2 py-1.5 w-6" />
+                  {["Symbol", "Weight (%)", "Raw Ret (%)", "Tot Ret (%)", "Risk Contrib (%)", "Idio Ret (%)"].map((h) => (
+                    <th key={h} className="px-2 py-1.5 text-left font-medium text-muted-foreground whitespace-nowrap">{h}</th>
                   ))}
-                  {holdings.length === 0 && (
-                    <tr><td colSpan={5} className="px-2 py-4 text-center text-muted-foreground">No holdings data available</td></tr>
-                  )}
-                </tbody>
-              </table>
-              <div className="p-2 flex items-center gap-2">
-                <span className="text-[9px] text-muted-foreground">{selectedSymbols.size}/{holdings.length} selected</span>
-                <Button size="sm" variant="ghost" className="text-[9px] h-5 px-1.5" onClick={() => setSelectedSymbols(new Set(holdings.map(h => h.symbol)))}>All</Button>
-                <Button size="sm" variant="ghost" className="text-[9px] h-5 px-1.5" onClick={() => setSelectedSymbols(new Set())}>None</Button>
-              </div>
-            </CardContent>
-          </Card>
+                </tr>
+              </thead>
+              <tbody>
+                {holdings.map((h) => (
+                  <tr key={h.symbol} className="border-b border-border/30 hover:bg-muted/20">
+                    <td className="px-2 py-1">
+                      <input type="checkbox" checked={selectedHoldings.has(h.symbol)}
+                        onChange={() => toggleHolding(h.symbol)} className="h-3 w-3" />
+                    </td>
+                    <td className="px-2 py-1 font-medium">{h.symbol}</td>
+                    <td className="px-2 py-1"><ColoredCell value={fmt(h.holdings_pct)} /></td>
+                    <td className="px-2 py-1"><ColoredCell value={fmt(h.raw_return_pct)} /></td>
+                    <td className="px-2 py-1"><ColoredCell value={fmt(h.total_return_contribution_pct)} /></td>
+                    <td className="px-2 py-1"><ColoredCell value={fmt(h.total_risk_contribution_pct)} /></td>
+                    <td className="px-2 py-1"><ColoredCell value={fmt(h.idio_return_pct)} /></td>
+                  </tr>
+                ))}
+                {holdings.length === 0 && (
+                  <tr><td colSpan={7} className="px-2 py-4 text-center text-muted-foreground">No holdings data</td></tr>
+                )}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
 
-          {/* Factor Summary Table */}
-          <Card>
-            <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+        {/* Factor Summary Table */}
+        <Card>
+          <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+            <div>
               <CardTitle className="text-[11px]">Factor Summary</CardTitle>
-              <CardControls data={factorSummary.map(f => ({factor: f.factor, exposure: f.exposure}))} filename="factor_exposures" title="Factor Summary" info="Average factor exposure across all holdings. Shows portfolio tilt toward risk factors." expandContent={
-                <table className="w-full text-[10px]">
-                  <thead>
-                    <tr className="border-b border-border/50">
-                      {["Factor", "Avg Exposure"].map(h => (
-                        <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {factorSummary.map((f) => (
-                      <tr key={f.factor} className="border-b border-border/30 hover:bg-muted/20">
-                        <td className="px-2 py-1 font-medium">{f.factor}</td>
-                        <td className="px-2 py-1 tabular-nums">{f.exposure}</td>
-                      </tr>
-                    ))}
-                    {factorSummary.length === 0 && (
-                      <tr><td colSpan={2} className="px-2 py-4 text-center text-muted-foreground">No factor data available</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              } />
-            </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full text-[10px]">
-                <thead>
-                  <tr className="border-b border-border/50">
-                    {["Factor", "Avg Exposure"].map(h => (
-                      <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {factorSummary.map((f) => (
-                    <tr key={f.factor} className="border-b border-border/30 hover:bg-muted/20">
-                      <td className="px-2 py-1 font-medium">{f.factor}</td>
-                      <td className="px-2 py-1 tabular-nums">{f.exposure}</td>
-                    </tr>
+              <span className="text-[9px] text-muted-foreground">{selectedFactors.size}/{factors.length} selected</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="ghost" className="text-[9px] h-5 px-1.5"
+                onClick={() => setSelectedFactors(new Set(factors.map(f => String(f.factor_name ?? f.factor ?? ""))))}>All</Button>
+              <Button size="sm" variant="ghost" className="text-[9px] h-5 px-1.5"
+                onClick={() => setSelectedFactors(new Set())}>None</Button>
+              <CardControls />
+            </div>
+          </CardHeader>
+          <CardContent className="p-0 max-h-64 overflow-y-auto">
+            <table className="w-full text-[10px]">
+              <thead className="sticky top-0 bg-card">
+                <tr className="border-b border-border/50">
+                  <th className="px-2 py-1.5 w-6" />
+                  {["Type", "Factor", "Exposure (%)", "Raw Ret (%)", "Ret Contrib (%)", "Risk Contrib (%)"].map((h) => (
+                    <th key={h} className="px-2 py-1.5 text-left font-medium text-muted-foreground whitespace-nowrap">{h}</th>
                   ))}
-                  {factorSummary.length === 0 && (
-                    <tr><td colSpan={2} className="px-2 py-4 text-center text-muted-foreground">No factor data available</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
+                </tr>
+              </thead>
+              <tbody>
+                {factors.map((f, i) => {
+                  const fname = String(f.factor_name ?? f.factor ?? `factor_${i}`);
+                  return (
+                    <tr key={fname} className="border-b border-border/30 hover:bg-muted/20">
+                      <td className="px-2 py-1">
+                        <input type="checkbox" checked={selectedFactors.has(fname)}
+                          onChange={() => toggleFactor(fname)} className="h-3 w-3" />
+                      </td>
+                      <td className="px-2 py-1 text-muted-foreground">{f.factor_type ?? "Style"}</td>
+                      <td className="px-2 py-1 font-medium">{fname}</td>
+                      <td className="px-2 py-1"><ColoredCell value={fmt(f.exposure_pct)} /></td>
+                      <td className="px-2 py-1"><ColoredCell value={fmt(f.raw_return_pct)} /></td>
+                      <td className="px-2 py-1"><ColoredCell value={fmt(f.return_contribution_pct)} /></td>
+                      <td className="px-2 py-1"><ColoredCell value={fmt(f.risk_contribution_pct)} /></td>
+                    </tr>
+                  );
+                })}
+                {factors.length === 0 && (
+                  <tr><td colSpan={7} className="px-2 py-4 text-center text-muted-foreground">No factor data</td></tr>
+                )}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      </div>
 
-          {/* Holdings Chart */}
-          <Card>
-            <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-              <CardTitle className="text-[11px]">Holdings (%)</CardTitle>
-              <CardControls filename="holdings_chart" title="Holdings (%)" info="Bar chart showing portfolio weight allocation across selected holdings." fullscreen expandContent={
-                holdingsBarData.length > 0 ? (
-                  <BarChartPanel data={holdingsBarData} height={600} />
-                ) : undefined
-              } />
-            </CardHeader>
-            <CardContent className="p-2">
-              {holdingsBarData.length > 0 ? (
-                <BarChartPanel data={holdingsBarData} height={200} />
-              ) : (
-                <div className="flex items-center justify-center h-[200px] text-muted-foreground text-xs">
-                  Select holdings to display chart
-                </div>
-              )}
-            </CardContent>
-          </Card>
+      {/* Bottom: charts for selected holdings and factors */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <Card>
+          <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+            <CardTitle className="text-[11px]">Holdings Weight Over Time</CardTitle>
+            <CardControls fullscreen expandContent={
+              holdingChartData.length > 0 && holdingSeries.length > 0 ? (
+                <TimeSeriesChart data={holdingChartData} series={holdingSeries} height={600}
+                  yFormatter={(v) => `${v.toFixed(2)}%`} />
+              ) : undefined
+            } />
+          </CardHeader>
+          <CardContent className="p-2">
+            {holdingChartData.length > 0 && holdingSeries.length > 0 ? (
+              <TimeSeriesChart data={holdingChartData} series={holdingSeries} height={200}
+                yFormatter={(v) => `${v.toFixed(2)}%`} />
+            ) : (
+              <div className="h-[200px] flex items-center justify-center text-[10px] text-muted-foreground">
+                Select holdings above to display chart
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-          {/* Factor Exposure Chart */}
-          <Card>
-            <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-              <CardTitle className="text-[11px]">Factor Exposure</CardTitle>
-              <CardControls filename="factor_chart" title="Factor Exposure" info="Bar chart of average factor exposures. Positive = overweight, negative = underweight." fullscreen expandContent={
-                factorBarData.length > 0 ? (
-                  <BarChartPanel data={factorBarData} height={600} />
-                ) : undefined
-              } />
-            </CardHeader>
-            <CardContent className="p-2">
-              {factorBarData.length > 0 ? (
-                <BarChartPanel data={factorBarData} height={200} />
-              ) : (
-                <div className="flex items-center justify-center h-[200px] text-muted-foreground text-xs">
-                  No factor exposure data available
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+        <Card>
+          <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+            <CardTitle className="text-[11px]">Factor Exposure Over Time</CardTitle>
+            <CardControls fullscreen expandContent={
+              factorChartData.length > 0 && factorSeries.length > 0 ? (
+                <TimeSeriesChart data={factorChartData} series={factorSeries} height={600}
+                  yFormatter={(v) => `${v.toFixed(2)}`} />
+              ) : undefined
+            } />
+          </CardHeader>
+          <CardContent className="p-2">
+            {factorChartData.length > 0 && factorSeries.length > 0 ? (
+              <TimeSeriesChart data={factorChartData} series={factorSeries} height={200}
+                yFormatter={(v) => `${v.toFixed(2)}`} />
+            ) : (
+              <div className="h-[200px] flex items-center justify-center text-[10px] text-muted-foreground">
+                Select factors above to display chart
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

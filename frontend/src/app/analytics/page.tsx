@@ -1,152 +1,84 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, Share2, Download, Loader2, PlusCircle } from "lucide-react";
-import { useAuth } from "@/lib/auth";
+import { BarChart3, TrendingUp, Layers, Users } from "lucide-react";
+import { usePortfolio } from "@/lib/portfolio-context";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+const QUICK_LINKS = [
+  {
+    icon: TrendingUp,
+    label: "Performance Summary",
+    description: "Returns, risk metrics, and equity curve",
+    href: "/analytics/overview/performance",
+  },
+  {
+    icon: Layers,
+    label: "Holdings & Factors",
+    description: "Holdings detail and factor decomposition",
+    href: "/analytics/overview/holdings",
+  },
+  {
+    icon: BarChart3,
+    label: "Returns & Risk",
+    description: "Full analytics with Brinson decomposition",
+    href: "/analytics/portfolio-analysis/returns-risk",
+  },
+  {
+    icon: Users,
+    label: "Peer Intelligence",
+    description: "Compare portfolios side-by-side",
+    href: "/analytics/peer-intelligence",
+  },
+];
 
-interface Portfolio {
-  id: string;
-  fund: string;
-  scheme: string;
-  benchmark: string;
-  start_date: string;
-  end_date: string;
-  status: string;
-  created_at: string;
-}
-
-export default function AnalyticsPage() {
+export default function AnalyticsIndexPage() {
   const router = useRouter();
-  const { token } = useAuth();
-  const [tab, setTab] = useState("backtested");
-  const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { analyticsData } = usePortfolio();
 
-  const fetchPortfolios = async () => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(`${API_BASE}/api/portfolios/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`API error ${res.status}`);
-      const data = await res.json();
-      setPortfolios(Array.isArray(data) ? data : data.portfolios || data.results || []);
-    } catch (err) {
-      setError("Failed to load portfolios");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // If analytics data is already loaded, redirect to performance page
   useEffect(() => {
-    fetchPortfolios();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+    if (analyticsData) {
+      router.replace("/analytics/overview/performance");
+    }
+  }, [analyticsData, router]);
 
   return (
-    <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Portfolios</h1>
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={fetchPortfolios}>
-          <RefreshCw className="h-3.5 w-3.5" /> Refresh
-        </Button>
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Analytics</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Select a portfolio or strategy from the sidebar to view analytics
+        </p>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => { if (typeof v === "string") setTab(v); }}>
-        <TabsList className="h-8">
-          <TabsTrigger value="backtested" className="text-[10px]">Backtested Portfolios</TabsTrigger>
-          <TabsTrigger value="uploaded" className="text-[10px]">User Uploaded Portfolios</TabsTrigger>
-          <TabsTrigger value="standard" className="text-[10px]">Standard Portfolios</TabsTrigger>
-          <TabsTrigger value="production" className="text-[10px]">Production Portfolios</TabsTrigger>
-          <TabsTrigger value="shared" className="text-[10px]">Shared Portfolios</TabsTrigger>
-          <TabsTrigger value="received" className="text-[10px]">Received Portfolios</TabsTrigger>
-        </TabsList>
+      <div className="rounded-lg border bg-card p-6 text-center space-y-3">
+        <BarChart3 className="h-12 w-12 text-muted-foreground/40 mx-auto" />
+        <p className="text-sm font-medium">No source selected</p>
+        <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+          Choose a portfolio or strategy backtest from the left sidebar to compute and view
+          full analytics including performance, risk, factor attribution, and more.
+        </p>
+      </div>
 
-        <TabsContent value="backtested" className="mt-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-sm text-muted-foreground">Loading portfolios...</span>
-            </div>
-          ) : error ? (
-            <div className="rounded-lg border bg-card p-8 text-center text-sm text-red-400">
-              {error}
-              <Button variant="outline" size="sm" className="ml-3" onClick={fetchPortfolios}>
-                Retry
-              </Button>
-            </div>
-          ) : portfolios.length === 0 ? (
-            <div className="rounded-lg border bg-card p-12 text-center space-y-3">
-              <p className="text-sm text-muted-foreground">No portfolios found.</p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                onClick={() => router.push("/portfolio-construction/upload")}
-              >
-                <PlusCircle className="h-3.5 w-3.5" /> Upload Portfolio
-              </Button>
-            </div>
-          ) : (
-            <div className="rounded-lg border bg-card overflow-hidden">
-              <table className="w-full text-[11px]">
-                <thead>
-                  <tr className="border-b border-border/50 bg-muted/20">
-                    {["Fund", "Scheme", "Benchmark", "Start Date", "End Date", "Status", "Share", "Upload"].map((h) => (
-                      <th key={h} className="px-3 py-2.5 text-left font-medium text-muted-foreground">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {portfolios.map((p, i) => (
-                    <tr
-                      key={p.id || i}
-                      className="border-b border-border/30 hover:bg-muted/30 cursor-pointer"
-                      onClick={() => router.push("/analytics/overview/performance")}
-                    >
-                      <td className="px-3 py-2 font-medium">{p.fund || "—"}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{p.scheme || "—"}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{p.benchmark || "—"}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{p.start_date || "—"}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{p.end_date || "—"}</td>
-                      <td className="px-3 py-2">
-                        <Badge className={`text-[8px] ${p.status === "AVAILABLE" || p.status === "active" ? "bg-emerald-600" : "bg-red-600"}`}>
-                          {(p.status || "UNKNOWN").toUpperCase()}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2">
-                        <Button variant="ghost" size="icon" className="h-6 w-6"><Share2 className="h-3 w-3" /></Button>
-                      </td>
-                      <td className="px-3 py-2">
-                        <Button variant="ghost" size="icon" className="h-6 w-6 bg-blue-600/20"><Download className="h-3 w-3" /></Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="uploaded" className="mt-4">
-          <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground text-xs">
-            No uploaded portfolios yet.
-          </div>
-        </TabsContent>
-      </Tabs>
+      <div>
+        <h2 className="text-sm font-semibold mb-3">Analytics Pages</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {QUICK_LINKS.map(({ icon: Icon, label, description, href }) => (
+            <button
+              key={href}
+              onClick={() => router.push(href)}
+              className="text-left p-4 rounded-lg border bg-card hover:bg-muted/30 transition-colors space-y-1"
+            >
+              <div className="flex items-center gap-2">
+                <Icon className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">{label}</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">{description}</p>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

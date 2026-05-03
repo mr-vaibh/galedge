@@ -1,97 +1,68 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChartPanel } from "@/components/charts/BarChartPanel";
+import { Loader2, BarChart3 } from "lucide-react";
+import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
-import { useAuth } from "@/lib/auth";
-import { useCurrency } from "@/lib/currency";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  CartesianGrid,
+  ResponsiveContainer,
+} from "recharts";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+type ChartKpi = "decomp" | "realized_risk" | "pe_ratio" | "allocation_effect";
+type ContribTab = "overall" | "idio" | "factor";
 
-function STable({ title, rows, viewMode = "active" }: { title: string; rows: [string, string, string][]; viewMode?: string }) {
+const CHART_OPTIONS: { value: ChartKpi; label: string }[] = [
+  { value: "decomp", label: "Return Decomposition" },
+  { value: "realized_risk", label: "Realized Risk (%)" },
+  { value: "pe_ratio", label: "PE Ratio" },
+  { value: "allocation_effect", label: "Allocation Effect" },
+];
+
+function fmt(v: unknown, decimals = 2): string {
+  if (v == null || v === "") return "—";
+  const n = Number(v);
+  if (isNaN(n)) return String(v);
+  return n.toFixed(decimals);
+}
+
+function ColoredCell({ value }: { value: unknown }) {
+  const n = Number(value);
+  const s = fmt(value);
+  if (s === "—") return <span className="tabular-nums">{s}</span>;
+  return <span className={`tabular-nums ${n >= 0 ? "text-emerald-500" : "text-red-400"}`}>{s}</span>;
+}
+
+function MetricTable({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: { metric: string; value: unknown }[];
+}) {
   return (
     <Card>
       <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
         <CardTitle className="text-[11px]">{title}</CardTitle>
-        <CardControls title={title} info={`${title} — breakdown of returns and risk metrics for the active portfolio vs benchmark.`} fullscreen expandContent={
-          <table className="w-full text-[10px]">
-            <thead>
-              <tr className="border-b border-border/50">
-                <th className="px-2 py-1.5 text-left font-medium text-muted-foreground" />
-                {(viewMode === "active" || viewMode === "excess") && (
-                  <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Active</th>
-                )}
-                {(viewMode === "benchmark" || viewMode === "excess") && (
-                  <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Benchmark</th>
-                )}
-                {viewMode === "excess" && (
-                  <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Excess</th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(([label, active, benchmark], i) => {
-                const activeNum = parseFloat(active);
-                const benchmarkNum = parseFloat(benchmark);
-                const excess = !isNaN(activeNum) && !isNaN(benchmarkNum) ? `${(activeNum - benchmarkNum).toFixed(2)}%` : "—";
-                return (
-                  <tr key={i} className="border-b border-border/30">
-                    <td className="px-2 py-1 text-muted-foreground">{label}</td>
-                    {(viewMode === "active" || viewMode === "excess") && (
-                      <td className="px-2 py-1 text-right tabular-nums">{active}</td>
-                    )}
-                    {(viewMode === "benchmark" || viewMode === "excess") && (
-                      <td className="px-2 py-1 text-right tabular-nums">{benchmark}</td>
-                    )}
-                    {viewMode === "excess" && (
-                      <td className={`px-2 py-1 text-right tabular-nums ${parseFloat(excess) >= 0 ? "text-emerald-400" : "text-red-400"}`}>{excess}</td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        } />
+        <CardControls />
       </CardHeader>
       <CardContent className="p-0">
         <table className="w-full text-[10px]">
-          <thead>
-            <tr className="border-b border-border/50">
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground" />
-              {(viewMode === "active" || viewMode === "excess") && (
-                <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Active</th>
-              )}
-              {(viewMode === "benchmark" || viewMode === "excess") && (
-                <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Benchmark</th>
-              )}
-              {viewMode === "excess" && (
-                <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Excess</th>
-              )}
-            </tr>
-          </thead>
           <tbody>
-            {rows.map(([label, active, benchmark], i) => {
-              const activeNum = parseFloat(active);
-              const benchmarkNum = parseFloat(benchmark);
-              const excess = !isNaN(activeNum) && !isNaN(benchmarkNum) ? `${(activeNum - benchmarkNum).toFixed(2)}%` : "—";
-              return (
-                <tr key={i} className="border-b border-border/30">
-                  <td className="px-2 py-1 text-muted-foreground">{label}</td>
-                  {(viewMode === "active" || viewMode === "excess") && (
-                    <td className="px-2 py-1 text-right tabular-nums">{active}</td>
-                  )}
-                  {(viewMode === "benchmark" || viewMode === "excess") && (
-                    <td className="px-2 py-1 text-right tabular-nums">{benchmark}</td>
-                  )}
-                  {viewMode === "excess" && (
-                    <td className={`px-2 py-1 text-right tabular-nums ${parseFloat(excess) >= 0 ? "text-emerald-400" : "text-red-400"}`}>{excess}</td>
-                  )}
-                </tr>
-              );
-            })}
+            {rows.map(({ metric, value }) => (
+              <tr key={metric} className="border-b border-border/30">
+                <td className="px-2 py-1.5 text-muted-foreground">{metric}</td>
+                <td className="px-2 py-1.5 text-right"><ColoredCell value={value} /></td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </CardContent>
@@ -99,384 +70,326 @@ function STable({ title, rows, viewMode = "active" }: { title: string; rows: [st
   );
 }
 
-interface BenchmarkMetrics {
-  total_return?: number;
-  annualised_return?: number;
-  sharpe_ratio?: number;
-  volatility?: number;
-  max_drawdown?: number;
+function KpiSelect({ value, onChange }: { value: ChartKpi; onChange: (v: ChartKpi) => void }) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value as ChartKpi)}
+      className="text-[9px] bg-background border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none">
+      {CHART_OPTIONS.map((o) => (
+        <option key={o.value} value={o.value}>{o.label}</option>
+      ))}
+    </select>
+  );
 }
 
-interface PerformanceData {
-  total_return?: number;
-  annualised_return?: number;
-  factor_return?: number;
-  idiosyncratic_return?: number;
-  sharpe_ratio?: number;
-  volatility?: number;
-  max_drawdown?: number;
-  num_holdings?: number;
-  total_aum_cr?: number;
-  benchmark_metrics?: BenchmarkMetrics;
-  [key: string]: unknown;
+function buildChart(analyticsData: Record<string, unknown>, kpi: ChartKpi) {
+  const factorTs = (analyticsData.factor_decomp_ts as Record<string, unknown>[] | undefined) ?? [];
+  const rm = (analyticsData.rolling_metrics as Record<string, unknown>[] | undefined) ?? [];
+  const vts = (analyticsData.valuation_ts as Record<string, unknown>[] | undefined) ?? [];
+
+  if (kpi === "decomp") {
+    const data = factorTs.map((r) => ({
+      date: r.date,
+      market: Number(r.market_return_pct ?? r.market ?? 0),
+      style: Number(r.style_return_pct ?? r.style ?? 0),
+      industry: Number(r.industry_return_pct ?? r.industry ?? 0),
+      idio: Number(r.idio_return_pct ?? r.idio ?? 0),
+    }));
+    return {
+      data, type: "stacked_area",
+      series: [
+        { key: "market", name: "Market", color: "#6366f1" },
+        { key: "style", name: "Style", color: "#10b981" },
+        { key: "industry", name: "Industry", color: "#f97316" },
+        { key: "idio", name: "Idio", color: "#eab308" },
+      ],
+    };
+  }
+
+  if (kpi === "realized_risk") {
+    return {
+      data: rm.map((r) => ({ date: r.date, risk: Number(r.rolling_vol ?? 0) * 100 })),
+      type: "line",
+      series: [{ key: "risk", name: "Realized Risk (%)", color: "#ef4444" }],
+    };
+  }
+
+  if (kpi === "pe_ratio") {
+    return {
+      data: vts.map((r) => ({ date: r.date, pe: Number(r.pe_ratio ?? r.pe ?? 0) })),
+      type: "line",
+      series: [{ key: "pe", name: "PE Ratio", color: "#3b82f6" }],
+    };
+  }
+
+  // allocation_effect from mcap_slicing
+  const ms = (analyticsData.mcap_slicing as Record<string, unknown>[] | undefined) ?? [];
+  return {
+    data: ms.map((r) => ({ date: String(r.bucket ?? r.name ?? ""), alloc: Number(r.allocation_effect_pct ?? 0) })),
+    type: "line",
+    series: [{ key: "alloc", name: "Allocation Effect (%)", color: "#a855f7" }],
+  };
 }
 
-interface FactorBreakdown {
-  factor: string;
-  factor_type?: string;
-  return_contribution: number;
-  risk_contribution: number;
-  exposure: number;
-}
+function AnalyticsChart({ analyticsData, defaultKpi }: { analyticsData: Record<string, unknown>; defaultKpi: ChartKpi }) {
+  const [kpi, setKpi] = useState<ChartKpi>(defaultKpi);
+  const { data, series } = buildChart(analyticsData, kpi);
 
-interface DecompositionData {
-  factors?: FactorBreakdown[];
-  factor_return?: number;
-  idiosyncratic_return?: number;
-  market_return?: number;
-  style_return?: number;
-  industry_return?: number;
-  [key: string]: unknown;
+  return (
+    <Card>
+      <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+        <KpiSelect value={kpi} onChange={setKpi} />
+        <CardControls fullscreen expandContent={
+          data.length > 0 ? <TimeSeriesChart data={data as Record<string, unknown>[]} series={series} height={600} /> : undefined
+        } />
+      </CardHeader>
+      <CardContent className="p-2">
+        {data.length > 0 ? (
+          <TimeSeriesChart data={data as Record<string, unknown>[]} series={series} height={180} />
+        ) : (
+          <div className="h-44 flex items-center justify-center text-[10px] text-muted-foreground">No data</div>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function ReturnsAndRiskPage() {
-  const [contributorTab, setContributorTab] = useState("overall");
-  const [viewMode, setViewMode] = useState("active");
-  const { selectedPortfolioId, selectedFundName } = usePortfolio();
-  const { token } = useAuth();
-  const { formatCurrencyCompact } = useCurrency();
+  const { analyticsData, analyticsLoading, selectedSourceId } = usePortfolio();
+  const [contributorTab, setContributorTab] = useState<ContribTab>("overall");
 
-  const [perfData, setPerfData] = useState<PerformanceData | null>(null);
-  const [decompData, setDecompData] = useState<DecompositionData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    if (!selectedPortfolioId || !token) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const [perfRes, decompRes] = await Promise.all([
-        fetch(`${API_BASE}/api/analytics/performance/${selectedPortfolioId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${API_BASE}/api/analytics/return-decomposition/${selectedPortfolioId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-      ]);
-      if (!perfRes.ok) throw new Error(`Performance fetch failed: ${perfRes.status}`);
-      if (!decompRes.ok) throw new Error(`Decomposition fetch failed: ${decompRes.status}`);
-      const perf = await perfRes.json();
-      const decomp = await decompRes.json();
-      setPerfData(perf);
-      setDecompData(decomp);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to fetch data");
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedPortfolioId, token]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // Backend performance values are already in % (e.g. -6.62 for -6.62%)
-  const pct = (v: number | undefined | null) =>
-    v != null ? `${v.toFixed(2)}%` : "—";
-  // Decomposition values are raw decimals (e.g. 0.0012 for 0.12%)
-  const dpct = (v: number | undefined | null) =>
-    v != null ? `${(v * 100).toFixed(2)}%` : "—";
-  const raw = (v: number | undefined | null) =>
-    v != null ? v.toFixed(2) : "—";
-
-  if (!selectedPortfolioId) {
+  if (analyticsLoading) {
     return (
-      <div className="p-4 space-y-4">
-        <h1 className="text-xl font-bold">Performance Summary</h1>
-        <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
-            No portfolio selected. Go to Portfolio Construction to upload and select one.
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-sm text-muted-foreground">Computing analytics...</span>
       </div>
     );
   }
 
-  // Benchmark metrics (may be undefined if no benchmark data available)
-  const bm = perfData?.benchmark_metrics;
+  if (!analyticsData || !selectedSourceId) {
+    return (
+      <div className="p-6 space-y-4">
+        <h1 className="text-xl font-bold">Returns &amp; Risk</h1>
+        <div className="rounded-lg border bg-card p-12 text-center space-y-3">
+          <BarChart3 className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+          <p className="text-sm text-muted-foreground">Select a portfolio or strategy from the sidebar to begin</p>
+        </div>
+      </div>
+    );
+  }
 
-  // Build factor-based data for charts and tables
-  const factors = decompData?.factors ?? [];
-  const topFactors = [...factors].sort((a, b) => b.return_contribution - a.return_contribution).slice(0, 10);
-  const bottomFactors = [...factors].sort((a, b) => a.return_contribution - b.return_contribution).slice(0, 10);
+  const pnl = (analyticsData.pnl_metrics ?? {}) as Record<string, unknown>;
+  const bm = (pnl.benchmark ?? {}) as Record<string, unknown>;
+  const vts = (analyticsData.valuation_ts as Record<string, unknown>[] | undefined) ?? [];
+  const latestV = vts.length > 0 ? vts[vts.length - 1] : {};
+  const holdings = (analyticsData.holdings_detail as Record<string, unknown>[] | undefined) ?? [];
+  const factors = (analyticsData.factor_detail as Record<string, unknown>[] | undefined) ?? [];
+  const brinson = (analyticsData.brinson as Record<string, unknown> | undefined) ?? {};
+  const mcapBrinson = (brinson.by_mcap as Record<string, unknown>[] | undefined) ?? [];
 
-  const topBarData = topFactors.map((f) => ({ name: f.factor, value: f.return_contribution * 100 }));
-  const bottomBarData = bottomFactors.map((f) => ({ name: f.factor, value: f.return_contribution * 100 }));
+  // Build tables
+  const pnlRows = [
+    { metric: "Total Return (%)", value: fmt(pnl.total_return_pct) },
+    { metric: "CAGR (%)", value: fmt(pnl.cagr_pct) },
+    { metric: "Sharpe Ratio", value: fmt(pnl.sharpe) },
+    { metric: "Sortino Ratio", value: fmt(pnl.sortino) },
+    { metric: "Treynor Ratio", value: fmt(pnl.treynor) },
+  ];
 
-  // Build holdings bar from top factors
-  const topHoldingsBarData = topFactors.slice(0, 10).map((f) => ({
-    name: f.factor,
-    value: f.return_contribution * 100,
-  }));
+  const riskRows = [
+    { metric: "Beta", value: fmt(pnl.beta) },
+    { metric: "Volatility (%)", value: fmt(pnl.volatility_pct) },
+    { metric: "Max Drawdown (%)", value: fmt(pnl.max_drawdown_pct) },
+  ];
 
-  // Return decomposition bar chart data
-  // perfData.total_return is already in % (e.g. -6.62), decomp values are decimals (* 100)
-  const totalRet = perfData?.total_return ?? 0;
-  const factorRet = (decompData?.factor_return ?? 0) * 100;
-  const idioRet = totalRet - factorRet; // idiosyncratic = total - factor
-  const returnDecompBarData = perfData ? [
-    { name: "Total", value: parseFloat(totalRet.toFixed(2)) },
-    { name: "Factor", value: parseFloat(factorRet.toFixed(2)) },
-    { name: "Idiosyncratic", value: parseFloat(idioRet.toFixed(2)) },
-  ] : [];
+  const valuationRows = [
+    { metric: "PE Ratio", value: fmt(latestV.pe_ratio ?? latestV.pe) },
+    { metric: "PB Ratio", value: fmt(latestV.pb_ratio ?? latestV.pb) },
+    { metric: "ROE (%)", value: fmt(latestV.roe_pct ?? latestV.roe) },
+  ];
 
-  // Factor contributor rows
-  const factorTopRows = topFactors.slice(0, 3).map((f) => [
-    f.factor_type ?? "Style", f.factor, f.exposure.toFixed(2), dpct(f.return_contribution), dpct(f.risk_contribution),
-  ]);
-  const factorBottomRows = bottomFactors.slice(0, 3).map((f) => [
-    f.factor_type ?? "Style", f.factor, f.exposure.toFixed(2), dpct(f.return_contribution), dpct(f.risk_contribution),
-  ]);
+  // Contributors & Detractors
+  const sortedHoldings = [...holdings] as Array<Record<string, unknown>>;
+  const topOverall = [...sortedHoldings].sort((a, b) =>
+    Number(b.total_return_contribution_pct ?? 0) - Number(a.total_return_contribution_pct ?? 0)
+  ).slice(0, 10);
+  const bottomOverall = [...sortedHoldings].sort((a, b) =>
+    Number(a.total_return_contribution_pct ?? 0) - Number(b.total_return_contribution_pct ?? 0)
+  ).slice(0, 10);
 
-  const FACTOR_COLS = ["Factor Type", "Factor Name", "Exposure", "Return (%)", "Risk Contrib (%)"];
+  const topIdio = [...sortedHoldings].sort((a, b) =>
+    Number(b.idio_return_pct ?? 0) - Number(a.idio_return_pct ?? 0)
+  ).slice(0, 10);
+  const bottomIdio = [...sortedHoldings].sort((a, b) =>
+    Number(a.idio_return_pct ?? 0) - Number(b.idio_return_pct ?? 0)
+  ).slice(0, 10);
+
+  const sortedFactors = [...factors] as Array<Record<string, unknown>>;
+  const topFactor = [...sortedFactors].sort((a, b) =>
+    Number(b.return_contribution_pct ?? 0) - Number(a.return_contribution_pct ?? 0)
+  ).slice(0, 10);
+  const bottomFactor = [...sortedFactors].sort((a, b) =>
+    Number(a.return_contribution_pct ?? 0) - Number(b.return_contribution_pct ?? 0)
+  ).slice(0, 10);
+
+  const topList = contributorTab === "overall" ? topOverall : contributorTab === "idio" ? topIdio : topFactor;
+  const bottomList = contributorTab === "overall" ? bottomOverall : contributorTab === "idio" ? bottomIdio : bottomFactor;
+  const valueKey = contributorTab === "overall" ? "total_return_contribution_pct"
+    : contributorTab === "idio" ? "idio_return_pct"
+    : "return_contribution_pct";
+  const nameKey = contributorTab === "factor" ? "factor_name" : "symbol";
 
   return (
     <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Performance Summary{selectedFundName ? ` — ${selectedFundName}` : ""}</h1>
-        <Tabs value={viewMode} onValueChange={(v) => { if (typeof v === "string") setViewMode(v); }}>
-          <TabsList className="h-7">
-            <TabsTrigger value="active" className="text-[10px] h-6">Active</TabsTrigger>
-            <TabsTrigger value="benchmark" className="text-[10px] h-6">Benchmark</TabsTrigger>
-            <TabsTrigger value="excess" className="text-[10px] h-6">Excess</TabsTrigger>
-          </TabsList>
-        </Tabs>
+      <h1 className="text-xl font-bold">Returns &amp; Risk</h1>
+
+      {/* 4 summary tables */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        <MetricTable title="P&amp;L Summary" rows={pnlRows} />
+        <MetricTable title="Risk Summary" rows={riskRows} />
+        <MetricTable title="Valuation Summary" rows={valuationRows} />
+        <Card>
+          <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+            <CardTitle className="text-[11px]">Brinson by Market Cap</CardTitle>
+            <CardControls />
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-[10px]">
+              <thead>
+                <tr className="border-b border-border/50">
+                  {["Bucket", "Alloc (%)", "Select (%)", "Interact (%)"].map((h) => (
+                    <th key={h} className="px-2 py-1.5 text-left font-medium text-muted-foreground whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {mcapBrinson.map((row, i) => (
+                  <tr key={i} className="border-b border-border/30">
+                    <td className="px-2 py-1.5 font-medium">{String(row.bucket ?? row.name ?? "—")}</td>
+                    <td className="px-2 py-1.5"><ColoredCell value={fmt(row.allocation_pct)} /></td>
+                    <td className="px-2 py-1.5"><ColoredCell value={fmt(row.selection_pct)} /></td>
+                    <td className="px-2 py-1.5"><ColoredCell value={fmt(row.interaction_pct)} /></td>
+                  </tr>
+                ))}
+                {mcapBrinson.length === 0 && (
+                  <tr><td colSpan={4} className="px-2 py-4 text-center text-muted-foreground">No Brinson data</td></tr>
+                )}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
       </div>
 
-      {loading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+      {/* 4 charts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        <AnalyticsChart analyticsData={analyticsData} defaultKpi="decomp" />
+        <AnalyticsChart analyticsData={analyticsData} defaultKpi="realized_risk" />
+        <AnalyticsChart analyticsData={analyticsData} defaultKpi="pe_ratio" />
+        <AnalyticsChart analyticsData={analyticsData} defaultKpi="allocation_effect" />
+      </div>
+
+      {/* Contributors & Detractors */}
+      <div>
+        <div className="flex items-center gap-3 mb-3">
+          <h2 className="text-sm font-semibold">Contributors &amp; Detractors</h2>
+          <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
+            {(["overall", "idio", "factor"] as ContribTab[]).map((tab) => (
+              <button key={tab} onClick={() => setContributorTab(tab)}
+                className={`px-3 py-1 text-[10px] rounded transition-colors ${
+                  contributorTab === tab ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}>
+                {tab === "overall" ? "Overall" : tab === "idio" ? "Idio" : "Factor"}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
 
-      {error && (
-        <Card><CardContent className="p-4 text-center text-red-400">{error}</CardContent></Card>
-      )}
-
-      {!loading && !error && perfData && (
-        <>
-          {/* Summary Tables Row */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-            <STable title="Profit and Loss Summary" viewMode={viewMode} rows={[
-              ["Total Return (%)", pct(perfData.total_return), pct(bm?.total_return)],
-              ["Factor Return (%)", `${factorRet.toFixed(2)}%`, "—"],
-              ["Idio Return (%)", `${idioRet.toFixed(2)}%`, "—"],
-              ["Annualised Return (%)", pct(perfData.annualised_return), pct(bm?.annualised_return)],
-              ["Sharpe Ratio", raw(perfData.sharpe_ratio), raw(bm?.sharpe_ratio)],
-            ]} />
-            <STable title="Risk Summary" viewMode={viewMode} rows={[
-              ["Volatility (%)", pct(perfData.volatility), pct(bm?.volatility)],
-              ["Max Drawdown (%)", pct(perfData.max_drawdown), pct(bm?.max_drawdown)],
-            ]} />
-            <STable title="Portfolio Info" viewMode={viewMode} rows={[
-              ["Holdings", perfData.num_holdings != null ? String(perfData.num_holdings) : "—", "—"],
-              ["AUM", perfData.total_aum_cr != null ? formatCurrencyCompact(Number(perfData.total_aum_cr) * 1e7, "INR") : "—", "—"],
-            ]} />
-            <STable title="Return Decomposition" viewMode={viewMode} rows={[
-              ["Factor Return", `${factorRet.toFixed(2)}%`, "—"],
-              ["Idio Return", `${idioRet.toFixed(2)}%`, "—"],
-            ]} />
-          </div>
-
-          {/* Charts Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-            <Card>
-              <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-                <CardTitle className="text-[11px]">Return Decomposition (%)</CardTitle>
-                <CardControls filename="return_decomposition" title="Return Decomposition (%)" info="Portfolio return split into total, factor, and stock-specific (idiosyncratic) components." fullscreen expandContent={
-                  returnDecompBarData.length > 0 ? (
-                    <BarChartPanel data={returnDecompBarData} height={600} />
-                  ) : undefined
-                } />
-              </CardHeader>
-              <CardContent>
-                {returnDecompBarData.length > 0 ? (
-                  <BarChartPanel data={returnDecompBarData} height={160} />
-                ) : (
-                  <div className="flex items-center justify-center h-[160px] text-muted-foreground text-xs">No data</div>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-                <CardTitle className="text-[11px]">Factor Returns (%)</CardTitle>
-                <CardControls filename="factor_returns" title="Factor Returns (%)" info="Return contribution from each factor. Positive = factor helped, negative = factor hurt." fullscreen expandContent={
-                  topBarData.length > 0 ? (
-                    <BarChartPanel data={topBarData} height={600} color="#10b981" showNegativeColors={false} />
-                  ) : undefined
-                } />
-              </CardHeader>
-              <CardContent>
-                {topBarData.length > 0 ? (
-                  <BarChartPanel data={topBarData} height={160} color="#10b981" showNegativeColors={false} />
-                ) : (
-                  <div className="flex items-center justify-center h-[160px] text-muted-foreground text-xs">No factor data</div>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-                <CardTitle className="text-[11px]">Factor Risk Contrib (%)</CardTitle>
-                <CardControls filename="factor_risk" title="Factor Risk Contrib (%)" info="How much risk each factor adds to the portfolio. Higher = more risk contribution." fullscreen expandContent={
-                  factors.length > 0 ? (
-                    <BarChartPanel
-                      data={factors.map((f) => ({ name: f.factor, value: f.risk_contribution * 100 }))}
-                      height={600}
-                      color="#3b82f6"
-                      showNegativeColors={false}
-                    />
-                  ) : undefined
-                } />
-              </CardHeader>
-              <CardContent>
-                {factors.length > 0 ? (
-                  <BarChartPanel
-                    data={factors.map((f) => ({ name: f.factor, value: f.risk_contribution * 100 }))}
-                    height={160}
-                    color="#3b82f6"
-                    showNegativeColors={false}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-[160px] text-muted-foreground text-xs">No factor data</div>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-                <CardTitle className="text-[11px]">Factor Exposure</CardTitle>
-                <CardControls filename="factor_exposure" title="Factor Exposure" info="Portfolio's weighted exposure to each factor. Shows factor tilts." fullscreen expandContent={
-                  factors.length > 0 ? (
-                    <BarChartPanel
-                      data={factors.map((f) => ({ name: f.factor, value: f.exposure }))}
-                      height={600}
-                    />
-                  ) : undefined
-                } />
-              </CardHeader>
-              <CardContent>
-                {factors.length > 0 ? (
-                  <BarChartPanel
-                    data={factors.map((f) => ({ name: f.factor, value: f.exposure }))}
-                    height={160}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-[160px] text-muted-foreground text-xs">No factor data</div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Contributors */}
-          <div>
-            <div className="flex items-center gap-3 mb-3">
-              <h2 className="text-sm font-semibold">Contributors and Detractors</h2>
-              <Tabs value={contributorTab} onValueChange={(v) => { if (typeof v === "string") setContributorTab(v); }}>
-                <TabsList className="h-7">
-                  <TabsTrigger value="overall" className="text-[10px] h-6">Overall</TabsTrigger>
-                  <TabsTrigger value="factor" className="text-[10px] h-6">Factor</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-              <Card>
-                <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between"><CardTitle className="text-[11px]">
-                  {contributorTab === "factor" ? "Top Factors" : "Top Contributors"}
-                </CardTitle><CardControls title={contributorTab === "factor" ? "Top Factors" : "Top Contributors"} info="Factors with the highest positive return contribution." fullscreen expandContent={
-                  <table className="w-full text-[10px]">
-                    <thead><tr className="border-b border-border/50">
-                      {FACTOR_COLS.map(h => <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>)}
-                    </tr></thead>
-                    <tbody>
-                      {factorTopRows.map((r, i) => (
-                        <tr key={i} className="border-b border-border/30">{r.map((c, j) => <td key={j} className="px-2 py-1 tabular-nums">{c}</td>)}</tr>
-                      ))}
-                      {factorTopRows.length === 0 && (
-                        <tr><td colSpan={5} className="px-2 py-4 text-center text-muted-foreground">No data</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                } /></CardHeader>
-                <CardContent className="p-0">
-                  <table className="w-full text-[10px]">
-                    <thead><tr className="border-b border-border/50">
-                      {FACTOR_COLS.map(h => <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>)}
-                    </tr></thead>
-                    <tbody>
-                      {factorTopRows.map((r, i) => (
-                        <tr key={i} className="border-b border-border/30">{r.map((c, j) => <td key={j} className="px-2 py-1 tabular-nums">{c}</td>)}</tr>
-                      ))}
-                      {factorTopRows.length === 0 && (
-                        <tr><td colSpan={5} className="px-2 py-4 text-center text-muted-foreground">No data</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between"><CardTitle className="text-[11px]">
-                  {contributorTab === "factor" ? "Bottom Factors" : "Bottom Detractors"}
-                </CardTitle><CardControls title={contributorTab === "factor" ? "Bottom Factors" : "Bottom Detractors"} info="Factors with the most negative return contribution." fullscreen expandContent={
-                  <table className="w-full text-[10px]">
-                    <thead><tr className="border-b border-border/50">
-                      {FACTOR_COLS.map(h => <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>)}
-                    </tr></thead>
-                    <tbody>
-                      {factorBottomRows.map((r, i) => (
-                        <tr key={i} className="border-b border-border/30">{r.map((c, j) => <td key={j} className={`px-2 py-1 tabular-nums ${c.startsWith("-") ? "text-red-400" : ""}`}>{c}</td>)}</tr>
-                      ))}
-                      {factorBottomRows.length === 0 && (
-                        <tr><td colSpan={5} className="px-2 py-4 text-center text-muted-foreground">No data</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                } /></CardHeader>
-                <CardContent className="p-0">
-                  <table className="w-full text-[10px]">
-                    <thead><tr className="border-b border-border/50">
-                      {FACTOR_COLS.map(h => <th key={h} className="px-2 py-1.5 text-left text-muted-foreground font-medium">{h}</th>)}
-                    </tr></thead>
-                    <tbody>
-                      {factorBottomRows.map((r, i) => (
-                        <tr key={i} className="border-b border-border/30">{r.map((c, j) => <td key={j} className={`px-2 py-1 tabular-nums ${c.startsWith("-") ? "text-red-400" : ""}`}>{c}</td>)}</tr>
-                      ))}
-                      {factorBottomRows.length === 0 && (
-                        <tr><td colSpan={5} className="px-2 py-4 text-center text-muted-foreground">No data</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-                  <CardTitle className="text-[11px]">Top Factor Returns (%)</CardTitle>
-                  <CardControls filename="top_factor_returns" title="Top Factor Returns (%)" info="Top factor return contributors ranked by impact on portfolio performance." fullscreen expandContent={
-                    topHoldingsBarData.length > 0 ? (
-                      <BarChartPanel data={topHoldingsBarData} height={600} />
-                    ) : undefined
-                  } />
-                </CardHeader>
-                <CardContent>
-                  {topHoldingsBarData.length > 0 ? (
-                    <BarChartPanel data={topHoldingsBarData} height={160} />
-                  ) : (
-                    <div className="flex items-center justify-center h-[160px] text-muted-foreground text-xs">No data</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Card>
+            <CardHeader className="pb-1 py-2 px-3">
+              <CardTitle className="text-[11px]">Top 10 — {contributorTab === "factor" ? "Factors" : "Holdings"}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <table className="w-full text-[10px]">
+                <thead>
+                  <tr className="border-b border-border/50">
+                    <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Name</th>
+                    <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Return (%)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topList.map((r, i) => (
+                    <tr key={i} className="border-b border-border/30">
+                      <td className="px-2 py-1 font-medium">{String(r[nameKey] ?? "—")}</td>
+                      <td className="px-2 py-1 text-right"><ColoredCell value={fmt(r[valueKey])} /></td>
+                    </tr>
+                  ))}
+                  {topList.length === 0 && (
+                    <tr><td colSpan={2} className="px-2 py-4 text-center text-muted-foreground">No data</td></tr>
                   )}
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </>
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-1 py-2 px-3">
+              <CardTitle className="text-[11px]">Bottom 10 — {contributorTab === "factor" ? "Factors" : "Holdings"}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <table className="w-full text-[10px]">
+                <thead>
+                  <tr className="border-b border-border/50">
+                    <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Name</th>
+                    <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Return (%)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bottomList.map((r, i) => (
+                    <tr key={i} className="border-b border-border/30">
+                      <td className="px-2 py-1 font-medium">{String(r[nameKey] ?? "—")}</td>
+                      <td className="px-2 py-1 text-right"><ColoredCell value={fmt(r[valueKey])} /></td>
+                    </tr>
+                  ))}
+                  {bottomList.length === 0 && (
+                    <tr><td colSpan={2} className="px-2 py-4 text-center text-muted-foreground">No data</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Top Holdings chart */}
+      {holdings.length > 0 && (
+        <Card>
+          <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+            <CardTitle className="text-[11px]">Top Holdings Weight (%)</CardTitle>
+            <CardControls />
+          </CardHeader>
+          <CardContent className="p-2">
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart
+                data={[...holdings]
+                  .sort((a, b) => Number(b.holdings_pct ?? 0) - Number(a.holdings_pct ?? 0))
+                  .slice(0, 10)
+                  .map((h) => ({ name: String(h.symbol ?? ""), value: Number(h.holdings_pct ?? 0) }))}
+                margin={{ top: 4, right: 8, bottom: 4, left: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                <XAxis dataKey="name" tick={{ fontSize: 8, fill: "#71717a" }} tickLine={false} />
+                <YAxis tick={{ fontSize: 8, fill: "#71717a" }} tickLine={false}
+                  tickFormatter={(v) => `${v.toFixed(1)}%`} width={35} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 8, fontSize: 11 }}
+                  formatter={(v) => [`${Number(v).toFixed(2)}%`]}
+                />
+                <Bar dataKey="value" fill="#f97316" name="Weight (%)" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

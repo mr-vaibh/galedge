@@ -1,254 +1,237 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { BarChartPanel } from "@/components/charts/BarChartPanel";
+import { Loader2, BarChart3 } from "lucide-react";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
-import { useAuth } from "@/lib/auth";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  CartesianGrid,
+  ResponsiveContainer,
+} from "recharts";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+type Granularity = "monthly" | "quarterly" | "annual";
 
-const OVERVIEW_TABS = [
-  { label: "Performance Summary", href: "/analytics/overview/performance" },
-  { label: "Peer Comparison", href: "/analytics/overview/peer-comparison" },
-  { label: "Holdings Summary", href: "/analytics/overview/holdings" },
-  { label: "Period Analysis", href: "/analytics/overview/period-analysis" },
-];
+function fmt(v: unknown, decimals = 2): string {
+  if (v == null || v === "") return "—";
+  const n = Number(v);
+  if (isNaN(n)) return String(v);
+  return n.toFixed(decimals);
+}
 
-interface EquityPoint {
-  date: string;
-  value: number;
-  drawdown?: number;
+function ColoredCell({ value }: { value: unknown }) {
+  const n = Number(value);
+  const s = fmt(value);
+  if (s === "—") return <span className="tabular-nums">{s}</span>;
+  return <span className={`tabular-nums ${n >= 0 ? "text-emerald-500" : "text-red-400"}`}>{s}</span>;
 }
 
 interface PeriodRow {
-  label: string;
-  returnPct: number;
-  volatility: number;
-  maxDrawdown: number;
-  sharpe: number;
+  period: string;
+  total_return_pct?: number;
+  cagr_pct?: number;
+  sharpe?: number;
+  sortino?: number;
+  volatility_pct?: number;
+  market_return_pct?: number;
+  style_return_pct?: number;
+  industry_return_pct?: number;
+  idio_return_pct?: number;
+  [key: string]: unknown;
 }
 
-function computePeriodStats(points: EquityPoint[]): { returnPct: number; volatility: number; maxDrawdown: number; sharpe: number } {
-  if (points.length < 2) return { returnPct: 0, volatility: 0, maxDrawdown: 0, sharpe: 0 };
-  const first = points[0].value;
-  const last = points[points.length - 1].value;
-  const returnPct = ((last - first) / first) * 100;
-
-  // Daily returns within this period
-  const dailyReturns: number[] = [];
-  for (let i = 1; i < points.length; i++) {
-    if (points[i - 1].value > 0) {
-      dailyReturns.push((points[i].value - points[i - 1].value) / points[i - 1].value);
-    }
-  }
-
-  const mean = dailyReturns.length > 0 ? dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length : 0;
-  const variance = dailyReturns.length > 1
-    ? dailyReturns.reduce((a, b) => a + (b - mean) ** 2, 0) / (dailyReturns.length - 1)
-    : 0;
-  const dailyVol = Math.sqrt(variance);
-  const volatility = dailyVol * Math.sqrt(252) * 100;
-  const sharpe = dailyVol > 0 ? (mean / dailyVol) * Math.sqrt(252) : 0;
-
-  // Max drawdown
-  let peak = points[0].value;
-  let maxDD = 0;
-  for (const p of points) {
-    if (p.value > peak) peak = p.value;
-    const dd = (p.value - peak) / peak;
-    if (dd < maxDD) maxDD = dd;
-  }
-
-  return { returnPct, volatility, maxDrawdown: maxDD * 100, sharpe };
+function getPeriodData(analyticsData: Record<string, unknown>, granularity: Granularity): PeriodRow[] {
+  const key =
+    granularity === "monthly" ? "period_stats_monthly" :
+    granularity === "quarterly" ? "period_stats_quarterly" :
+    "period_stats_annual";
+  const rows = (analyticsData[key] as PeriodRow[] | undefined) ?? [];
+  return rows;
 }
 
-function groupByMonth(curve: EquityPoint[]): PeriodRow[] {
-  const groups: Record<string, EquityPoint[]> = {};
-  for (const p of curve) {
-    const key = p.date.substring(0, 7); // YYYY-MM
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(p);
-  }
-  const months = Object.keys(groups).sort();
-  return months.map((m) => {
-    const stats = computePeriodStats(groups[m]);
-    const [y, mo] = m.split("-");
-    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    return { label: `${monthNames[parseInt(mo) - 1]} ${y}`, ...stats };
-  });
+function computeStats(rows: PeriodRow[]) {
+  const returns = rows.map((r) => Number(r.total_return_pct ?? 0)).filter((n) => !isNaN(n));
+  if (returns.length === 0) return null;
+
+  const positive = returns.filter((r) => r > 0).length;
+  const hitRate = (positive / returns.length) * 100;
+  const sorted = [...returns].sort((a, b) => a - b);
+  const p25 = sorted[Math.floor(sorted.length * 0.25)] ?? 0;
+  const p75 = sorted[Math.floor(sorted.length * 0.75)] ?? 0;
+  const median = sorted[Math.floor(sorted.length * 0.5)] ?? 0;
+  const avg = returns.reduce((a, b) => a + b, 0) / returns.length;
+
+  return {
+    hitRate: hitRate.toFixed(1),
+    max: Math.max(...returns).toFixed(2),
+    min: Math.min(...returns).toFixed(2),
+    avg: avg.toFixed(2),
+    median: median.toFixed(2),
+    p25: p25.toFixed(2),
+    p75: p75.toFixed(2),
+    count: returns.length,
+  };
 }
 
-function groupByQuarter(curve: EquityPoint[]): PeriodRow[] {
-  const groups: Record<string, EquityPoint[]> = {};
-  for (const p of curve) {
-    const [y, m] = p.date.split("-");
-    const q = Math.ceil(parseInt(m) / 3);
-    const key = `${y}-Q${q}`;
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(p);
-  }
-  return Object.keys(groups).sort().map((k) => {
-    const stats = computePeriodStats(groups[k]);
-    return { label: k, ...stats };
-  });
-}
-
-function STable({ title, rows, columns }: { title: string; rows: string[][]; columns: string[] }) {
-  const tableJsx = (
-    <table className="w-full text-[10px]">
-      <thead>
-        <tr className="border-b border-border/50">
-          {columns.map((c) => (
-            <th key={c} className="px-2 py-1.5 text-left font-medium text-muted-foreground">{c}</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row, i) => (
-          <tr key={i} className="border-b border-border/30 hover:bg-muted/20">
-            {row.map((cell, j) => (
-              <td key={j} className={`px-2 py-1 tabular-nums ${j > 0 && cell.startsWith("-") ? "text-red-400" : ""}`}>
-                {cell}
-              </td>
-            ))}
-          </tr>
-        ))}
-        {rows.length === 0 && (
-          <tr><td colSpan={columns.length} className="px-2 py-4 text-center text-muted-foreground">No data</td></tr>
-        )}
-      </tbody>
-    </table>
-  );
-
-  return (
-    <Card>
-      <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-        <CardTitle className="text-[11px]">{title}</CardTitle>
-        <CardControls
-          title={title}
-          info={`${title} — period-by-period breakdown of returns, risk, and statistics.`}
-          data={rows.map((row) => Object.fromEntries(columns.map((c, i) => [c, row[i] ?? ""])))}
-          filename={title.toLowerCase().replace(/\s+/g, "_")}
-          expandContent={tableJsx}
-        />
-      </CardHeader>
-      <CardContent className="p-0">
-        {tableJsx}
-      </CardContent>
-    </Card>
-  );
-}
+const STACKED_COLORS: Record<string, string> = {
+  market_return_pct: "#6366f1",
+  style_return_pct: "#10b981",
+  industry_return_pct: "#f97316",
+  idio_return_pct: "#eab308",
+};
 
 export default function PeriodAnalysisPage() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const { selectedPortfolioId, selectedFundName } = usePortfolio();
-  const { token } = useAuth();
+  const { analyticsData, analyticsLoading, selectedSourceId } = usePortfolio();
+  const [granularity, setGranularity] = useState<Granularity>("monthly");
 
-  const [period, setPeriod] = useState<"monthly" | "quarterly">("monthly");
-  const [periodRows, setPeriodRows] = useState<PeriodRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  if (analyticsLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-sm text-muted-foreground">Computing analytics...</span>
+      </div>
+    );
+  }
 
-  const fetchData = useCallback(async () => {
-    if (!selectedPortfolioId || !token) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`${API_BASE}/api/analytics/performance/${selectedPortfolioId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Failed to fetch performance data");
-      const data = await res.json();
-      const curve: EquityPoint[] = data.equity_curve || [];
-      if (curve.length < 2) {
-        setError("Not enough data points for period analysis");
-        setPeriodRows([]);
-      } else {
-        const rows = period === "monthly" ? groupByMonth(curve) : groupByQuarter(curve);
-        setPeriodRows(rows);
-      }
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to fetch data");
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedPortfolioId, token, period]);
+  if (!analyticsData || !selectedSourceId) {
+    return (
+      <div className="p-6 space-y-4">
+        <h1 className="text-xl font-bold">Period Analysis</h1>
+        <div className="rounded-lg border bg-card p-12 text-center space-y-3">
+          <BarChart3 className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+          <p className="text-sm text-muted-foreground">Select a portfolio or strategy from the sidebar to begin</p>
+        </div>
+      </div>
+    );
+  }
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const rows = getPeriodData(analyticsData, granularity);
+  const stats = computeStats(rows);
 
-  const pnlRows = periodRows.map((r) => [r.label, `${r.returnPct.toFixed(2)}%`]);
-  const riskRows = periodRows.map((r) => [r.label, `${r.volatility.toFixed(1)}%`, `${r.maxDrawdown.toFixed(1)}%`]);
-  const statsRows = periodRows.map((r) => [r.label, r.sharpe.toFixed(2), `${r.maxDrawdown.toFixed(1)}%`]);
-  const barData = periodRows.map((r) => ({ name: r.label, value: parseFloat(r.returnPct.toFixed(2)) }));
+  const decompBarData = rows.map((r) => ({
+    period: r.period,
+    market_return_pct: Number(r.market_return_pct ?? 0),
+    style_return_pct: Number(r.style_return_pct ?? 0),
+    industry_return_pct: Number(r.industry_return_pct ?? 0),
+    idio_return_pct: Number(r.idio_return_pct ?? 0),
+  }));
 
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">Period Analysis</h1>
-          {selectedFundName ? (
-            <p className="text-xs text-muted-foreground">Portfolio: <span className="font-medium text-foreground">{selectedFundName}</span></p>
-          ) : (
-            <p className="text-xs text-amber-400">
-              No portfolio selected.{" "}
-              <button className="underline" onClick={() => router.push("/portfolio-construction/select")}>Select one</button>
-            </p>
-          )}
+          <p className="text-xs text-muted-foreground">{rows.length} periods</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
-            <Button variant={period === "monthly" ? "secondary" : "ghost"} size="sm" onClick={() => setPeriod("monthly")} className="h-7 text-[10px] px-3">Monthly</Button>
-            <Button variant={period === "quarterly" ? "secondary" : "ghost"} size="sm" onClick={() => setPeriod("quarterly")} className="h-7 text-[10px] px-3">Quarterly</Button>
-          </div>
-          <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
-            {OVERVIEW_TABS.map((tab) => (
-              <Button key={tab.href} variant={pathname === tab.href ? "secondary" : "ghost"} size="sm" className="h-7 text-[10px]" onClick={() => router.push(tab.href)}>{tab.label}</Button>
-            ))}
-          </div>
+        <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
+          {(["monthly", "quarterly", "annual"] as Granularity[]).map((g) => (
+            <Button key={g} variant={granularity === g ? "secondary" : "ghost"}
+              size="sm" onClick={() => setGranularity(g)} className="h-7 text-[10px] px-3 capitalize">
+              {g}
+            </Button>
+          ))}
         </div>
       </div>
 
-      {!selectedPortfolioId ? (
+      {/* P&L Table by period */}
+      <Card>
+        <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+          <CardTitle className="text-[11px]">P&amp;L by Period</CardTitle>
+          <CardControls />
+        </CardHeader>
+        <CardContent className="p-0 max-h-72 overflow-y-auto">
+          <table className="w-full text-[10px]">
+            <thead className="sticky top-0 bg-card">
+              <tr className="border-b border-border/50">
+                {["Period", "Total Return (%)", "CAGR (%)", "Sharpe", "Sortino", "Vol (%)"].map((h) => (
+                  <th key={h} className="px-2 py-1.5 text-left font-medium text-muted-foreground whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.period} className="border-b border-border/30 hover:bg-muted/20">
+                  <td className="px-2 py-1.5 font-medium">{r.period}</td>
+                  <td className="px-2 py-1.5"><ColoredCell value={fmt(r.total_return_pct)} /></td>
+                  <td className="px-2 py-1.5"><ColoredCell value={fmt(r.cagr_pct)} /></td>
+                  <td className="px-2 py-1.5"><ColoredCell value={fmt(r.sharpe)} /></td>
+                  <td className="px-2 py-1.5"><ColoredCell value={fmt(r.sortino)} /></td>
+                  <td className="px-2 py-1.5"><ColoredCell value={fmt(r.volatility_pct)} /></td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr><td colSpan={6} className="px-2 py-4 text-center text-muted-foreground">No period data available</td></tr>
+              )}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+
+      {/* Statistics Panel */}
+      {stats && (
         <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
-            No portfolio selected. Go to Portfolio Construction to upload and select one.
+          <CardHeader className="pb-1 py-2 px-3">
+            <CardTitle className="text-[11px]">Period Statistics</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-0 divide-x divide-y divide-border/30">
+              {[
+                { label: "Hit Rate", value: `${stats.hitRate}%` },
+                { label: "Max Return", value: `${stats.max}%` },
+                { label: "Min Return", value: `${stats.min}%` },
+                { label: "Average", value: `${stats.avg}%` },
+                { label: "Median", value: `${stats.median}%` },
+                { label: "25th Pct", value: `${stats.p25}%` },
+                { label: "75th Pct", value: `${stats.p75}%` },
+                { label: "Periods", value: stats.count },
+              ].map(({ label, value }) => (
+                <div key={label} className="p-3 text-center">
+                  <div className="text-[9px] text-muted-foreground">{label}</div>
+                  <div className={`text-sm font-semibold tabular-nums mt-0.5 ${
+                    typeof value === "string" && value.startsWith("-") ? "text-red-400" : ""
+                  }`}>{value}</div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
-      ) : loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          <span className="ml-2 text-sm text-muted-foreground">Computing period returns...</span>
-        </div>
-      ) : error ? (
-        <Card><CardContent className="p-4 text-center text-amber-400">{error}</CardContent></Card>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <STable title="P&L by Period" columns={["Period", "Return"]} rows={pnlRows} />
-            <STable title="Risk by Period" columns={["Period", "Volatility", "Max Drawdown"]} rows={riskRows} />
-            <STable title="Statistics" columns={["Period", "Sharpe", "Max Drawdown"]} rows={statsRows} />
-          </div>
+      )}
 
-          <Card>
-            <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-              <CardTitle className="text-[11px]">Return by Period (%)</CardTitle>
-              <CardControls title="Return by Period (%)" filename="period_returns" info="Visual comparison of returns across each period. Red bars = negative returns." fullscreen expandContent={barData.length > 0 ? <BarChartPanel data={barData} height={600} /> : undefined} />
-            </CardHeader>
-            <CardContent className="p-2">
-              {barData.length > 0 ? (
-                <BarChartPanel data={barData} height={220} />
-              ) : (
-                <div className="h-[220px] flex items-center justify-center text-muted-foreground text-xs">No data</div>
-              )}
-            </CardContent>
-          </Card>
-        </>
+      {/* Return Decomposition Stacked Bar */}
+      {decompBarData.length > 0 && (
+        <Card>
+          <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+            <CardTitle className="text-[11px]">Return Decomposition by Period</CardTitle>
+            <CardControls />
+          </CardHeader>
+          <CardContent className="p-2">
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={decompBarData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                <XAxis dataKey="period" tick={{ fontSize: 8, fill: "#71717a" }} tickLine={false} axisLine={{ stroke: "#27272a" }} />
+                <YAxis tick={{ fontSize: 8, fill: "#71717a" }} tickLine={false} axisLine={{ stroke: "#27272a" }}
+                  tickFormatter={(v) => `${v.toFixed(1)}%`} width={40} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 8, fontSize: 11 }}
+                  labelStyle={{ color: "#a1a1aa" }}
+                  formatter={(v) => [`${Number(v).toFixed(2)}%`]}
+                />
+                <Legend wrapperStyle={{ fontSize: 9, paddingTop: 4 }} />
+                {Object.entries(STACKED_COLORS).map(([key, color]) => (
+                  <Bar key={key} dataKey={key} stackId="a" fill={color}
+                    name={key.replace(/_pct$/, "").replace(/_/g, " ")} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

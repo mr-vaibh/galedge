@@ -1,345 +1,268 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, BarChart3 } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
-import { useAuth } from "@/lib/auth";
-import { useCurrency } from "@/lib/currency";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+type KpiKey = "total_return" | "rolling_risk" | "pe_ratio" | "drawdown";
 
-const OVERVIEW_TABS = [
-  { label: "Performance Summary", href: "/analytics/overview/performance" },
-  { label: "Peer Comparison", href: "/analytics/overview/peer-comparison" },
-  { label: "Holdings Summary", href: "/analytics/overview/holdings" },
-  { label: "Period Analysis", href: "/analytics/overview/period-analysis" },
+const KPI_OPTIONS: { value: KpiKey; label: string }[] = [
+  { value: "total_return", label: "Total Return (%)" },
+  { value: "rolling_risk", label: "Rolling 1Y Realized Risk (%)" },
+  { value: "pe_ratio", label: "PE Ratio" },
+  { value: "drawdown", label: "Drawdown (%)" },
 ];
 
-export default function PerformanceSummaryPage() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const { token, loading: authLoading } = useAuth();
-  const { selectedPortfolioId, selectedFundName } = usePortfolio();
+function fmt(v: unknown, decimals = 2): string {
+  if (v == null || v === "") return "—";
+  const n = Number(v);
+  if (isNaN(n)) return String(v);
+  return n.toFixed(decimals);
+}
 
-  const { formatCurrencyCompact, symbol } = useCurrency();
-  const portfolioId = selectedPortfolioId;
+function ColoredCell({ value }: { value: unknown }) {
+  const n = Number(value);
+  const s = fmt(value);
+  if (s === "—") return <span className="tabular-nums">{s}</span>;
+  return (
+    <span className={`tabular-nums ${n >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+      {s}
+    </span>
+  );
+}
 
-  const [metrics, setMetrics] = useState<Record<string, unknown> | null>(null);
-  const [equityCurve, setEquityCurve] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [dataIngesting, setDataIngesting] = useState(false);
+function KpiSelector({
+  value,
+  onChange,
+}: {
+  value: KpiKey;
+  onChange: (v: KpiKey) => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as KpiKey)}
+      className="text-[9px] bg-background border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none"
+    >
+      {KPI_OPTIONS.map((o) => (
+        <option key={o.value} value={o.value}>{o.label}</option>
+      ))}
+    </select>
+  );
+}
 
-  async function fetchPerformance() {
-    // Wait for auth to finish loading before deciding
-    if (authLoading) return;
+function MetricTable({
+  title,
+  rows,
+  hasBenchmark = true,
+}: {
+  title: string;
+  rows: { metric: string; active: unknown; benchmark?: unknown }[];
+  hasBenchmark?: boolean;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+        <CardTitle className="text-[11px]">{title}</CardTitle>
+        <CardControls />
+      </CardHeader>
+      <CardContent className="p-0">
+        <table className="w-full text-[10px]">
+          <thead>
+            <tr className="border-b border-border/50">
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Metric</th>
+              <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Active</th>
+              {hasBenchmark && (
+                <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Benchmark</th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ metric, active, benchmark }) => (
+              <tr key={metric} className="border-b border-border/30">
+                <td className="px-2 py-1.5 text-muted-foreground">{metric}</td>
+                <td className="px-2 py-1.5 text-right"><ColoredCell value={active} /></td>
+                {hasBenchmark && (
+                  <td className="px-2 py-1.5 text-right"><ColoredCell value={benchmark} /></td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </CardContent>
+    </Card>
+  );
+}
 
-    setLoading(true);
-    setError(null);
-    setDataIngesting(false);
-    try {
-      if (portfolioId && token) {
-        // Check if data is still being ingested
-        const statusRes = await fetch(`${API_BASE}/api/portfolios/${portfolioId}/data-status`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (statusRes.ok) {
-          const status = await statusRes.json();
-          if (status.status === "ingesting") {
-            setDataIngesting(true);
-            setLoading(false);
-            // Retry in 5 seconds
-            setTimeout(fetchPerformance, 5000);
-            return;
-          }
-        }
-
-        const res = await fetch(`${API_BASE}/api/analytics/performance/${portfolioId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.error) {
-            setError(data.error);
-          } else {
-            setMetrics(data);
-            setEquityCurve(data.equity_curve || []);
-          }
-        }
-      } else if (token && !portfolioId) {
-        // Logged in but no portfolio selected
-        setError("No portfolio selected. Go to Portfolio Construction to upload and select one.");
-      } else {
-        // Not logged in — show demo backtest
-        const res = await fetch(
-          `${API_BASE}/api/backtest/quick?universe=NIFTY%2050&start=2025-06-01&end=${new Date().toISOString().split("T")[0]}&frequency=Monthly&method=equal`,
-          { method: "POST" }
-        );
-        if (res.ok) {
-          const data = await res.json();
-          setMetrics(data.metrics);
-          setEquityCurve(data.equity_curve || []);
-        } else {
-          setError("Backend unavailable.");
-        }
-      }
-    } catch {
-      setError("Could not connect to API");
+function buildChartData(analyticsData: Record<string, unknown>, kpi: KpiKey) {
+  if (kpi === "total_return") {
+    const ec = (analyticsData.equity_curve as Record<string, unknown>[] | undefined) ?? [];
+    if (ec.length < 2) return { data: [], series: [] };
+    const base = Number(ec[0].value ?? 1);
+    const portfolioSeries = ec.map((p) => ({
+      date: String(p.date),
+      portfolio: base > 0 ? ((Number(p.value) - base) / base) * 100 : 0,
+    }));
+    // benchmark curve if available
+    const bec = (analyticsData.benchmark_equity_curve as Record<string, unknown>[] | undefined) ?? [];
+    if (bec.length > 1) {
+      const bbase = Number(bec[0].value ?? 1);
+      const merged = portfolioSeries.map((p, i) => ({
+        ...p,
+        benchmark: bec[i] ? ((Number(bec[i].value) - bbase) / bbase) * 100 : undefined,
+      }));
+      return {
+        data: merged,
+        series: [
+          { key: "portfolio", name: "Portfolio", color: "#f97316" },
+          { key: "benchmark", name: "Benchmark", color: "#6366f1" },
+        ],
+      };
     }
-    setLoading(false);
+    return {
+      data: portfolioSeries,
+      series: [{ key: "portfolio", name: "Portfolio", color: "#f97316" }],
+    };
   }
 
-  useEffect(() => { fetchPerformance(); }, [portfolioId, token, authLoading]);
+  if (kpi === "rolling_risk") {
+    const rm = (analyticsData.rolling_metrics as Record<string, unknown>[] | undefined) ?? [];
+    return {
+      data: rm.map((r) => ({ date: String(r.date), risk: Number(r.rolling_vol ?? 0) * 100 })),
+      series: [{ key: "risk", name: "Realized Risk (%)", color: "#ef4444" }],
+    };
+  }
+
+  if (kpi === "pe_ratio") {
+    const vts = (analyticsData.valuation_ts as Record<string, unknown>[] | undefined) ?? [];
+    return {
+      data: vts.map((r) => ({ date: String(r.date), pe: Number(r.pe_ratio ?? r.pe ?? 0) })),
+      series: [{ key: "pe", name: "PE Ratio", color: "#3b82f6" }],
+    };
+  }
+
+  if (kpi === "drawdown") {
+    const ec = (analyticsData.equity_curve as Record<string, unknown>[] | undefined) ?? [];
+    return {
+      data: ec.map((p) => ({ date: String(p.date), dd: Number(p.drawdown ?? 0) })),
+      series: [{ key: "dd", name: "Drawdown (%)", color: "#dc2626" }],
+    };
+  }
+
+  return { data: [], series: [] };
+}
+
+function ChartCard({ analyticsData, index }: { analyticsData: Record<string, unknown>; index: number }) {
+  const [kpi, setKpi] = useState<KpiKey>(["total_return", "rolling_risk", "pe_ratio"][index] as KpiKey);
+  const { data, series } = buildChartData(analyticsData, kpi);
+
+  return (
+    <Card>
+      <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+        <KpiSelector value={kpi} onChange={setKpi} />
+        <CardControls fullscreen expandContent={
+          data.length > 0 ? (
+            <TimeSeriesChart data={data} series={series} height={600} />
+          ) : undefined
+        } />
+      </CardHeader>
+      <CardContent className="p-2">
+        {data.length > 0 ? (
+          <TimeSeriesChart data={data} series={series} height={180} />
+        ) : (
+          <div className="h-44 flex items-center justify-center text-[10px] text-muted-foreground">
+            No data for this metric
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function PerformanceSummaryPage() {
+  const { analyticsData, analyticsLoading, analyticsError, selectedSource, selectedSourceId } = usePortfolio();
+
+  if (analyticsLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-sm text-muted-foreground">Computing analytics...</span>
+      </div>
+    );
+  }
+
+  if (!analyticsData || !selectedSourceId) {
+    return (
+      <div className="p-6 space-y-4">
+        <h1 className="text-xl font-bold">Performance Summary</h1>
+        <div className="rounded-lg border bg-card p-12 text-center space-y-3">
+          <BarChart3 className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+          <p className="text-sm text-muted-foreground">Select a portfolio or strategy from the sidebar to begin</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (analyticsError) {
+    return (
+      <div className="p-6">
+        <h1 className="text-xl font-bold">Performance Summary</h1>
+        <div className="mt-4 rounded-lg border border-red-500/30 bg-card p-6 text-center text-sm text-red-400">
+          {analyticsError}
+        </div>
+      </div>
+    );
+  }
+
+  const pnl = (analyticsData.pnl_metrics ?? {}) as Record<string, unknown>;
+  const bm = (pnl.benchmark ?? {}) as Record<string, unknown>;
+
+  const pnlRows = [
+    { metric: "Total Return (%)", active: fmt(pnl.total_return_pct), benchmark: fmt(bm.total_return_pct) },
+    { metric: "CAGR (%)", active: fmt(pnl.cagr_pct), benchmark: fmt(bm.cagr_pct) },
+    { metric: "Sharpe Ratio", active: fmt(pnl.sharpe), benchmark: fmt(bm.sharpe) },
+    { metric: "Sortino Ratio", active: fmt(pnl.sortino), benchmark: fmt(bm.sortino) },
+    { metric: "Treynor Ratio", active: fmt(pnl.treynor), benchmark: "—" },
+  ];
+
+  const riskRows = [
+    { metric: "Beta", active: fmt(pnl.beta), benchmark: "1.00" },
+    { metric: "Volatility (%)", active: fmt(pnl.volatility_pct), benchmark: fmt(bm.volatility_pct) },
+    { metric: "Max Drawdown (%)", active: fmt(pnl.max_drawdown_pct), benchmark: fmt(bm.max_drawdown_pct) },
+  ];
+
+  const vts = (analyticsData.valuation_ts as Record<string, unknown>[] | undefined) ?? [];
+  const latestVals = vts.length > 0 ? vts[vts.length - 1] : {};
+  const valuationRows = [
+    { metric: "PE Ratio", active: fmt(latestVals.pe_ratio ?? latestVals.pe) },
+    { metric: "Sortino Ratio", active: fmt(pnl.sortino) },
+  ];
+
+  const sourceName = selectedSource === "portfolio" ? "Portfolio" : "Strategy Backtest";
 
   return (
     <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">Performance Summary</h1>
-          {selectedFundName ? (
-            <p className="text-xs text-muted-foreground">Portfolio: <span className="font-medium text-foreground">{selectedFundName}</span></p>
-          ) : (
-            <p className="text-xs text-amber-400">
-              Showing demo data (NIFTY 50 equal weight).{" "}
-              <button className="underline" onClick={() => router.push("/portfolio-construction/select")}>Select a portfolio</button>
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
-          {OVERVIEW_TABS.map((tab) => (
-            <Button key={tab.href} variant={pathname === tab.href ? "secondary" : "ghost"} size="sm" className="h-7 text-[10px]" onClick={() => router.push(tab.href)}>{tab.label}</Button>
-          ))}
-        </div>
+      <div>
+        <h1 className="text-xl font-bold">Performance Summary</h1>
+        <p className="text-xs text-muted-foreground">{sourceName}</p>
       </div>
 
-      {error && (
-        <Card className="border-amber-500/30">
-          <CardContent className="py-4 flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 text-amber-400 shrink-0" />
-            <p className="text-sm text-amber-400">{error}</p>
-          </CardContent>
-        </Card>
-      )}
+      {/* Metric tables */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <MetricTable title="P&L Summary" rows={pnlRows} />
+        <MetricTable title="Risk Summary" rows={riskRows} />
+        <MetricTable title="Valuation Summary" rows={valuationRows} hasBenchmark={false} />
+      </div>
 
-      {dataIngesting ? (
-        <Card className="border-blue-500/30">
-          <CardContent className="py-8 flex flex-col items-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-            <p className="text-sm font-medium text-blue-400">Fetching market data for your portfolio...</p>
-            <p className="text-xs text-muted-foreground">Downloading historical prices from Yahoo Finance. This takes 30-60 seconds on first upload.</p>
-            <p className="text-[10px] text-muted-foreground">Analytics will load automatically when ready.</p>
-          </CardContent>
-        </Card>
-      ) : loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          <span className="ml-2 text-sm text-muted-foreground">Loading analytics...</span>
-        </div>
-      ) : metrics ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Card>
-            <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-              <CardTitle className="text-[11px]">Profit and Loss Summary</CardTitle>
-              <CardControls data={[{total_return: `${metrics.total_return ?? "—"}%`, cagr: `${metrics.annualised_return ?? "—"}%`, sharpe: metrics.sharpe_ratio ?? "—", holdings: metrics.num_holdings ?? "—"}]} filename="pnl" title="Profit and Loss Summary" info="Total return, annualized return (CAGR), Sharpe ratio, and number of holdings in your portfolio." expandContent={
-                <table className="w-full text-xs">
-                  <tbody>
-                    {[
-                      ["Total Return", `${metrics.total_return ?? metrics.total_portfolio_return ?? "—"}%`],
-                      ["CAGR", `${metrics.cagr ?? metrics.annualised_return ?? "—"}%`],
-                      ["Sharpe Ratio", metrics.sharpe_ratio ?? metrics.sharpe ?? "—"],
-                      ["Positions", metrics.avg_positions ?? metrics.num_holdings ?? "—"],
-                    ].map(([l, v]) => (
-                      <tr key={String(l)} className="border-b border-border/30">
-                        <td className="pr-12 py-2 text-muted-foreground">{String(l)}</td>
-                        <td className="py-2 text-right tabular-nums font-medium">{String(v)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              } />
-            </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full text-[10px]">
-                <tbody>
-                  {[
-                    ["Total Return", `${metrics.total_return ?? metrics.total_portfolio_return ?? "—"}%`],
-                    ["CAGR", `${metrics.cagr ?? metrics.annualised_return ?? "—"}%`],
-                    ["Sharpe Ratio", metrics.sharpe_ratio ?? metrics.sharpe ?? "—"],
-                    ["Positions", metrics.avg_positions ?? metrics.num_holdings ?? "—"],
-                  ].map(([l, v]) => (
-                    <tr key={String(l)} className="border-b border-border/30">
-                      <td className="px-2 py-1.5 text-muted-foreground">{String(l)}</td>
-                      <td className="px-2 py-1.5 text-right tabular-nums font-medium">{String(v)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-              <CardTitle className="text-[11px]">Risk Summary</CardTitle>
-              <CardControls data={metrics ? [{max_drawdown: metrics.max_drawdown, volatility: metrics.volatility, avg_turnover: metrics.avg_turnover, trading_days: metrics.trading_days ?? metrics.total_trades}] : []} filename="risk" title="Risk Summary" info="Max drawdown, annualized volatility, average turnover, and trading days for the period." expandContent={
-                <table className="w-full text-xs">
-                  <tbody>
-                    {[
-                      ["Max Drawdown", `${metrics.max_drawdown ?? "—"}%`],
-                      ["Volatility", `${metrics.volatility ?? "—"}%`],
-                      ["Avg Turnover", metrics.avg_turnover != null ? `${metrics.avg_turnover}%` : "—"],
-                      ["Trading Days", metrics.trading_days ?? metrics.total_trades ?? "—"],
-                    ].map(([l, v]) => (
-                      <tr key={String(l)} className="border-b border-border/30">
-                        <td className="pr-12 py-2 text-muted-foreground">{String(l)}</td>
-                        <td className={`py-2 text-right tabular-nums font-medium ${String(v).startsWith("-") ? "text-red-400" : ""}`}>{String(v)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              } />
-            </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full text-[10px]">
-                <tbody>
-                  {[
-                    ["Max Drawdown", `${metrics.max_drawdown ?? "—"}%`],
-                    ["Volatility", `${metrics.volatility ?? "—"}%`],
-                    ["Avg Turnover", metrics.avg_turnover != null ? `${metrics.avg_turnover}%` : "—"],
-                    ["Trading Days", metrics.trading_days ?? metrics.total_trades ?? "—"],
-                  ].map(([l, v]) => (
-                    <tr key={String(l)} className="border-b border-border/30">
-                      <td className="px-2 py-1.5 text-muted-foreground">{String(l)}</td>
-                      <td className={`px-2 py-1.5 text-right tabular-nums font-medium ${String(v).startsWith("-") ? "text-red-400" : ""}`}>{String(v)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-              <CardTitle className="text-[11px]">Portfolio Summary</CardTitle>
-              <CardControls data={metrics ? [{initial_capital: metrics.initial_capital, final_value: metrics.final_value, total_rebalances: metrics.total_rebalances, fund_name: metrics.fund_name ?? selectedFundName}] : []} filename="portfolio" title="Portfolio Summary" info="Initial capital invested, current portfolio value, number of rebalances, and fund name." expandContent={
-                <table className="w-full text-xs">
-                  <tbody>
-                    {[
-                      ["Initial Capital", metrics.initial_capital ? formatCurrencyCompact(Number(metrics.initial_capital), "INR") : metrics.aum ? formatCurrencyCompact(Number(metrics.aum) * 1e7, "INR") : "—"],
-                      ["Final Value", metrics.final_value ? formatCurrencyCompact(Number(metrics.final_value), "INR") : "—"],
-                      ["Rebalances", metrics.total_rebalances ?? "—"],
-                      ["Fund", metrics.fund_name ?? selectedFundName ?? "Demo"],
-                    ].map(([l, v]) => (
-                      <tr key={String(l)} className="border-b border-border/30">
-                        <td className="pr-12 py-2 text-muted-foreground">{String(l)}</td>
-                        <td className="py-2 text-right tabular-nums font-medium">{String(v)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              } />
-            </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full text-[10px]">
-                <tbody>
-                  {[
-                    ["Initial Capital", metrics.initial_capital ? formatCurrencyCompact(Number(metrics.initial_capital), "INR") : metrics.aum ? formatCurrencyCompact(Number(metrics.aum) * 1e7, "INR") : "—"],
-                    ["Final Value", metrics.final_value ? formatCurrencyCompact(Number(metrics.final_value), "INR") : "—"],
-                    ["Rebalances", metrics.total_rebalances ?? "—"],
-                    ["Fund", metrics.fund_name ?? selectedFundName ?? "Demo"],
-                  ].map(([l, v]) => (
-                    <tr key={String(l)} className="border-b border-border/30">
-                      <td className="px-2 py-1.5 text-muted-foreground">{String(l)}</td>
-                      <td className="px-2 py-1.5 text-right tabular-nums font-medium">{String(v)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-
-          {/* Charts */}
-          <Card>
-            <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-              <CardTitle className="text-[11px]">Portfolio Value</CardTitle>
-              <CardControls filename="equity_curve" title="Portfolio Value" info="Daily portfolio value over time. Shows how your investment grew or declined." fullscreen expandContent={
-                equityCurve.length > 0 ? (
-                  <TimeSeriesChart
-                    data={equityCurve.map(e => ({ date: String(e.date), value: Number(e.value) }))}
-                    series={[{ key: "value", name: "Value", color: "#f97316" }]}
-                    height={600}
-                    yFormatter={(v) => formatCurrencyCompact(v, "INR")}
-                  />
-                ) : undefined
-              } />
-            </CardHeader>
-            <CardContent className="p-2">
-              {equityCurve.length > 0 ? (
-                <TimeSeriesChart
-                  data={equityCurve.map(e => ({ date: String(e.date), value: Number(e.value) }))}
-                  series={[{ key: "value", name: "Value", color: "#f97316" }]}
-                  height={180}
-                  yFormatter={(v) => formatCurrencyCompact(v, "INR")}
-                />
-              ) : <div className="h-44 flex items-center justify-center text-[10px] text-muted-foreground">No equity curve — select a portfolio and run backtest</div>}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-              <CardTitle className="text-[11px]">Drawdown (%)</CardTitle>
-              <CardControls filename="drawdown" title="Drawdown (%)" info="Peak-to-trough decline in portfolio value. Measures the worst loss from a high point." fullscreen expandContent={
-                equityCurve.length > 0 ? (
-                  <TimeSeriesChart
-                    data={equityCurve.filter(e => e.drawdown !== undefined).map(e => ({ date: String(e.date), dd: Number(e.drawdown) }))}
-                    series={[{ key: "dd", name: "Drawdown", color: "#ef4444" }]}
-                    height={600}
-                  />
-                ) : undefined
-              } />
-            </CardHeader>
-            <CardContent className="p-2">
-              {equityCurve.length > 0 ? (
-                <TimeSeriesChart
-                  data={equityCurve.filter(e => e.drawdown !== undefined).map(e => ({ date: String(e.date), dd: Number(e.drawdown) }))}
-                  series={[{ key: "dd", name: "Drawdown", color: "#ef4444" }]}
-                  height={180}
-                />
-              ) : <div className="h-44 flex items-center justify-center text-[10px] text-muted-foreground">No data</div>}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-              <CardTitle className="text-[11px]">Value Trend</CardTitle>
-              <CardControls filename="value_trend" title="Value Trend" info="Portfolio value trend over the full period with currency formatting." fullscreen expandContent={
-                equityCurve.length > 0 ? (
-                  <TimeSeriesChart
-                    data={equityCurve.map(e => ({ date: String(e.date), v: Number(e.value) }))}
-                    series={[{ key: "v", name: "Value", color: "#10b981" }]}
-                    height={600}
-                    yFormatter={(v) => formatCurrencyCompact(v, "INR")}
-                  />
-                ) : undefined
-              } />
-            </CardHeader>
-            <CardContent className="p-2">
-              {equityCurve.length > 0 ? (
-                <TimeSeriesChart
-                  data={equityCurve.map(e => ({ date: String(e.date), v: Number(e.value) }))}
-                  series={[{ key: "v", name: "Value", color: "#10b981" }]}
-                  height={180}
-                  yFormatter={(v) => formatCurrencyCompact(v, "INR")}
-                />
-              ) : <div className="h-44 flex items-center justify-center text-[10px] text-muted-foreground">No data</div>}
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
+      {/* KPI-switchable charts */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {[0, 1, 2].map((i) => (
+          <ChartCard key={i} analyticsData={analyticsData} index={i} />
+        ))}
+      </div>
     </div>
   );
 }

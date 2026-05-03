@@ -1,251 +1,402 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, BarChart3 } from "lucide-react";
+import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
-import { useAuth } from "@/lib/auth";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
-
-interface PerformanceData {
-  total_return?: number;
-  max_drawdown?: number;
-  volatility?: number;
-  equity_curve?: { date: string; value: number }[];
+interface DrawdownEntry {
+  id?: number;
+  start_date?: string;
+  bottom_date?: string;
+  end_date?: string;
+  loss_pct?: number;
+  loss?: number;
   [key: string]: unknown;
 }
 
-interface DrawdownEntry {
-  id: number;
-  start: string;
-  end: string;
-  maxDD: string;
-  recovery: string;
-  duration: string;
+interface HoldingDetail {
+  symbol?: string;
+  total_return_contribution_pct?: number;
+  [key: string]: unknown;
 }
 
-function computeDrawdowns(equityCurve: { date: string; value: number }[]): DrawdownEntry[] {
-  if (!equityCurve || equityCurve.length < 2) return [];
+interface FactorDecompPoint {
+  date?: string;
+  market_return_pct?: number;
+  style_return_pct?: number;
+  industry_return_pct?: number;
+  idio_return_pct?: number;
+  [key: string]: unknown;
+}
 
-  const drawdowns: DrawdownEntry[] = [];
-  let peak = equityCurve[0].value;
-  let inDrawdown = false;
-  let ddStart = "";
-  let ddMaxVal = 0;
-  let ddMaxDate = "";
-  let ddId = 0;
+interface EquityCurvePoint {
+  date?: string;
+  value?: number;
+  benchmark_value?: number;
+}
 
-  for (let i = 1; i < equityCurve.length; i++) {
-    const pt = equityCurve[i];
-    if (pt.value > peak) {
-      if (inDrawdown) {
-        ddId++;
-        drawdowns.push({
-          id: ddId,
-          start: ddStart,
-          end: ddMaxDate,
-          maxDD: `${(ddMaxVal * 100).toFixed(2)}%`,
-          recovery: pt.date,
-          duration: `${i} periods`,
-        });
-        inDrawdown = false;
-      }
-      peak = pt.value;
-    } else {
-      const dd = (pt.value - peak) / peak;
-      if (!inDrawdown) {
-        inDrawdown = true;
-        ddStart = equityCurve[i - 1].date;
-        ddMaxVal = dd;
-        ddMaxDate = pt.date;
-      }
-      if (dd < ddMaxVal) {
-        ddMaxVal = dd;
-        ddMaxDate = pt.date;
-      }
-    }
+function fmt(v: unknown, decimals = 2): string {
+  if (v == null || v === "") return "—";
+  const n = Number(v);
+  if (isNaN(n)) return String(v);
+  return n.toFixed(decimals);
+}
+
+function lossColor(pct: number): string {
+  const abs = Math.abs(pct);
+  if (abs > 30) return "#7f1d1d";
+  if (abs > 20) return "#991b1b";
+  if (abs > 10) return "#dc2626";
+  if (abs > 5) return "#ef4444";
+  return "#f87171";
+}
+
+function sumRange(
+  ts: FactorDecompPoint[],
+  startDate: string,
+  endDate: string
+): Record<string, number> {
+  const filtered = ts.filter((p) => {
+    const d = String(p.date ?? "");
+    return d >= startDate && d <= (endDate || "9999-99-99");
+  });
+  const result: Record<string, number> = {
+    market: 0, style: 0, industry: 0, idio: 0,
+  };
+  for (const p of filtered) {
+    result.market += Number(p.market_return_pct ?? 0);
+    result.style += Number(p.style_return_pct ?? 0);
+    result.industry += Number(p.industry_return_pct ?? 0);
+    result.idio += Number(p.idio_return_pct ?? 0);
   }
-
-  // Close open drawdown
-  if (inDrawdown) {
-    ddId++;
-    drawdowns.push({
-      id: ddId,
-      start: ddStart,
-      end: ddMaxDate,
-      maxDD: `${(ddMaxVal * 100).toFixed(2)}%`,
-      recovery: "—",
-      duration: "ongoing",
-    });
-  }
-
-  // Sort by severity
-  drawdowns.sort((a, b) => parseFloat(a.maxDD) - parseFloat(b.maxDD));
-  return drawdowns.slice(0, 10);
+  return result;
 }
 
 export default function DrawdownPage() {
-  const { selectedPortfolioId, selectedFundName } = usePortfolio();
-  const { token } = useAuth();
+  const { analyticsData, analyticsLoading, selectedSourceId } = usePortfolio();
+  const [selectedDrawdownIdx, setSelectedDrawdownIdx] = useState<number | null>(null);
+  const [detractorTab, setDetractorTab] = useState<"overall" | "factor">("overall");
 
-  const [perfData, setPerfData] = useState<PerformanceData | null>(null);
-  const [drawdowns, setDrawdowns] = useState<DrawdownEntry[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    if (!selectedPortfolioId || !token) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`${API_BASE}/api/analytics/performance/${selectedPortfolioId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`Failed to fetch performance: ${res.status}`);
-      const data = await res.json();
-      setPerfData(data);
-
-      // Compute drawdowns from equity curve if available
-      if (data.equity_curve && Array.isArray(data.equity_curve) && data.equity_curve.length > 1) {
-        setDrawdowns(computeDrawdowns(data.equity_curve));
-      } else {
-        setDrawdowns([]);
-      }
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to fetch data");
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedPortfolioId, token]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // Backend returns values already in percentage form (e.g. -19.63 for -19.63%)
-  const pct = (v: number | undefined | null) =>
-    v != null ? `${v.toFixed(2)}%` : "—";
-
-  if (!selectedPortfolioId) {
+  if (analyticsLoading) {
     return (
-      <div className="p-4 space-y-4">
-        <h1 className="text-xl font-bold">Drawdown Summary</h1>
-        <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
-            No portfolio selected. Go to Portfolio Construction to upload and select one.
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-sm text-muted-foreground">Computing analytics...</span>
       </div>
     );
   }
 
+  if (!analyticsData || !selectedSourceId) {
+    return (
+      <div className="p-6 space-y-4">
+        <h1 className="text-xl font-bold">Drawdown Analysis</h1>
+        <div className="rounded-lg border bg-card p-12 text-center space-y-3">
+          <BarChart3 className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+          <p className="text-sm text-muted-foreground">Select a portfolio or strategy from the sidebar to begin</p>
+        </div>
+      </div>
+    );
+  }
+
+  const drawdowns: DrawdownEntry[] = (analyticsData.drawdowns as DrawdownEntry[] | undefined) ?? [];
+  const holdings: HoldingDetail[] = (analyticsData.holdings_detail as HoldingDetail[] | undefined) ?? [];
+  const factorDecompTs: FactorDecompPoint[] = (analyticsData.factor_decomp_ts as FactorDecompPoint[] | undefined) ?? [];
+  const equityCurve: EquityCurvePoint[] = (analyticsData.equity_curve as EquityCurvePoint[] | undefined) ?? [];
+
+  const selectedDD = selectedDrawdownIdx != null ? drawdowns[selectedDrawdownIdx] : null;
+
+  // Drop detractors: bottom 5 holdings by total_return_contribution
+  const dropDetractors = [...holdings]
+    .sort((a, b) => Number(a.total_return_contribution_pct ?? 0) - Number(b.total_return_contribution_pct ?? 0))
+    .slice(0, 5);
+
+  // Recovery contributors: top 5
+  const recoveryContributors = [...holdings]
+    .sort((a, b) => Number(b.total_return_contribution_pct ?? 0) - Number(a.total_return_contribution_pct ?? 0))
+    .slice(0, 5);
+
+  // Factor decomp for selected drawdown
+  const decompSums =
+    selectedDD && selectedDD.start_date
+      ? sumRange(factorDecompTs, String(selectedDD.start_date), String(selectedDD.end_date ?? ""))
+      : null;
+
+  // Equity curve chart data with highlighted drawdown region approximated
+  const ecChartData = equityCurve.map((pt) => {
+    const row: Record<string, unknown> = {
+      date: pt.date,
+      portfolio: Number(pt.value ?? 0),
+    };
+    if (pt.benchmark_value != null) {
+      row.benchmark = Number(pt.benchmark_value);
+    }
+    return row;
+  });
+
+  const ecSeries = [
+    { key: "portfolio", name: "Portfolio", color: "#f97316" },
+  ];
+  if (equityCurve.some((p) => p.benchmark_value != null)) {
+    ecSeries.push({ key: "benchmark", name: "Benchmark", color: "#6366f1" });
+  }
+
   return (
     <div className="p-4 space-y-4">
-      <h1 className="text-xl font-bold">Drawdown Summary{selectedFundName ? ` — ${selectedFundName}` : ""}</h1>
+      <h1 className="text-xl font-bold">Drawdown Analysis</h1>
 
-      {loading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
-        </div>
-      )}
+      {/* Top section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Drawdown Summary Table */}
+        <Card>
+          <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+            <CardTitle className="text-[11px]">Drawdown Summary</CardTitle>
+            <CardControls />
+          </CardHeader>
+          <CardContent className="p-0 max-h-72 overflow-y-auto">
+            <table className="w-full text-[10px]">
+              <thead className="sticky top-0 bg-card">
+                <tr className="border-b border-border/50">
+                  <th className="px-2 py-1.5 w-6" />
+                  {["#", "Start Date", "Bottom Date", "End Date", "Loss %"].map((h) => (
+                    <th key={h} className="px-2 py-1.5 text-left font-medium text-muted-foreground">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {drawdowns.map((dd, i) => {
+                  const lossPct = Number(dd.loss_pct ?? dd.loss ?? 0);
+                  return (
+                    <tr
+                      key={i}
+                      className={`border-b border-border/30 cursor-pointer hover:bg-muted/20 ${
+                        selectedDrawdownIdx === i ? "bg-muted/40" : ""
+                      }`}
+                      onClick={() => setSelectedDrawdownIdx(selectedDrawdownIdx === i ? null : i)}
+                    >
+                      <td className="px-2 py-1.5">
+                        <input type="radio" checked={selectedDrawdownIdx === i} readOnly className="h-3 w-3" />
+                      </td>
+                      <td className="px-2 py-1.5">{i + 1}</td>
+                      <td className="px-2 py-1.5">{String(dd.start_date ?? "—")}</td>
+                      <td className="px-2 py-1.5">{String(dd.bottom_date ?? "—")}</td>
+                      <td className="px-2 py-1.5">{String(dd.end_date ?? "—")}</td>
+                      <td
+                        className="px-2 py-1.5 font-medium tabular-nums text-red-400"
+                        style={{ fontSize: Math.max(8, Math.min(12, 8 + Math.abs(lossPct) / 5)) }}
+                      >
+                        {lossPct.toFixed(2)}%
+                      </td>
+                    </tr>
+                  );
+                })}
+                {drawdowns.length === 0 && (
+                  <tr><td colSpan={6} className="px-2 py-4 text-center text-muted-foreground">No drawdown data available</td></tr>
+                )}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
 
-      {error && (
-        <Card><CardContent className="p-4 text-center text-red-400">{error}</CardContent></Card>
-      )}
+        {/* Drawdown Treemap */}
+        <Card>
+          <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+            <CardTitle className="text-[11px]">Drawdown Loss Map</CardTitle>
+            <CardControls />
+          </CardHeader>
+          <CardContent className="p-2">
+            {drawdowns.length > 0 ? (
+              <div className="grid gap-1" style={{
+                gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))",
+                minHeight: "160px",
+              }}>
+                {drawdowns.map((dd, i) => {
+                  const lossPct = Math.abs(Number(dd.loss_pct ?? dd.loss ?? 0));
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => setSelectedDrawdownIdx(i)}
+                      className={`rounded p-2 cursor-pointer hover:brightness-110 transition-all flex flex-col justify-between ${
+                        selectedDrawdownIdx === i ? "ring-2 ring-white/40" : ""
+                      }`}
+                      style={{
+                        backgroundColor: lossColor(lossPct),
+                        minHeight: Math.max(60, Math.min(120, lossPct * 3)),
+                      }}
+                    >
+                      <span className="text-[8px] text-white/80 leading-tight">
+                        {String(dd.start_date ?? "").slice(0, 7)} → {String(dd.end_date ?? "—").slice(0, 7)}
+                      </span>
+                      <span className="text-[11px] font-bold text-white">
+                        -{lossPct.toFixed(1)}%
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="h-40 flex items-center justify-center text-[10px] text-muted-foreground">No drawdowns computed</div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-      {!loading && !error && (
-        <>
-          {/* Summary metrics */}
-          {perfData && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <Card>
-                <CardHeader className="pb-1 py-2 px-3">
-                  <CardTitle className="text-[11px]">Max Drawdown</CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 pb-3">
-                  <span className="text-lg font-bold text-red-400 tabular-nums">{pct(perfData.max_drawdown)}</span>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-1 py-2 px-3">
-                  <CardTitle className="text-[11px]">Total Return</CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 pb-3">
-                  <span className="text-lg font-bold tabular-nums">{pct(perfData.total_return)}</span>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-1 py-2 px-3">
-                  <CardTitle className="text-[11px]">Volatility</CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 pb-3">
-                  <span className="text-lg font-bold tabular-nums">{pct(perfData.volatility)}</span>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+      {/* Selected drawdown detail */}
+      {selectedDD && (
+        <div className="space-y-3">
+          <div className="text-sm font-medium text-muted-foreground">
+            Selected drawdown:{" "}
+            <span className="text-foreground">
+              {String(selectedDD.start_date ?? "—")} → {String(selectedDD.end_date ?? "ongoing")}
+              {" "}({fmt(selectedDD.loss_pct ?? selectedDD.loss)}%)
+            </span>
+          </div>
 
-          {/* Drawdown table */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <Card>
-              <CardHeader className="pb-1 flex-row items-center justify-between py-2 px-3">
-                <CardTitle className="text-[11px]">Drawdown Summary</CardTitle>
-                <CardControls />
-              </CardHeader>
-              <CardContent className="p-0">
-                {drawdowns.length > 0 ? (
-                  <table className="w-full text-[10px]">
-                    <thead>
-                      <tr className="border-b border-border/50">
-                        {["#", "Start Date", "End Date", "Max Drawdown", "Recovery Date", "Duration"].map((h) => (
-                          <th key={h} className="px-2 py-1.5 text-left font-medium text-muted-foreground">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {drawdowns.map((d) => (
-                        <tr key={d.id} className="border-b border-border/30 hover:bg-muted/20">
-                          <td className="px-2 py-1.5">{d.id}</td>
-                          <td className="px-2 py-1.5">{d.start}</td>
-                          <td className="px-2 py-1.5">{d.end}</td>
-                          <td className="px-2 py-1.5 text-red-400 font-medium tabular-nums">{d.maxDD}</td>
-                          <td className="px-2 py-1.5">{d.recovery}</td>
-                          <td className="px-2 py-1.5">{d.duration}</td>
+            {/* Contributors & Detractors */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-sm font-semibold">Drop / Recovery</h2>
+                <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
+                  {(["overall", "factor"] as const).map((tab) => (
+                    <button key={tab} onClick={() => setDetractorTab(tab)}
+                      className={`px-2 py-1 text-[10px] rounded transition-colors ${
+                        detractorTab === tab ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:text-foreground"
+                      }`}>
+                      {tab === "overall" ? "Overall" : "Factor"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {detractorTab === "overall" ? (
+                <>
+                  <Card>
+                    <CardHeader className="pb-1 py-2 px-3">
+                      <CardTitle className="text-[10px] text-red-400">Drop Detractors (Bottom 5)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <table className="w-full text-[10px]">
+                        <thead>
+                          <tr className="border-b border-border/50">
+                            <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Symbol</th>
+                            <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Return Contrib (%)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dropDetractors.map((h, i) => (
+                            <tr key={i} className="border-b border-border/30">
+                              <td className="px-2 py-1 font-medium">{String(h.symbol ?? "—")}</td>
+                              <td className="px-2 py-1 text-right text-red-400 tabular-nums">
+                                {fmt(h.total_return_contribution_pct)}%
+                              </td>
+                            </tr>
+                          ))}
+                          {dropDetractors.length === 0 && (
+                            <tr><td colSpan={2} className="px-2 py-4 text-center text-muted-foreground">No data</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-1 py-2 px-3">
+                      <CardTitle className="text-[10px] text-emerald-500">Recovery Contributors (Top 5)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <table className="w-full text-[10px]">
+                        <thead>
+                          <tr className="border-b border-border/50">
+                            <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Symbol</th>
+                            <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Return Contrib (%)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {recoveryContributors.map((h, i) => (
+                            <tr key={i} className="border-b border-border/30">
+                              <td className="px-2 py-1 font-medium">{String(h.symbol ?? "—")}</td>
+                              <td className="px-2 py-1 text-right text-emerald-500 tabular-nums">
+                                {fmt(h.total_return_contribution_pct)}%
+                              </td>
+                            </tr>
+                          ))}
+                          {recoveryContributors.length === 0 && (
+                            <tr><td colSpan={2} className="px-2 py-4 text-center text-muted-foreground">No data</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </CardContent>
+                  </Card>
+                </>
+              ) : (
+                <Card>
+                  <CardHeader className="pb-1 py-2 px-3">
+                    <CardTitle className="text-[11px]">Factor Decomposition During Drawdown</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <table className="w-full text-[10px]">
+                      <thead>
+                        <tr className="border-b border-border/50">
+                          <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Factor</th>
+                          <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Return (%)</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {decompSums ? (
+                          Object.entries(decompSums).map(([factor, val]) => (
+                            <tr key={factor} className="border-b border-border/30">
+                              <td className="px-2 py-1.5 capitalize">{factor}</td>
+                              <td className={`px-2 py-1.5 text-right tabular-nums ${val >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                                {val.toFixed(2)}%
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr><td colSpan={2} className="px-2 py-4 text-center text-muted-foreground">No decomposition data</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Portfolio vs Benchmark chart */}
+            <Card>
+              <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+                <CardTitle className="text-[11px]">Portfolio vs Benchmark</CardTitle>
+                <CardControls fullscreen expandContent={
+                  ecChartData.length > 0 ? (
+                    <TimeSeriesChart data={ecChartData} series={ecSeries} height={600} />
+                  ) : undefined
+                } />
+              </CardHeader>
+              <CardContent className="p-2">
+                {ecChartData.length > 0 ? (
+                  <TimeSeriesChart data={ecChartData} series={ecSeries} height={220} />
                 ) : (
-                  <div className="p-6 text-center text-muted-foreground text-xs">
-                    {perfData?.max_drawdown != null
-                      ? `Max drawdown: ${pct(perfData.max_drawdown)}. Detailed drawdown periods require equity curve data from a backtest.`
-                      : "Run a backtest on your portfolio to see detailed drawdown analysis."}
-                  </div>
+                  <div className="h-[220px] flex items-center justify-center text-[10px] text-muted-foreground">No equity curve data</div>
                 )}
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader className="pb-1 flex-row items-center justify-between py-2 px-3">
-                <CardTitle className="text-[11px]">Drawdown Info</CardTitle>
-                <CardControls />
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-2 text-xs text-muted-foreground">
-                  <p>Drawdowns are computed from the portfolio equity curve. Each drawdown period starts when the portfolio value drops below its running peak and ends when it recovers.</p>
-                  {perfData?.max_drawdown != null && (
-                    <p>Your portfolio maximum drawdown is <span className="text-red-400 font-medium">{pct(perfData.max_drawdown)}</span>.</p>
-                  )}
-                  {drawdowns.length === 0 && (
-                    <p>Upload a backtest with equity curve data to see detailed drawdown periods, contributors, and recovery analysis.</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
           </div>
-        </>
+        </div>
+      )}
+
+      {/* Full equity curve always visible when no drawdown selected */}
+      {!selectedDD && ecChartData.length > 0 && (
+        <Card>
+          <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+            <CardTitle className="text-[11px]">Portfolio Equity Curve</CardTitle>
+            <CardControls fullscreen expandContent={<TimeSeriesChart data={ecChartData} series={ecSeries} height={600} />} />
+          </CardHeader>
+          <CardContent className="p-2">
+            <TimeSeriesChart data={ecChartData} series={ecSeries} height={220} />
+          </CardContent>
+        </Card>
       )}
     </div>
   );

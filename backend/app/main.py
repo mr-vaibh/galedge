@@ -14,6 +14,7 @@ from app.config import CORS_ORIGINS
 from app.database import init_db
 from app.routers import auth_router, portfolio_router, strategy_router, screen_router, data_router, optimizer_router, backtest_router, analytics_router, workspace_router
 from app.routers.portfolio_router import tracker_router
+from app.routers.analytics_v2_router import router as analytics_v2_router
 from app.admin import create_admin, ADMIN_SECRET
 
 
@@ -87,6 +88,7 @@ app.include_router(backtest_router.router)
 app.include_router(analytics_router.router)
 app.include_router(workspace_router.router)
 app.include_router(tracker_router)
+app.include_router(analytics_v2_router)
 
 # ── Import legacy route functions directly ────────────────────────────────────
 # Instead of mounting the old app, import the route handlers and re-register them
