@@ -137,19 +137,46 @@ def _optimizer_weight_fn(symbols: list[str], objective: str, constraints: list[d
                 else:
                     betas.append(1.0)
 
-            # Filter out max_positions (handle via post-processing)
+            # Extract max_positions — pre-select top stocks by Sharpe contribution
             max_pos = None
+            pos_min = None
+            pos_max = None
             filtered = []
             for c in constraints:
                 if c.get("type") == "max_positions":
                     max_pos = int(c.get("value", 50))
+                elif c.get("type") == "position_size_bound":
+                    pos_min = c.get("min", 0.0)
+                    pos_max = c.get("max", 1.0)
                 else:
                     filtered.append(c)
+
+            # Pre-select: if max_positions < available stocks, pick top by expected return/risk ratio
+            pre_valid = valid
+            if max_pos and len(valid) > max_pos:
+                # Score = expected_return / std_dev (simple Sharpe proxy)
+                stds = np.sqrt(np.diag(cov_mat))
+                scores = mean_ret / np.where(stds > 0, stds, 1e-10)
+                top_idx = np.argsort(scores)[-max_pos:]
+                pre_valid = [valid[i] for i in sorted(top_idx)]
+                # Rebuild returns/cov for pre-selected subset
+                sub_idx = [valid.index(s) for s in pre_valid]
+                mean_ret = mean_ret[sub_idx]
+                cov_mat = cov_mat[np.ix_(sub_idx, sub_idx)]
+                betas = [betas[i] for i in sub_idx]
+
+            # Add position size bound on the pre-selected smaller universe
+            if pos_min is not None or pos_max is not None:
+                filtered.append({
+                    "type": "position_size_bound",
+                    "min": pos_min or 0.0,
+                    "max": pos_max or 1.0,
+                })
 
             opt = PortfolioOptimizer(
                 expected_returns=mean_ret.tolist(),
                 covariance_matrix=cov_mat.tolist(),
-                symbols=valid,
+                symbols=pre_valid,
                 risk_free_rate=risk_free_rate,
             )
             result = opt.optimize(
@@ -160,16 +187,8 @@ def _optimizer_weight_fn(symbols: list[str], objective: str, constraints: list[d
 
             weights = result.get("weights", {})
             if not weights or result.get("status") == "infeasible":
-                return {s: 1.0 / len(valid) for s in valid}
-
-            # Post-process max_positions
-            if max_pos and len(weights) > max_pos:
-                sorted_syms = sorted(weights.keys(), key=lambda s: weights[s], reverse=True)
-                kept = sorted_syms[:max_pos]
-                weights = {s: weights[s] for s in kept}
-                total = sum(weights.values())
-                if total > 0:
-                    weights = {s: w / total for s, w in weights.items()}
+                # Equal weight on pre-selected
+                return {s: 1.0 / len(pre_valid) for s in pre_valid}
 
             return weights
         except Exception as e:
