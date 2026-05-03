@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.database import get_db, get_prices_db
-from app.auth import get_current_user
+from app.auth import get_current_user, require_user
 from app.models.user import User
 from app.models.portfolio import Portfolio
 from app.models.strategy import Strategy, Backtest
@@ -73,7 +73,7 @@ def compute_analytics(
     benchmark: str = Query("NIFTY 500", description="Benchmark name"),
     db: Session = Depends(get_db),
     prices_db: Session = Depends(get_prices_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_user),
 ):
     """Compute full analytics for a portfolio or strategy backtest."""
     if source not in ("portfolio", "strategy"):

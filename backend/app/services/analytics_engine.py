@@ -644,7 +644,7 @@ def _load_factor_returns_df(
         return pd.DataFrame()
 
     df = pd.DataFrame(rows, columns=["date", "factor_id", "daily_return"])
-    matrix = df.pivot(index="date", columns="factor_id", values="daily_return")
+    matrix = df.groupby(["date","factor_id"])["daily_return"].mean().reset_index().pivot(index="date", columns="factor_id", values="daily_return")
     matrix.index = pd.to_datetime(matrix.index)
     return matrix.sort_index()
 
