@@ -68,7 +68,8 @@ class BacktestCreate(BaseModel):
 def list_strategies(user: User = Depends(require_user), db: Session = Depends(get_db)):
     strategies = db.query(Strategy).filter(Strategy.user_id == user.id).order_by(Strategy.updated_at.desc()).all()
     return [{"id": s.id, "fund_name": s.fund_name, "scheme_name": s.scheme_name,
-             "universe": s.universe, "status": s.status, "rebalance_status": s.rebalance_status,
+             "iteration_name": s.iteration_name, "universe": s.universe,
+             "status": s.status, "rebalance_status": s.rebalance_status,
              "analytics_status": s.analytics_status, "is_production": s.is_production,
              "created_at": str(s.created_at)} for s in strategies]
 
@@ -171,6 +172,64 @@ def replace_objectives(strategy_id: int, data: list[ObjectiveCreate], user: User
         db.add(StrategyObjective(strategy_id=strategy_id, objective_type=o.objective_type, name=o.name, parameters=o.parameters))
     db.commit()
     return {"updated": len(data)}
+
+
+@router.post("/{strategy_id}/duplicate")
+def duplicate_strategy(
+    strategy_id: int,
+    iteration_name: str,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Duplicate a strategy with a new iteration name. Fund+Scheme+Iteration must be unique."""
+    source = db.query(Strategy).filter(Strategy.id == strategy_id, Strategy.user_id == user.id).first()
+    if not source:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+
+    # Uniqueness check
+    conflict = db.query(Strategy).filter(
+        Strategy.user_id == user.id,
+        Strategy.fund_name == source.fund_name,
+        Strategy.scheme_name == source.scheme_name,
+        Strategy.iteration_name == iteration_name,
+    ).first()
+    if conflict:
+        raise HTTPException(
+            status_code=409,
+            detail=f"A strategy with fund '{source.fund_name}', scheme '{source.scheme_name}', iteration '{iteration_name}' already exists."
+        )
+
+    new_strategy = Strategy(
+        user_id=user.id,
+        fund_name=source.fund_name,
+        scheme_name=source.scheme_name,
+        iteration_name=iteration_name,
+        universe=source.universe,
+        benchmark=source.benchmark,
+        include_futures=source.include_futures,
+        status="draft",
+    )
+    db.add(new_strategy)
+    db.flush()
+
+    for c in source.constraints:
+        db.add(StrategyConstraint(
+            strategy_id=new_strategy.id,
+            constraint_type=c.constraint_type,
+            name=c.name,
+            parameters=c.parameters,
+        ))
+    for o in source.objectives:
+        db.add(StrategyObjective(
+            strategy_id=new_strategy.id,
+            objective_type=o.objective_type,
+            name=o.name,
+            parameters=o.parameters,
+        ))
+
+    db.commit()
+    db.refresh(new_strategy)
+    return {"id": new_strategy.id, "fund_name": new_strategy.fund_name, "iteration_name": new_strategy.iteration_name}
 
 
 @router.post("/{strategy_id}/promote")

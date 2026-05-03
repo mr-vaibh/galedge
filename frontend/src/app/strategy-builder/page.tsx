@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, Plus, Loader2, Rocket, ArrowDown, Trash2, Zap, X, Download } from "lucide-react";
+import { RefreshCw, Plus, Loader2, Rocket, ArrowDown, Trash2, Zap, X, Download, Copy } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth";
 import { useCurrency } from "@/lib/currency";
 
@@ -16,6 +17,7 @@ interface StrategyItem {
   id: number;
   fund_name: string;
   scheme_name?: string;
+  iteration_name?: string;
   universe?: string;
   status: string;
   rebalance_status: string;
@@ -60,6 +62,10 @@ export default function StrategyBuilderPage() {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [rebalanceResult, setRebalanceResult] = useState<RebalanceResult | null>(null);
   const [rebalanceLoading, setRebalanceLoading] = useState(false);
+  const [duplicateTarget, setDuplicateTarget] = useState<StrategyItem | null>(null);
+  const [newIterationName, setNewIterationName] = useState("");
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
+  const [duplicateLoading, setDuplicateLoading] = useState(false);
 
   const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("galedge_auth_token") : null);
 
@@ -129,6 +135,35 @@ export default function StrategyBuilderPage() {
       await fetchStrategies();
     } catch {}
     setActionLoading(null);
+  }
+
+  async function confirmDuplicate() {
+    if (!duplicateTarget || !newIterationName.trim() || !authToken) return;
+    if (newIterationName.trim() === duplicateTarget.iteration_name) {
+      setDuplicateError("Iteration name must be different from the original.");
+      return;
+    }
+    setDuplicateLoading(true);
+    setDuplicateError(null);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/strategies/${duplicateTarget.id}/duplicate?iteration_name=${encodeURIComponent(newIterationName.trim())}`,
+        { method: "POST", headers: { Authorization: `Bearer ${authToken}` } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setDuplicateTarget(null);
+        setNewIterationName("");
+        await fetchStrategies();
+        router.push(`/strategy-builder/build?id=${data.id}`);
+      } else {
+        const err = await res.json();
+        setDuplicateError(err.detail || "Failed to duplicate");
+      }
+    } catch {
+      setDuplicateError("Network error");
+    }
+    setDuplicateLoading(false);
   }
 
   async function runRebalance(e: React.MouseEvent, id: number) {
@@ -247,6 +282,15 @@ export default function StrategyBuilderPage() {
                             Promote
                           </Button>
                           <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 text-[9px] gap-1 text-blue-400 border-blue-500/30 hover:bg-blue-500/10"
+                            onClick={(e) => { e.stopPropagation(); setDuplicateTarget(s); setNewIterationName(""); setDuplicateError(null); }}
+                          >
+                            <Copy className="h-3 w-3" />
+                            Duplicate
+                          </Button>
+                          <Button
                             variant="ghost"
                             size="sm"
                             className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
@@ -309,6 +353,49 @@ export default function StrategyBuilderPage() {
           <StrategyTable items={productionStrategies} isProduction={true} />
         </TabsContent>
       </Tabs>
+
+      {/* Duplicate Strategy Modal */}
+      {duplicateTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setDuplicateTarget(null)}>
+          <div className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold">Duplicate Strategy</h2>
+              <button onClick={() => setDuplicateTarget(null)} className="p-1 rounded hover:bg-neutral-800"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="space-y-3 mb-4">
+              <div className="text-xs text-muted-foreground bg-neutral-800 rounded-lg p-3 space-y-1">
+                <div><span className="text-neutral-400">Fund:</span> {duplicateTarget.fund_name}</div>
+                <div><span className="text-neutral-400">Scheme:</span> {duplicateTarget.scheme_name || "—"}</div>
+                <div><span className="text-neutral-400">Current Iteration:</span> {(duplicateTarget as StrategyItem & { iteration_name?: string }).iteration_name || "—"}</div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1.5 block">New Iteration Name *</label>
+                <Input
+                  value={newIterationName}
+                  onChange={(e) => { setNewIterationName(e.target.value); setDuplicateError(null); }}
+                  placeholder="e.g. v2, quarterly-test, low-risk"
+                  className="h-8 text-sm"
+                  autoFocus
+                  onKeyDown={(e) => e.key === "Enter" && confirmDuplicate()}
+                />
+                {duplicateError && <p className="text-xs text-red-400 mt-1.5">{duplicateError}</p>}
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => setDuplicateTarget(null)}>Cancel</Button>
+              <Button
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700 gap-1.5"
+                onClick={confirmDuplicate}
+                disabled={!newIterationName.trim() || duplicateLoading}
+              >
+                {duplicateLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
+                Duplicate & Open
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Rebalance Results Modal */}
       {rebalanceResult && (
