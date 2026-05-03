@@ -48,6 +48,10 @@ EVENTS = [
     {"name": "2024 Pre-election",    "start": "2023-11-03", "end": "2024-01-31"},
     {"name": "2024 Election Whipsaw","start": "2024-06-05", "end": "2024-08-03"},
     {"name": "2025 Trump Tariffs",   "start": "2025-04-02", "end": "2025-04-15"},
+    {"name": "2025 India Rally",     "start": "2025-05-01", "end": "2025-07-31"},
+    {"name": "2025 Mid-year Dip",    "start": "2025-08-01", "end": "2025-09-30"},
+    {"name": "2025-26 FY Period",    "start": "2025-10-01", "end": "2026-03-31"},
+    {"name": "Apr 2026 Selloff",     "start": "2026-04-01", "end": "2026-04-30"},
     {"name": "IL&FS Crisis",         "start": "2018-09-01", "end": "2019-03-31"},
     {"name": "Russia-Ukraine",       "start": "2022-02-24", "end": "2022-03-16"},
     {"name": "Modi Wave 2014",       "start": "2014-04-07", "end": "2014-05-26"},
@@ -1667,21 +1671,70 @@ def get_full_analytics(
             return None
         return obj
 
+    # Normalize pnl_metrics keys to _pct suffix for frontend compatibility
+    pnl_pct = {
+        "total_return_pct": pnl_metrics.get("total_return"),
+        "cagr_pct": pnl_metrics.get("cagr"),
+        "sharpe": pnl_metrics.get("sharpe"),
+        "sortino": pnl_metrics.get("sortino"),
+        "volatility_pct": pnl_metrics.get("volatility"),
+        "max_drawdown_pct": pnl_metrics.get("max_drawdown"),
+        "beta": pnl_metrics.get("beta"),
+        "treynor": pnl_metrics.get("treynor"),
+        "benchmark_total_return_pct": pnl_metrics.get("benchmark_total_return"),
+        "benchmark_cagr_pct": pnl_metrics.get("benchmark_cagr"),
+        "alpha_pct": pnl_metrics.get("alpha"),
+        **pnl_metrics,  # keep originals too
+    }
+
+    # Normalize period_stats to use _pct suffix and `period` instead of `label`
+    def _norm_period(p: dict) -> dict:
+        return {
+            "period": p.get("label", ""),
+            "label": p.get("label", ""),
+            "total_return_pct": p.get("total_return"),
+            "cagr_pct": p.get("cagr"),
+            "sharpe": p.get("sharpe"),
+            "sortino": p.get("sortino"),
+            "volatility_pct": p.get("vol"),
+            "beta": p.get("beta"),
+            "market_return_pct": p.get("market_return", 0) * 100 if p.get("market_return") else 0,
+            "style_return_pct": p.get("style_return", 0) * 100 if p.get("style_return") else 0,
+            "industry_return_pct": p.get("industry_return", 0) * 100 if p.get("industry_return") else 0,
+            "idio_return_pct": p.get("idio_return", 0) * 100 if p.get("idio_return") else 0,
+            **p,
+        }
+
+    period_stats_monthly_norm = [_norm_period(p) for p in period_stats_monthly]
+    period_stats_quarterly_norm = [_norm_period(p) for p in period_stats_quarterly]
+    period_stats_annual_norm = [_norm_period(p) for p in period_stats_annual]
+
+    # Normalize holdings_detail to use _pct suffix
+    def _norm_holding(h: dict) -> dict:
+        return {
+            **h,
+            "total_return_contribution_pct": h.get("total_return_contribution_pct", h.get("total_return_contribution")),
+            "idio_return_pct": h.get("idio_return_pct", h.get("idio_return")),
+            "risk_contribution_pct": h.get("risk_contribution_pct", h.get("risk_contribution")),
+        }
+
+    holdings_detail_norm = [_norm_holding(h) for h in holdings_detail]
+
     result = {
         "source":                source,
         "source_id":             source_id,
         "start_date":            start_date.isoformat(),
         "end_date":              end_date.isoformat(),
         "benchmark":             benchmark_name,
-        "pnl_metrics":           pnl_metrics,
+        "pnl_metrics":           pnl_pct,
         "equity_curve":          equity_curve,
         "rolling_metrics":       rolling_metrics,
         "drawdowns":             drawdowns,
         "factor_decomp_ts":      factor_decomp_ts,
-        "period_stats_monthly":  period_stats_monthly,
-        "period_stats_quarterly": period_stats_quarterly,
-        "period_stats_annual":   period_stats_annual,
-        "holdings_detail":       holdings_detail,
+        "period_stats_monthly":  period_stats_monthly_norm,
+        "period_stats_quarterly": period_stats_quarterly_norm,
+        "period_stats_annual":   period_stats_annual_norm,
+        "holdings_detail":       holdings_detail_norm,
         "factor_detail":         factor_detail,
         "brinson":               brinson,
         "mcap_slicing":          mcap_slicing,
