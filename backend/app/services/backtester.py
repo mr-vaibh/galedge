@@ -69,6 +69,7 @@ class BacktestResult:
     rebalances: list[dict]
     trades: list[dict]
     metrics: dict
+    benchmark_curve: list[dict] = field(default_factory=list)
 
 
 def _get_rebalance_dates(
@@ -271,6 +272,17 @@ def run_backtest(
                 target_weights=target_weights,
             ))
 
+    # Compute benchmark equity curve (equal-weight buy-and-hold)
+    benchmark_curve = []
+    if benchmark_symbols:
+        bm_prices = _get_price_data(db, benchmark_symbols, config.start_date, config.end_date)
+        if not bm_prices.empty:
+            bm_initial = bm_prices.iloc[0].mean()
+            for dt in bm_prices.index:
+                bm_val = bm_prices.loc[dt].mean()
+                bm_normalized = config.initial_capital * (bm_val / bm_initial) if bm_initial else config.initial_capital
+                benchmark_curve.append({"date": str(dt), "value": round(float(bm_normalized), 2)})
+
     # Compute metrics
     eq_values = [e["value"] for e in equity_curve]
     eq_series = pd.Series(eq_values)
@@ -287,6 +299,15 @@ def run_backtest(
     total_transaction_costs = sum(t.cost for t in all_trades)
     avg_turnover = np.mean([r.turnover for r in rebalance_records]) if rebalance_records else 0
 
+    # Benchmark metrics
+    bm_return = None
+    bm_cagr = None
+    if benchmark_curve and len(benchmark_curve) >= 2:
+        bm_vals = [b["value"] for b in benchmark_curve]
+        bm_return = round((bm_vals[-1] / bm_vals[0] - 1) * 100, 2)
+        bm_years = len(bm_vals) / 252
+        bm_cagr = round(((bm_vals[-1] / bm_vals[0]) ** (1 / max(bm_years, 0.01)) - 1) * 100, 2)
+
     metrics = {
         "total_return": round(total_return, 2),
         "cagr": round(cagr, 2),
@@ -300,6 +321,9 @@ def run_backtest(
         "initial_capital": config.initial_capital,
         "final_value": round(eq_values[-1], 2) if eq_values else 0,
         "avg_positions": round(np.mean([r.n_positions for r in rebalance_records]), 1) if rebalance_records else 0,
+        "benchmark_return": bm_return,
+        "benchmark_cagr": bm_cagr,
+        "alpha": round(total_return - bm_return, 2) if bm_return is not None else None,
     }
 
     return BacktestResult(
@@ -322,4 +346,5 @@ def run_backtest(
             "cost": round(t.cost, 2),
         } for t in all_trades[-50:]],  # Last 50 trades
         metrics=metrics,
+        benchmark_curve=benchmark_curve,
     )

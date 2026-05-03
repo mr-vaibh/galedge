@@ -32,6 +32,7 @@ class BacktestRequest(BaseModel):
     transaction_cost_bps: float = 30
     slippage_bps: float = 10
     stop_loss_total: float | None = None
+    benchmark: str = "NIFTY 50"
     weight_method: str = "equal"  # equal, momentum, optimizer
     optimizer_objective: str = "maximize_sharpe"
     optimizer_constraints: list[dict] = []
@@ -202,8 +203,11 @@ def run_strategy_backtest(
         stop_loss_total=req.stop_loss_total,
     )
 
+    # Use benchmark symbols for comparison curve
+    benchmark_syms = UNIVERSE_MAP.get(req.benchmark or "NIFTY 50", ALL_NSE_STOCKS[:50])
+
     try:
-        result = run_backtest(prices_db, symbols, weight_fn, config)
+        result = run_backtest(prices_db, symbols, weight_fn, config, benchmark_symbols=benchmark_syms)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -236,6 +240,7 @@ def run_strategy_backtest(
     return {
         "metrics": result.metrics,
         "equity_curve": result.equity_curve,
+        "benchmark_curve": result.benchmark_curve,
         "rebalances": result.rebalances,
         "trades": result.trades,
     }

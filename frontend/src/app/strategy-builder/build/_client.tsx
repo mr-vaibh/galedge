@@ -154,6 +154,7 @@ export default function BuildStrategyPageInner() {
   const [backtestResults, setBacktestResults] = useState<Record<string, unknown> | null>(null);
   const [backtestLoading, setBacktestLoading] = useState(false);
   const [backtestEquity, setBacktestEquity] = useState<Record<string, unknown>[]>([]);
+  const [benchmarkCurve, setBenchmarkCurve] = useState<Record<string, unknown>[]>([]);
   const [backtestRebalances, setBacktestRebalances] = useState<Record<string, unknown>[]>([]);
 
   // Configure Backtest dialog state
@@ -361,6 +362,7 @@ export default function BuildStrategyPageInner() {
       const data = await res.json();
       setBacktestResults(data.metrics);
       setBacktestEquity(data.equity_curve || []);
+      setBenchmarkCurve(data.benchmark_curve || []);
       setBacktestRebalances(data.rebalances || []);
       setShowConfigDialog(false);
     } catch (e) {
@@ -726,10 +728,41 @@ export default function BuildStrategyPageInner() {
                 </div>
               ))}
             </div>
+            {/* Benchmark comparison metrics */}
+            {backtestResults && (backtestResults.benchmark_return !== null && backtestResults.benchmark_return !== undefined) && (
+              <div className="grid grid-cols-3 gap-2 p-3 bg-muted/20 rounded-lg border border-border/30">
+                <div className="text-center">
+                  <div className="text-[10px] text-muted-foreground">Your Strategy</div>
+                  <div className={`text-sm font-bold ${Number(backtestResults.total_return) >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                    {Number(backtestResults.total_return) >= 0 ? "+" : ""}{String(backtestResults.total_return)}%
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[10px] text-muted-foreground">Alpha (vs Benchmark)</div>
+                  <div className={`text-sm font-bold ${Number(backtestResults.alpha) >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                    {Number(backtestResults.alpha) >= 0 ? "+" : ""}{String(backtestResults.alpha)}%
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[10px] text-muted-foreground">{benchmark || "NIFTY 50"}</div>
+                  <div className={`text-sm font-bold ${Number(backtestResults.benchmark_return) >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                    {Number(backtestResults.benchmark_return) >= 0 ? "+" : ""}{String(backtestResults.benchmark_return)}%
+                  </div>
+                </div>
+              </div>
+            )}
+
             {backtestEquity.length > 0 && (
               <TimeSeriesChart
-                data={backtestEquity.map(e => ({ date: String(e.date), value: Number(e.value) }))}
-                series={[{ key: "value", name: "Portfolio", color: "#f97316" }]}
+                data={backtestEquity.map((e, i) => ({
+                  date: String(e.date),
+                  value: Number(e.value),
+                  benchmark: benchmarkCurve[i] ? Number(benchmarkCurve[i].value) : undefined,
+                }))}
+                series={[
+                  { key: "value", name: "Your Strategy", color: "#f97316" },
+                  ...(benchmarkCurve.length > 0 ? [{ key: "benchmark", name: benchmark || "NIFTY 50", color: "#6366f1" }] : []),
+                ]}
                 height={200}
                 yFormatter={(v) => formatCurrencyCompact(v, "INR")}
               />
