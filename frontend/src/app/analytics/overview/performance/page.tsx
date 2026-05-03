@@ -183,7 +183,7 @@ function ChartCard({ analyticsData, index }: { analyticsData: Record<string, unk
 }
 
 export default function PerformanceSummaryPage() {
-  const { analyticsData, analyticsLoading, analyticsError, selectedSource, selectedSourceId } = usePortfolio();
+  const { analyticsData, analyticsLoading, analyticsError, selectedSource, selectedSourceId, selectedBacktestId, loadAnalytics } = usePortfolio();
 
   if (analyticsLoading) {
     return (
@@ -198,9 +198,26 @@ export default function PerformanceSummaryPage() {
     return (
       <div className="p-6 space-y-4">
         <h1 className="text-xl font-bold">Performance Summary</h1>
+        {analyticsError && (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            Error: {analyticsError}
+          </div>
+        )}
         <div className="rounded-lg border bg-card p-12 text-center space-y-3">
           <BarChart3 className="h-10 w-10 text-muted-foreground/40 mx-auto" />
-          <p className="text-sm text-muted-foreground">Select a portfolio or strategy from the sidebar to begin</p>
+          {selectedSourceId ? (
+            <>
+              <p className="text-sm text-muted-foreground">Portfolio selected — click to load analytics</p>
+              <button
+                onClick={() => selectedSource && loadAnalytics(selectedSource, selectedSourceId, selectedBacktestId ?? undefined)}
+                className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg transition-colors"
+              >
+                Load Analytics
+              </button>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Select a portfolio or strategy from the sidebar to begin</p>
+          )}
         </div>
       </div>
     );

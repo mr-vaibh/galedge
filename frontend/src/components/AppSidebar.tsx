@@ -174,9 +174,13 @@ function FundSelector() {
           });
         });
         setItems(list);
+        // Auto-load if a selection exists in context but no data yet
+        if (selectedSource && selectedSourceId && !analyticsData) {
+          loadAnalytics(selectedSource, selectedSourceId, selectedBacktestId ?? undefined);
+        }
       })
       .catch(() => {});
-  }, [isAnalytics, token]);
+  }, [isAnalytics, token]); // eslint-disable-line
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
