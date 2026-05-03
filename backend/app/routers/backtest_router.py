@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import get_db, get_prices_db
 from app.models.user import User
 from app.models.strategy import Strategy, Backtest
 from app.auth import require_user
@@ -172,6 +172,7 @@ def run_strategy_backtest(
     req: BacktestRequest,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
+    prices_db: Session = Depends(get_prices_db),
 ):
     """Run a backtest with given parameters."""
     # Determine symbols
@@ -202,7 +203,7 @@ def run_strategy_backtest(
     )
 
     try:
-        result = run_backtest(db, symbols, weight_fn, config)
+        result = run_backtest(prices_db, symbols, weight_fn, config)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -247,7 +248,7 @@ def quick_backtest(
     end: str = Query("2026-04-24"),
     frequency: str = Query("Monthly"),
     method: str = Query("equal", enum=["equal", "momentum"]),
-    db: Session = Depends(get_db),
+    prices_db: Session = Depends(get_prices_db),
 ):
     """Quick backtest without auth — for demo/testing."""
     symbols = UNIVERSE_MAP.get(universe, ALL_NSE_STOCKS[:50])
@@ -262,7 +263,7 @@ def quick_backtest(
     )
 
     try:
-        result = run_backtest(db, symbols, weight_fn, config)
+        result = run_backtest(prices_db, symbols, weight_fn, config)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
