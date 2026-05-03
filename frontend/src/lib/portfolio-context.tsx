@@ -64,7 +64,9 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const [analyticsLoading, setAnalyticsLoading] = useState<boolean>(false);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
-  // Load legacy selection from sessionStorage on mount
+  const ANALYTICS_KEY = "galedge_analytics_selection";
+
+  // Load legacy + analytics selection from sessionStorage on mount
   useEffect(() => {
     try {
       const saved = sessionStorage.getItem(STORAGE_KEY);
@@ -73,6 +75,18 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         setId(id);
         setFund(fund);
         setScheme(scheme);
+      }
+    } catch {}
+
+    // Restore analytics selection and auto-load
+    try {
+      const saved = sessionStorage.getItem(ANALYTICS_KEY);
+      if (saved) {
+        const { source, sourceId, backtestId, benchmark } = JSON.parse(saved);
+        setSelectedSource(source);
+        setSelectedSourceId(sourceId);
+        setSelectedBacktestId(backtestId ?? null);
+        if (benchmark) setSelectedBenchmark(benchmark);
       }
     } catch {}
   }, []);
@@ -106,6 +120,10 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     setSelectedSource(source);
     setSelectedSourceId(sourceId);
     setSelectedBacktestId(backtestId ?? null);
+    // Persist selection so pages auto-reload on navigation
+    try {
+      sessionStorage.setItem(ANALYTICS_KEY, JSON.stringify({ source, sourceId, backtestId, benchmark }));
+    } catch {}
 
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
@@ -141,6 +159,13 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       setAnalyticsLoading(false);
     }
   }, [selectedBenchmark]);
+
+  // Auto-load analytics when selection is restored from sessionStorage
+  useEffect(() => {
+    if (selectedSource && selectedSourceId && !analyticsData && !analyticsLoading) {
+      loadAnalytics(selectedSource, selectedSourceId, selectedBacktestId ?? undefined, selectedBenchmark);
+    }
+  }, [selectedSource, selectedSourceId]); // eslint-disable-line
 
   return (
     <PortfolioContext.Provider value={{
