@@ -1655,7 +1655,19 @@ def get_full_analytics(
         logger.exception("_compute_valuation_ts failed")
         valuation_ts = []
 
-    return {
+    import math
+
+    def _clean(obj):
+        """Recursively replace nan/inf with None for JSON compliance."""
+        if isinstance(obj, dict):
+            return {k: _clean(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_clean(v) for v in obj]
+        if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+            return None
+        return obj
+
+    result = {
         "source":                source,
         "source_id":             source_id,
         "start_date":            start_date.isoformat(),
@@ -1678,3 +1690,4 @@ def get_full_analytics(
         "event_returns":         event_returns,
         "valuation_ts":          valuation_ts,
     }
+    return _clean(result)
