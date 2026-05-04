@@ -81,7 +81,9 @@ function SliceBarChart({ data, dataKey, label }: { data: SliceRow[]; dataKey: st
               <YAxis tick={{ fontSize: 8, fill: "#71717a" }} tickLine={false}
                 tickFormatter={(v) => `${v.toFixed(1)}`} width={35} />
               <Tooltip
-                contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 8, fontSize: 11 }}
+                contentStyle={{ backgroundColor: "#18181b", border: "1px solid #3f3f46", borderRadius: 8, fontSize: 11, color: "#f4f4f5" }}
+                labelStyle={{ color: "#a1a1aa", marginBottom: 4 }}
+                itemStyle={{ color: "#f4f4f5" }}
                 formatter={(v: unknown) => [`${Number(v).toFixed(2)}%`, label]}
                 allowEscapeViewBox={{ x: false, y: true }}
                 wrapperStyle={{ zIndex: 50 }}

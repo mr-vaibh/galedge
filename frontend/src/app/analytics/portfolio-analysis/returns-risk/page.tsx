@@ -147,7 +147,12 @@ function AnalyticsChart({ analyticsData, defaultKpi }: { analyticsData: Record<s
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
         <XAxis dataKey="name" tick={{ fontSize: 9 }} />
         <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => `${v.toFixed(1)}%`} />
-        <Tooltip formatter={(v: unknown) => [`${Number(v).toFixed(2)}%`, series[0]?.name ?? ""]} />
+        <Tooltip
+          formatter={(v: unknown) => [`${Number(v).toFixed(2)}%`, series[0]?.name ?? ""]}
+          contentStyle={{ backgroundColor: "#18181b", border: "1px solid #3f3f46", borderRadius: 8, fontSize: 11, color: "#f4f4f5" }}
+          labelStyle={{ color: "#a1a1aa" }}
+          itemStyle={{ color: "#f4f4f5" }}
+        />
         <Bar dataKey="value" fill={series[0]?.color ?? "#6366f1"} radius={[3,3,0,0]} />
       </BarChart>
     </ResponsiveContainer>
