@@ -173,7 +173,7 @@ export default function HoldingsSummaryPage() {
                 </tr>
               </thead>
               <tbody>
-                {holdings.map((h) => (
+                {[...holdings].sort((a, b) => Number(b.avg_weight ?? 0) - Number(a.avg_weight ?? 0)).map((h) => (
                   <tr key={h.symbol} className="border-b border-border/30 hover:bg-muted/20">
                     <td className="px-2 py-1">
                       <input type="checkbox" checked={selectedHoldings.has(h.symbol)}
@@ -221,7 +221,7 @@ export default function HoldingsSummaryPage() {
                 </tr>
               </thead>
               <tbody>
-                {factors.map((f, i) => {
+                {[...factors].sort((a, b) => Math.abs(Number(b.exposure_pct ?? 0)) - Math.abs(Number(a.exposure_pct ?? 0))).map((f, i) => {
                   const fname = String(f.factor_name ?? f.factor ?? `factor_${i}`);
                   return (
                     <tr key={fname} className="border-b border-border/30 hover:bg-muted/20">
