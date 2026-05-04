@@ -27,7 +27,7 @@ function fmt(v: unknown, dec = 2): string {
 export default function PeerBreakdownPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const { analyticsData, analyticsLoading, selectedFundName, selectedSource } = usePortfolio();
+  const { analyticsData, analyticsLoading, analyticsError, selectedFundName, selectedSource, selectedSourceId, selectedBacktestId, loadAnalytics } = usePortfolio();
   const { formatCurrencyCompact } = useCurrency();
   const [dimension, setDimension] = useState<Dimension>("Sector");
 
@@ -62,7 +62,11 @@ export default function PeerBreakdownPage() {
 
   const label = selectedFundName ?? "Selected Portfolio";
 
-  if (!analyticsData && !analyticsLoading) {
+  if (analyticsLoading) {
+    return <div className="p-8 text-center text-muted-foreground">Computing analytics...</div>;
+  }
+
+  if (!analyticsData) {
     return (
       <div className="p-4 space-y-4">
         <div className="flex items-center justify-between">
@@ -71,7 +75,16 @@ export default function PeerBreakdownPage() {
             {peerTabs.map(t => <Button key={t.href} variant={pathname === t.href ? "secondary" : "ghost"} size="sm" onClick={() => router.push(t.href)} className="h-7 text-[10px]">{t.label}</Button>)}
           </div>
         </div>
-        <Card><CardContent className="p-8 text-center text-muted-foreground">Select a portfolio from the sidebar to view breakdown.</CardContent></Card>
+        {analyticsError && <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-400">Error: {analyticsError}</div>}
+        <Card><CardContent className="p-8 text-center space-y-3">
+          <p className="text-sm text-muted-foreground">{selectedSourceId ? "Portfolio selected — click to load" : "Select a portfolio from the sidebar"}</p>
+          {selectedSourceId && (
+            <button onClick={() => selectedSource && loadAnalytics(selectedSource, selectedSourceId, selectedBacktestId ?? undefined)}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg transition-colors">
+              Load Analytics
+            </button>
+          )}
+        </CardContent></Card>
       </div>
     );
   }

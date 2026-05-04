@@ -78,7 +78,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       }
     } catch {}
 
-    // Restore analytics selection and auto-load
+    // Restore analytics selection
     try {
       const saved = sessionStorage.getItem(ANALYTICS_KEY);
       if (saved) {
@@ -87,6 +87,14 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         setSelectedSourceId(sourceId);
         setSelectedBacktestId(backtestId ?? null);
         if (benchmark) setSelectedBenchmark(benchmark);
+      }
+    } catch {}
+
+    // Restore cached analytics data (avoids re-fetching on every page navigation)
+    try {
+      const cached = sessionStorage.getItem("galedge_analytics_data");
+      if (cached) {
+        setAnalyticsData(JSON.parse(cached));
       }
     } catch {}
   }, []);
@@ -153,6 +161,8 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
       const data = await res.json();
       setAnalyticsData(data);
+      // Cache in sessionStorage so it survives page navigation
+      try { sessionStorage.setItem("galedge_analytics_data", JSON.stringify(data)); } catch {}
     } catch (e: unknown) {
       setAnalyticsError(e instanceof Error ? e.message : "Failed to load analytics");
     } finally {
