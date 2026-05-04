@@ -115,14 +115,31 @@ export default function PeerComparisonPage() {
     if (perfCache[id] || !token) return;
     setLoadingPerf((prev) => new Set(prev).add(id));
     try {
-      const res = await fetch(`${API_BASE}/api/analytics/performance/${id}`, {
+      // Use v2 analytics endpoint (doesn't rely on yfinance)
+      const res = await fetch(`${API_BASE}/api/analytics/v2/compute?source=portfolio&source_id=${id}&benchmark=NIFTY+500`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        const data = await res.json();
-        if (!data.error) {
-          setPerfCache((prev) => ({ ...prev, [id]: data }));
-        }
+        const raw = await res.json();
+        const pnl = (raw.pnl_metrics ?? {}) as Record<string, unknown>;
+        // Map v2 format to the shape this page expects
+        const asNum = (v: unknown) => (v != null ? Number(v) : undefined);
+        const data: PerfMetrics = {
+          portfolio_id: id,
+          fund_name: String(raw.fund_name ?? `Portfolio ${id}`),
+          benchmark: raw.benchmark as string | undefined,
+          total_return: asNum(pnl.total_return_pct),
+          annualised_return: asNum(pnl.cagr_pct),
+          sharpe_ratio: asNum(pnl.sharpe),
+          volatility: asNum(pnl.volatility_pct),
+          max_drawdown: asNum(pnl.max_drawdown_pct),
+          benchmark_metrics: {
+            total_return: asNum(pnl.benchmark_total_return_pct),
+            annualised_return: asNum(pnl.benchmark_cagr_pct),
+            volatility: undefined,
+          },
+        };
+        setPerfCache((prev) => ({ ...prev, [id]: data }));
       }
     } catch { /* skip */ }
     setLoadingPerf((prev) => { const n = new Set(prev); n.delete(id); return n; });
