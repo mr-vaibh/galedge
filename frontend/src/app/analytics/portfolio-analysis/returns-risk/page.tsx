@@ -115,36 +115,59 @@ function buildChart(analyticsData: Record<string, unknown>, kpi: ChartKpi) {
 
   if (kpi === "pe_ratio") {
     return {
-      data: vts.map((r) => ({ date: r.date, pe: Number(r.pe_ratio ?? r.pe ?? 0) })),
+      data: vts.map((r) => ({ date: String(r.date), pe: Number(r.portfolio_pe ?? r.pe_ratio ?? r.pe ?? 0) })),
       type: "line",
       series: [{ key: "pe", name: "PE Ratio", color: "#3b82f6" }],
+      yFormatter: (v: number) => v.toFixed(1),
     };
   }
 
-  // allocation_effect from mcap_slicing
+  // allocation_effect / selection_effect from mcap_slicing — bar chart per bucket
   const ms = (analyticsData.mcap_slicing as Record<string, unknown>[] | undefined) ?? [];
   return {
-    data: ms.map((r) => ({ date: String(r.bucket ?? r.name ?? ""), alloc: Number(r.allocation_effect ?? r.allocation_effect_pct ?? 0) })),
-    type: "line",
-    series: [{ key: "alloc", name: "Allocation Effect (%)", color: "#a855f7" }],
+    data: ms.map((r) => ({
+      date: String(r.bucket ?? r.name ?? ""),
+      alloc: Number(r.selection_effect ?? r.allocation_effect ?? 0),  // use selection_effect if allocation is null
+    })),
+    type: "bar",
+    series: [{ key: "alloc", name: "Selection Effect (%)", color: "#a855f7" }],
   };
 }
 
 function AnalyticsChart({ analyticsData, defaultKpi }: { analyticsData: Record<string, unknown>; defaultKpi: ChartKpi }) {
   const [kpi, setKpi] = useState<ChartKpi>(defaultKpi);
-  const { data, series } = buildChart(analyticsData, kpi);
+  const { data, series, type, yFormatter } = buildChart(analyticsData, kpi) as { data: Record<string, unknown>[]; series: { key: string; name: string; color: string }[]; type?: string; yFormatter?: (v: number) => string };
+
+  const isBar = type === "bar";
+  const barData = isBar ? data.map(d => ({ name: String(d.date ?? ""), value: Number(d[series[0]?.key] ?? 0) })) : [];
 
   return (
     <Card>
       <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
         <KpiSelect value={kpi} onChange={setKpi} />
         <CardControls fullscreen expandContent={
-          data.length > 0 ? <TimeSeriesChart data={data as Record<string, unknown>[]} series={series} height={600} /> : undefined
+          data.length > 0 ? (
+            isBar ? (
+              <BarChart height={600} data={barData} margin={{ top: 5, right: 10, bottom: 30, left: 10 }}>
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                <Bar dataKey="value" fill={series[0]?.color ?? "#6366f1"} />
+              </BarChart>
+            ) : (
+              <TimeSeriesChart data={data} series={series} height={600} yFormatter={yFormatter} />
+            )
+          ) : undefined
         } />
       </CardHeader>
       <CardContent className="p-2">
         {data.length > 0 ? (
-          <TimeSeriesChart data={data as Record<string, unknown>[]} series={series} height={180} />
+          isBar ? (
+            <BarChart height={180} data={barData} margin={{ top: 5, right: 10, bottom: 20, left: 10 }}>
+              <XAxis dataKey="name" tick={{ fontSize: 9 }} />
+              <Bar dataKey="value" fill={series[0]?.color ?? "#6366f1"} label={{ position: "top", fontSize: 9 }} />
+            </BarChart>
+          ) : (
+            <TimeSeriesChart data={data} series={series} height={180} yFormatter={yFormatter} />
+          )
         ) : (
           <div className="h-44 flex items-center justify-center text-[10px] text-muted-foreground">No data</div>
         )}
