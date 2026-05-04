@@ -178,11 +178,12 @@ export default function PeerIntelligencePage() {
     if (autoAdded || !selectedSource || !selectedSourceId) return;
     setAutoAdded(true);
 
-    // If analyticsData is already loaded, use it directly
+    // Get the real name from analyticsData or fall back to generic
+    const ad = analyticsData as Record<string, unknown> | null;
+    const fundName = ad?.fund_name as string | undefined;
+    const label = fundName ?? (selectedSource === "portfolio" ? `Portfolio #${selectedSourceId}` : `Strategy #${selectedSourceId}`);
+
     if (analyticsData) {
-      const label = (analyticsData as Record<string, unknown>).source === "portfolio"
-        ? "My Portfolio"
-        : "My Strategy";
       setPeers([{
         label,
         source: selectedSource,
@@ -194,13 +195,7 @@ export default function PeerIntelligencePage() {
         error: null,
       }]);
     } else {
-      // Fetch it
-      addPeer({
-        label: selectedSource === "portfolio" ? "My Portfolio" : "My Strategy",
-        source: selectedSource,
-        sourceId: selectedSourceId,
-        backtestId: selectedBacktestId ?? undefined,
-      });
+      addPeer({ label, source: selectedSource, sourceId: selectedSourceId, backtestId: selectedBacktestId ?? undefined });
     }
   }, [selectedSource, selectedSourceId]); // eslint-disable-line
 

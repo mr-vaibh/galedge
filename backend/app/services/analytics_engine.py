@@ -1720,9 +1720,25 @@ def get_full_analytics(
 
     holdings_detail_norm = [_norm_holding(h) for h in holdings_detail]
 
+    # Fetch fund name for display
+    fund_name = None
+    try:
+        if source == "portfolio":
+            port = db.query(Portfolio).filter(Portfolio.id == source_id).first()
+            if port:
+                fund_name = f"{port.fund_name} — {port.scheme_name}".strip(" —") if port.scheme_name else port.fund_name
+        else:
+            strat = db.query(Strategy).filter(Strategy.id == source_id).first()
+            if strat:
+                parts = [strat.fund_name, strat.scheme_name, strat.iteration_name]
+                fund_name = " · ".join(p for p in parts if p)
+    except Exception:
+        pass
+
     result = {
         "source":                source,
         "source_id":             source_id,
+        "fund_name":             fund_name,
         "start_date":            start_date.isoformat(),
         "end_date":              end_date.isoformat(),
         "benchmark":             benchmark_name,
