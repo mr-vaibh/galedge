@@ -92,9 +92,16 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
     // Restore cached analytics data (avoids re-fetching on every page navigation)
     try {
+      const CACHE_VERSION = "v3"; // bump to invalidate stale cache
+      const versionKey = "galedge_analytics_cache_version";
       const cached = sessionStorage.getItem("galedge_analytics_data");
-      if (cached) {
+      const cachedVersion = sessionStorage.getItem(versionKey);
+      if (cached && cachedVersion === CACHE_VERSION) {
         setAnalyticsData(JSON.parse(cached));
+      } else {
+        // Stale cache — clear it so fresh data is fetched
+        sessionStorage.removeItem("galedge_analytics_data");
+        sessionStorage.setItem(versionKey, CACHE_VERSION);
       }
     } catch {}
   }, []);
@@ -162,7 +169,10 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
       setAnalyticsData(data);
       // Cache in sessionStorage so it survives page navigation
-      try { sessionStorage.setItem("galedge_analytics_data", JSON.stringify(data)); } catch {}
+      try {
+        sessionStorage.setItem("galedge_analytics_data", JSON.stringify(data));
+        sessionStorage.setItem("galedge_analytics_cache_version", "v3");
+      } catch {}
     } catch (e: unknown) {
       setAnalyticsError(e instanceof Error ? e.message : "Failed to load analytics");
     } finally {

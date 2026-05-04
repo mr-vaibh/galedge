@@ -107,7 +107,7 @@ function buildChart(analyticsData: Record<string, unknown>, kpi: ChartKpi) {
 
   if (kpi === "realized_risk") {
     return {
-      data: rm.map((r) => ({ date: r.date, risk: Number(r.rolling_vol ?? 0) * 100 })),
+      data: rm.map((r) => ({ date: r.date, risk: Number(r.rolling_vol ?? 0) })),
       type: "line",
       series: [{ key: "risk", name: "Realized Risk (%)", color: "#ef4444" }],
     };
@@ -124,7 +124,7 @@ function buildChart(analyticsData: Record<string, unknown>, kpi: ChartKpi) {
   // allocation_effect from mcap_slicing
   const ms = (analyticsData.mcap_slicing as Record<string, unknown>[] | undefined) ?? [];
   return {
-    data: ms.map((r) => ({ date: String(r.bucket ?? r.name ?? ""), alloc: Number(r.allocation_effect_pct ?? 0) })),
+    data: ms.map((r) => ({ date: String(r.bucket ?? r.name ?? ""), alloc: Number(r.allocation_effect ?? r.allocation_effect_pct ?? 0) })),
     type: "line",
     series: [{ key: "alloc", name: "Allocation Effect (%)", color: "#a855f7" }],
   };
@@ -203,9 +203,9 @@ export default function ReturnsAndRiskPage() {
   ];
 
   const valuationRows = [
-    { metric: "PE Ratio", value: fmt(latestV.pe_ratio ?? latestV.pe) },
-    { metric: "PB Ratio", value: fmt(latestV.pb_ratio ?? latestV.pb) },
-    { metric: "ROE (%)", value: fmt(latestV.roe_pct ?? latestV.roe) },
+    { metric: "PE Ratio", value: fmt(pnl.pe_ratio ?? latestV.pe_ratio ?? latestV.pe) },
+    { metric: "PB Ratio", value: fmt(pnl.pb_ratio ?? latestV.pb_ratio ?? latestV.pb) },
+    { metric: "ROE (%)", value: fmt(pnl.roe_pct ?? latestV.roe_pct ?? latestV.roe) },
   ];
 
   // Contributors & Detractors
@@ -265,10 +265,10 @@ export default function ReturnsAndRiskPage() {
               <tbody>
                 {mcapBrinson.map((row, i) => (
                   <tr key={i} className="border-b border-border/30">
-                    <td className="px-2 py-1.5 font-medium">{String(row.bucket ?? row.name ?? "—")}</td>
-                    <td className="px-2 py-1.5"><ColoredCell value={fmt(row.allocation_pct)} /></td>
-                    <td className="px-2 py-1.5"><ColoredCell value={fmt(row.selection_pct)} /></td>
-                    <td className="px-2 py-1.5"><ColoredCell value={fmt(row.interaction_pct)} /></td>
+                    <td className="px-2 py-1.5 font-medium">{String(row.group ?? row.bucket ?? row.name ?? "—")}</td>
+                    <td className="px-2 py-1.5"><ColoredCell value={fmt(row.allocation_effect ?? row.allocation_pct ?? row.allocation)} /></td>
+                    <td className="px-2 py-1.5"><ColoredCell value={fmt(row.selection_effect ?? row.selection_pct ?? row.selection)} /></td>
+                    <td className="px-2 py-1.5"><ColoredCell value={fmt(row.interaction_effect ?? row.interaction_pct ?? row.interaction)} /></td>
                   </tr>
                 ))}
                 {mcapBrinson.length === 0 && (
