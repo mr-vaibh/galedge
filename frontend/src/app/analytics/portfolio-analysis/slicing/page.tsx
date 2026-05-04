@@ -234,7 +234,7 @@ export default function SlicingAndDicingPage() {
         <SliceBarChart data={sliceData} dataKey="total_return_pct" label={`Total Return (%) by ${activeDimension}`} />
         <SliceBarChart data={sliceData} dataKey="realized_risk_pct" label={`Realized Risk (%) by ${activeDimension}`} />
         <SliceBarChart data={sliceData} dataKey="pe_ratio" label={`PE Ratio by ${activeDimension}`} />
-        <SliceBarChart data={sliceData} dataKey="allocation_pct" label={`Allocation Effect (%) by ${activeDimension}`} />
+        <SliceBarChart data={sliceData} dataKey="selection_pct" label={`Selection Effect (%) by ${activeDimension}`} />
       </div>
     </div>
   );
