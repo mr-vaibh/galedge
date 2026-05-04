@@ -1366,6 +1366,15 @@ def compute_slicing(
                     "allocation_effect":    round(alloc * 100, 4),
                     "selection_effect":     round(select * 100, 4),
                     "interaction_effect":   round(interact * 100, 4),
+                    # Frontend aliases
+                    "total_return_pct":     round(pr * 100, 4),
+                    "idio_return_pct":      None,  # not computed per bucket
+                    "factor_return_pct":    None,
+                    "realized_risk_pct":    round(vol_pct, 4),
+                    "pe_ratio":             round(pe, 2),
+                    "allocation_pct":       round(alloc * 100, 4),
+                    "selection_pct":        round(select * 100, 4),
+                    "interaction_pct":      round(interact * 100, 4),
                 }
             )
 
