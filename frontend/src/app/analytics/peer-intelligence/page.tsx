@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, BarChart3, X, Plus } from "lucide-react";
 import { CardControls } from "@/components/CardControls";
@@ -109,11 +109,12 @@ async function fetchSelector(): Promise<SelectorData> {
 }
 
 export default function PeerIntelligencePage() {
-  const { selectedBenchmark } = usePortfolio();
+  const { selectedBenchmark, selectedSource, selectedSourceId, selectedBacktestId, analyticsData } = usePortfolio();
   const [peers, setPeers] = useState<PeerEntry[]>([]);
   const [showPicker, setShowPicker] = useState(false);
   const [selectorData, setSelectorData] = useState<SelectorData | null>(null);
   const [selectorLoading, setSelectorLoading] = useState(false);
+  const [autoAdded, setAutoAdded] = useState(false);
 
   const openPicker = async () => {
     setShowPicker(true);
@@ -171,6 +172,37 @@ export default function PeerIntelligencePage() {
   const removePeer = (idx: number) => {
     setPeers((prev) => prev.filter((_, i) => i !== idx));
   };
+
+  // Auto-add the currently selected portfolio/strategy on mount
+  useEffect(() => {
+    if (autoAdded || !selectedSource || !selectedSourceId) return;
+    setAutoAdded(true);
+
+    // If analyticsData is already loaded, use it directly
+    if (analyticsData) {
+      const label = (analyticsData as Record<string, unknown>).source === "portfolio"
+        ? "My Portfolio"
+        : "My Strategy";
+      setPeers([{
+        label,
+        source: selectedSource,
+        sourceId: selectedSourceId,
+        backtestId: selectedBacktestId ?? undefined,
+        benchmark: selectedBenchmark,
+        data: analyticsData as Record<string, unknown>,
+        loading: false,
+        error: null,
+      }]);
+    } else {
+      // Fetch it
+      addPeer({
+        label: selectedSource === "portfolio" ? "My Portfolio" : "My Strategy",
+        source: selectedSource,
+        sourceId: selectedSourceId,
+        backtestId: selectedBacktestId ?? undefined,
+      });
+    }
+  }, [selectedSource, selectedSourceId]); // eslint-disable-line
 
   // Build options from selector data
   const options: SelectorOption[] = [];
