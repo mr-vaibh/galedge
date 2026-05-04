@@ -141,33 +141,27 @@ function AnalyticsChart({ analyticsData, defaultKpi }: { analyticsData: Record<s
   const isBar = type === "bar";
   const barData = isBar ? data.map(d => ({ name: String(d.date ?? ""), value: Number(d[series[0]?.key] ?? 0) })) : [];
 
+  const renderBar = (height: number) => (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={barData} margin={{ top: 10, right: 10, bottom: 5, left: 10 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+        <XAxis dataKey="name" tick={{ fontSize: 9 }} />
+        <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => `${v.toFixed(1)}%`} />
+        <Tooltip formatter={(v: unknown) => [`${Number(v).toFixed(2)}%`, series[0]?.name ?? ""]} />
+        <Bar dataKey="value" fill={series[0]?.color ?? "#6366f1"} radius={[3,3,0,0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+
   return (
     <Card>
       <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
         <KpiSelect value={kpi} onChange={setKpi} />
-        <CardControls fullscreen expandContent={
-          data.length > 0 ? (
-            isBar ? (
-              <BarChart height={600} data={barData} margin={{ top: 5, right: 10, bottom: 30, left: 10 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                <Bar dataKey="value" fill={series[0]?.color ?? "#6366f1"} />
-              </BarChart>
-            ) : (
-              <TimeSeriesChart data={data} series={series} height={600} yFormatter={yFormatter} />
-            )
-          ) : undefined
-        } />
+        <CardControls fullscreen expandContent={data.length > 0 ? (isBar ? renderBar(500) : <TimeSeriesChart data={data} series={series} height={600} yFormatter={yFormatter} />) : undefined} />
       </CardHeader>
       <CardContent className="p-2">
         {data.length > 0 ? (
-          isBar ? (
-            <BarChart height={180} data={barData} margin={{ top: 5, right: 10, bottom: 20, left: 10 }}>
-              <XAxis dataKey="name" tick={{ fontSize: 9 }} />
-              <Bar dataKey="value" fill={series[0]?.color ?? "#6366f1"} label={{ position: "top", fontSize: 9 }} />
-            </BarChart>
-          ) : (
-            <TimeSeriesChart data={data} series={series} height={180} yFormatter={yFormatter} />
-          )
+          isBar ? renderBar(180) : <TimeSeriesChart data={data} series={series} height={180} yFormatter={yFormatter} />
         ) : (
           <div className="h-44 flex items-center justify-center text-[10px] text-muted-foreground">No data</div>
         )}
