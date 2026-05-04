@@ -123,11 +123,18 @@ export default function HoldingsSummaryPage() {
     color: COLORS[i % COLORS.length],
   }));
 
-  // Build factor exposure time series from factor_decomp_ts
-  const factorChartData = factorDecompTs.map((pt) => {
+  // Build factor exposure time series: flat lines from factor_detail (static exposures)
+  // Use equity curve dates as time axis, factor exposures as constant values
+  const factorExposureMap: Record<string, number> = {};
+  factors.forEach(f => {
+    const name = String(f.factor_name ?? f.factor ?? "");
+    if (name) factorExposureMap[name] = Number(f.exposure_pct ?? 0);
+  });
+
+  const factorChartData = equityCurve.map((pt) => {
     const row: Record<string, unknown> = { date: pt.date };
     Array.from(selectedFactors).forEach((fn) => {
-      row[fn] = Number(pt[fn] ?? 0);
+      row[fn] = factorExposureMap[fn] ?? 0;
     });
     return row;
   });
