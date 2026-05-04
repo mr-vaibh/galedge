@@ -62,7 +62,7 @@ function getEnd(e: EventReturn): string {
 
 export default function EventSensitivityPage() {
   const { analyticsData, analyticsLoading, selectedSourceId } = usePortfolio();
-  const [selectedEventIdx, setSelectedEventIdx] = useState<number | null>(null);
+  const [selectedEventIdx, setSelectedEventIdx] = useState<number | null>(0);
 
   if (analyticsLoading) {
     return (

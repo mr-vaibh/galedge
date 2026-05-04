@@ -69,7 +69,7 @@ function sumRange(
 
 export default function DrawdownPage() {
   const { analyticsData, analyticsLoading, selectedSourceId } = usePortfolio();
-  const [selectedDrawdownIdx, setSelectedDrawdownIdx] = useState<number | null>(null);
+  const [selectedDrawdownIdx, setSelectedDrawdownIdx] = useState<number | null>(0);
   const [detractorTab, setDetractorTab] = useState<"overall" | "factor">("overall");
 
   if (analyticsLoading) {
