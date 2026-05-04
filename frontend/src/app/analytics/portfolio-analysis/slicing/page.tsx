@@ -8,6 +8,7 @@ import { usePortfolio } from "@/lib/portfolio-context";
 import {
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   Tooltip,
@@ -81,11 +82,15 @@ function SliceBarChart({ data, dataKey, label }: { data: SliceRow[]; dataKey: st
                 tickFormatter={(v) => `${v.toFixed(1)}`} width={35} />
               <Tooltip
                 contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 8, fontSize: 11 }}
-                formatter={(v) => [`${Number(v).toFixed(2)}`]}
+                formatter={(v: unknown) => [`${Number(v).toFixed(2)}%`, label]}
+                allowEscapeViewBox={{ x: false, y: true }}
+                wrapperStyle={{ zIndex: 50 }}
               />
-              {chartData.map((entry, i) => (
-                <Bar key={entry.name} dataKey="value" fill={COLORS[i % COLORS.length]} />
-              ))}
+              <Bar dataKey="value" radius={[3, 3, 0, 0]}>
+                {chartData.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         ) : (
