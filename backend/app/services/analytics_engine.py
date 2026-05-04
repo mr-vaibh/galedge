@@ -478,10 +478,12 @@ def compute_rolling_metrics(
     window: int = 252,
 ) -> list[dict]:
     """Rolling Sharpe, volatility, and beta over *window* trading days."""
-    if daily_returns is None or daily_returns.empty or len(daily_returns) < window:
+    if daily_returns is None or daily_returns.empty:
         return []
 
     r = daily_returns.dropna()
+    # Adapt window to available data (min 20 days for meaningful rolling metrics)
+    window = min(window, max(20, len(r) // 2))
 
     rolling_mean = r.rolling(window).mean()
     rolling_std  = r.rolling(window).std()
@@ -1151,9 +1153,12 @@ def _brinson_by_group(
                 "benchmark_weight":  round(bw * 100, 4),
                 "portfolio_return":  round(pr * 100, 4),
                 "benchmark_return":  round(br * 100, 4),
-                "allocation":        round(alloc * 100, 4),
-                "selection":         round(select * 100, 4),
-                "interaction":       round(interact * 100, 4),
+                "allocation":           round(alloc * 100, 4),
+                "selection":            round(select * 100, 4),
+                "interaction":          round(interact * 100, 4),
+                "allocation_effect":    round(alloc * 100, 4),
+                "selection_effect":     round(select * 100, 4),
+                "interaction_effect":   round(interact * 100, 4),
             }
         )
 
@@ -1671,6 +1676,33 @@ def get_full_analytics(
             return None
         return obj
 
+    # Compute portfolio valuation (weighted average PE/PB/ROE from holdings)
+    pe_ratio = None
+    pb_ratio = None
+    roe_pct = None
+    try:
+        syms = holdings_df.columns.tolist() if not holdings_df.empty else []
+        if syms:
+            avg_weights = holdings_df.mean()
+            info_rows = prices_db.query(StockInfo).filter(StockInfo.symbol.in_(syms)).all()
+            info_map = {r.symbol: r for r in info_rows}
+            pe_vals, pb_vals, roe_vals = [], [], []
+            for sym in syms:
+                w = float(avg_weights.get(sym, 0))
+                si = info_map.get(sym)
+                if si and w > 0:
+                    if si.pe: pe_vals.append((w, si.pe))
+                    if si.pb: pb_vals.append((w, si.pb))
+                    if si.roe: roe_vals.append((w, si.roe))
+            total_w = sum(w for w, _ in pe_vals) or 1
+            pe_ratio = round(sum(w * v for w, v in pe_vals) / total_w, 2) if pe_vals else None
+            total_w = sum(w for w, _ in pb_vals) or 1
+            pb_ratio = round(sum(w * v for w, v in pb_vals) / total_w, 2) if pb_vals else None
+            total_w = sum(w for w, _ in roe_vals) or 1
+            roe_pct = round(sum(w * v for w, v in roe_vals) / total_w * 100, 2) if roe_vals else None
+    except Exception:
+        pass
+
     # Normalize pnl_metrics keys to _pct suffix for frontend compatibility
     pnl_pct = {
         "total_return_pct": pnl_metrics.get("total_return"),
@@ -1684,6 +1716,9 @@ def get_full_analytics(
         "benchmark_total_return_pct": pnl_metrics.get("benchmark_total_return"),
         "benchmark_cagr_pct": pnl_metrics.get("benchmark_cagr"),
         "alpha_pct": pnl_metrics.get("alpha"),
+        "pe_ratio": pe_ratio,
+        "pb_ratio": pb_ratio,
+        "roe_pct": roe_pct,
         **pnl_metrics,  # keep originals too
     }
 
