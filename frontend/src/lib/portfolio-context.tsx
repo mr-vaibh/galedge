@@ -90,18 +90,20 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       }
     } catch {}
 
-    // Restore cached analytics data (avoids re-fetching on every page navigation)
+    // Restore cached analytics data with TTL (30 min) + source-keyed cache
     try {
-      const CACHE_VERSION = "v5"; // bump to invalidate stale cache
-      const versionKey = "galedge_analytics_cache_version";
-      const cached = sessionStorage.getItem("galedge_analytics_data");
-      const cachedVersion = sessionStorage.getItem(versionKey);
-      if (cached && cachedVersion === CACHE_VERSION) {
-        setAnalyticsData(JSON.parse(cached));
-      } else {
-        // Stale cache — clear it so fresh data is fetched
-        sessionStorage.removeItem("galedge_analytics_data");
-        sessionStorage.setItem(versionKey, CACHE_VERSION);
+      const selSaved = sessionStorage.getItem(ANALYTICS_KEY);
+      const { source, sourceId } = selSaved ? JSON.parse(selSaved) : {};
+      const cacheKey = `galedge_analytics_${source}_${sourceId}`;
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const { data, ts } = JSON.parse(cached);
+        const ageMin = (Date.now() - ts) / 60000;
+        if (ageMin < 30) {
+          setAnalyticsData(data);
+        } else {
+          sessionStorage.removeItem(cacheKey); // expired
+        }
       }
     } catch {}
   }, []);
@@ -170,8 +172,8 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       setAnalyticsData(data);
       // Cache in sessionStorage so it survives page navigation
       try {
-        sessionStorage.setItem("galedge_analytics_data", JSON.stringify(data));
-        sessionStorage.setItem("galedge_analytics_cache_version", "v5");
+        const cacheKey = `galedge_analytics_${source}_${sourceId}`;
+        sessionStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
       } catch {}
     } catch (e: unknown) {
       setAnalyticsError(e instanceof Error ? e.message : "Failed to load analytics");
