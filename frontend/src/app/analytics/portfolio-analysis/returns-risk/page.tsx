@@ -389,9 +389,9 @@ export default function ReturnsAndRiskPage() {
             <ResponsiveContainer width="100%" height={180}>
               <BarChart
                 data={[...holdings]
-                  .sort((a, b) => Number(b.holdings_pct ?? 0) - Number(a.holdings_pct ?? 0))
+                  .sort((a, b) => Number(b.avg_weight ?? b.holdings_pct ?? 0) - Number(a.avg_weight ?? a.holdings_pct ?? 0))
                   .slice(0, 10)
-                  .map((h) => ({ name: String(h.symbol ?? ""), value: Number(h.holdings_pct ?? 0) }))}
+                  .map((h) => ({ name: String(h.symbol ?? "").replace(".NS",""), value: Number((h.avg_weight ?? h.holdings_pct ?? 0)) * 100 }))}
                 margin={{ top: 4, right: 8, bottom: 4, left: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
