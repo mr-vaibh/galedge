@@ -112,7 +112,7 @@ export default function HoldingsSummaryPage() {
     const row: Record<string, unknown> = { date: pt.date };
     Array.from(selectedHoldings).forEach((sym) => {
       const h = holdings.find((x) => x.symbol === sym);
-      row[sym] = h ? Number(h.avg_weight ?? h.holdings_pct ?? 0) * 100 : 0;
+      row[sym] = h ? Number(h.avg_weight ?? h.holdings_pct ?? 0) : 0;
     });
     return row;
   });
@@ -180,7 +180,7 @@ export default function HoldingsSummaryPage() {
                         onChange={() => toggleHolding(h.symbol)} className="h-3 w-3" />
                     </td>
                     <td className="px-2 py-1 font-medium">{h.symbol}</td>
-                    <td className="px-2 py-1"><ColoredCell value={fmt(Number(h.avg_weight ?? h.holdings_pct ?? 0) * 100)} /></td>
+                    <td className="px-2 py-1"><ColoredCell value={fmt(Number(h.avg_weight ?? h.holdings_pct ?? 0))} /></td>
                     <td className="px-2 py-1"><ColoredCell value={fmt(h.raw_return_pct)} /></td>
                     <td className="px-2 py-1"><ColoredCell value={fmt(h.total_return_contribution_pct)} /></td>
                     <td className="px-2 py-1"><ColoredCell value={fmt(h.total_risk_contribution_pct)} /></td>
