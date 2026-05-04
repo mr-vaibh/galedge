@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, BarChart3 } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
+import { D3Treemap } from "@/components/charts/D3Treemap";
 import { usePortfolio } from "@/lib/portfolio-context";
 
 interface EventReturn {
@@ -38,17 +39,6 @@ function fmt(v: unknown, decimals = 2): string {
   const n = Number(v);
   if (isNaN(n)) return String(v);
   return n.toFixed(decimals);
-}
-
-function heatColor(pct: number): string {
-  if (pct > 10) return "#14532d";
-  if (pct > 5) return "#15803d";
-  if (pct > 2) return "#16a34a";
-  if (pct > 0) return "#22c55e";
-  if (pct > -2) return "#ef4444";
-  if (pct > -5) return "#dc2626";
-  if (pct > -10) return "#b91c1c";
-  return "#7f1d1d";
 }
 
 function getEventName(e: EventReturn): string {
@@ -214,40 +204,33 @@ export default function EventSensitivityPage() {
           </CardContent>
         </Card>
 
-        {/* Event Returns Treemap */}
+        {/* Event Returns D3 Treemap */}
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-            <CardTitle className="text-[11px]">Event Returns</CardTitle>
+            <CardTitle className="text-[11px]">Event Returns (%)</CardTitle>
             <CardControls />
           </CardHeader>
           <CardContent className="p-2">
             {events.length > 0 ? (
-              <div className="grid gap-1" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", minHeight: "160px" }}>
-                {events.map((e, i) => {
+              <D3Treemap
+                height={260}
+                nodes={events.map((e, i) => {
                   const portRet = getPortRet(e);
-                  const excess = getExcess(e);
-                  return (
-                    <div
-                      key={i}
-                      onClick={() => setSelectedEventIdx(i)}
-                      className={`rounded p-1.5 flex flex-col justify-between cursor-pointer hover:brightness-110 transition-all ${
-                        selectedEventIdx === i ? "ring-2 ring-white/40" : ""
-                      }`}
-                      style={{
-                        backgroundColor: heatColor(excess),
-                        minHeight: Math.max(50, Math.min(100, Math.abs(portRet) * 2)),
-                      }}
-                    >
-                      <span className="text-[8px] text-white/80 leading-tight line-clamp-2">{getEventName(e)}</span>
-                      <span className="text-[10px] font-bold text-white">
-                        {portRet >= 0 ? "+" : ""}{portRet.toFixed(1)}%
-                      </span>
-                    </div>
-                  );
+                  return {
+                    id: String(i),
+                    label: getEventName(e),
+                    value: portRet,
+                    size: Math.max(Math.abs(portRet), 0.5),
+                  };
                 })}
-              </div>
+                selectedId={selectedEventIdx != null ? String(selectedEventIdx) : null}
+                onSelect={(id) => {
+                  const idx = Number(id);
+                  setSelectedEventIdx(selectedEventIdx === idx ? null : idx);
+                }}
+              />
             ) : (
-              <div className="h-40 flex items-center justify-center text-[10px] text-muted-foreground">No event returns data</div>
+              <div className="h-[260px] flex items-center justify-center text-[10px] text-muted-foreground">No event returns data</div>
             )}
           </CardContent>
         </Card>

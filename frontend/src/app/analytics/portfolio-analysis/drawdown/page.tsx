@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, BarChart3 } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
+import { D3Treemap } from "@/components/charts/D3Treemap";
 import { usePortfolio } from "@/lib/portfolio-context";
 
 interface DrawdownEntry {
@@ -43,15 +44,6 @@ function fmt(v: unknown, decimals = 2): string {
   const n = Number(v);
   if (isNaN(n)) return String(v);
   return n.toFixed(decimals);
-}
-
-function lossColor(pct: number): string {
-  const abs = Math.abs(pct);
-  if (abs > 30) return "#7f1d1d";
-  if (abs > 20) return "#991b1b";
-  if (abs > 10) return "#dc2626";
-  if (abs > 5) return "#ef4444";
-  return "#f87171";
 }
 
 function sumRange(
@@ -200,44 +192,35 @@ export default function DrawdownPage() {
           </CardContent>
         </Card>
 
-        {/* Drawdown Treemap */}
+        {/* Drawdown D3 Treemap */}
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-            <CardTitle className="text-[11px]">Drawdown Loss Map</CardTitle>
+            <CardTitle className="text-[11px]">Drawdown Loss Map (%)</CardTitle>
             <CardControls />
           </CardHeader>
           <CardContent className="p-2">
             {drawdowns.length > 0 ? (
-              <div className="grid gap-1" style={{
-                gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))",
-                minHeight: "160px",
-              }}>
-                {drawdowns.map((dd, i) => {
+              <D3Treemap
+                height={260}
+                nodes={drawdowns.map((dd, i) => {
                   const lossPct = Math.abs(Number(dd.loss_pct ?? dd.loss ?? 0));
-                  return (
-                    <div
-                      key={i}
-                      onClick={() => setSelectedDrawdownIdx(i)}
-                      className={`rounded p-2 cursor-pointer hover:brightness-110 transition-all flex flex-col justify-between ${
-                        selectedDrawdownIdx === i ? "ring-2 ring-white/40" : ""
-                      }`}
-                      style={{
-                        backgroundColor: lossColor(lossPct),
-                        minHeight: Math.max(60, Math.min(120, lossPct * 3)),
-                      }}
-                    >
-                      <span className="text-[8px] text-white/80 leading-tight">
-                        {String(dd.start_date ?? "").slice(0, 7)} → {String(dd.end_date ?? "—").slice(0, 7)}
-                      </span>
-                      <span className="text-[11px] font-bold text-white">
-                        -{lossPct.toFixed(1)}%
-                      </span>
-                    </div>
-                  );
+                  const startYM = String(dd.start_date ?? "").slice(0, 7);
+                  const endYM = String(dd.end_date ?? "ongoing").slice(0, 7);
+                  return {
+                    id: String(i),
+                    label: `${startYM} → ${endYM}`,
+                    value: -lossPct,
+                    size: Math.max(lossPct, 0.5),
+                  };
                 })}
-              </div>
+                selectedId={selectedDrawdownIdx != null ? String(selectedDrawdownIdx) : null}
+                onSelect={(id) => {
+                  const idx = Number(id);
+                  setSelectedDrawdownIdx(selectedDrawdownIdx === idx ? null : idx);
+                }}
+              />
             ) : (
-              <div className="h-40 flex items-center justify-center text-[10px] text-muted-foreground">No drawdowns computed</div>
+              <div className="h-[260px] flex items-center justify-center text-[10px] text-muted-foreground">No drawdowns computed</div>
             )}
           </CardContent>
         </Card>

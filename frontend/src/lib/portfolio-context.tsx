@@ -142,6 +142,12 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     // Sync with legacy v1 context so Peer Comparison page works
     if (source === "portfolio") {
       setId(sourceId);
+      // Persist to legacy storage key so it survives page navigation
+      try {
+        const existing = sessionStorage.getItem(STORAGE_KEY);
+        const parsed = existing ? JSON.parse(existing) : {};
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...parsed, id: sourceId }));
+      } catch {}
     }
     // Persist selection so pages auto-reload on navigation
     try {
