@@ -20,15 +20,16 @@ interface Props {
   padding?: number;
 }
 
+// Rich financial-terminal color palette
 function defaultColor(v: number): string {
-  if (v > 10) return "#14532d";
-  if (v > 5)  return "#166534";
-  if (v > 2)  return "#15803d";
-  if (v > 0)  return "#16a34a";
-  if (v > -2) return "#991b1b";
-  if (v > -5) return "#b91c1c";
-  if (v > -10)return "#dc2626";
-  return "#7f1d1d";
+  if (v > 10) return "#0d4a24";
+  if (v > 5)  return "#125c2e";
+  if (v > 2)  return "#166534";
+  if (v > 0)  return "#1a7a3c";
+  if (v > -2) return "#9b1c1c";
+  if (v > -5) return "#8b1111";
+  if (v > -10)return "#7a0f0f";
+  return "#660c0c";
 }
 
 interface Leaf {
@@ -74,7 +75,7 @@ export function D3Treemap({
     treemap<{ children?: TreemapNode[] }>()
       .size([width, height])
       .paddingInner(padding)
-      .paddingOuter(padding)(root);
+      .paddingOuter(0)(root);
 
     return root.leaves().map((leaf) => {
       const d = leaf.data as unknown as TreemapNode;
@@ -92,7 +93,11 @@ export function D3Treemap({
   }, [nodes, width, height, padding]);
 
   return (
-    <div ref={containerRef} style={{ position: "relative", width: "100%", height }} className="overflow-hidden rounded">
+    <div
+      ref={containerRef}
+      style={{ position: "relative", width: "100%", height }}
+      className="overflow-hidden"
+    >
       {leaves.map((leaf) => {
         const w = leaf.x1 - leaf.x0;
         const h = leaf.y1 - leaf.y0;
@@ -100,14 +105,22 @@ export function D3Treemap({
         const bg = colorFn(leaf.value);
         const sign = leaf.value >= 0 ? "+" : "";
         const pctStr = `${sign}${leaf.value.toFixed(2)} %`;
-        const small = w < 70 || h < 45;
-        const tiny = w < 45 || h < 32;
+
+        // Adaptive font sizes based on cell dimensions
+        const large = w > 140 && h > 90;
+        const medium = w > 90 && h > 55;
+        const showLabel = w > 50 && h > 40;
+        const showValue = w > 35 && h > 28;
+
+        const labelSize = large ? 12 : medium ? 10 : 9;
+        const valueSize = large ? 18 : medium ? 14 : 11;
+        const pad = large ? 10 : medium ? 8 : 5;
 
         return (
           <div
             key={leaf.id}
             onClick={() => onSelect?.(leaf.id)}
-            title={`${leaf.label}\n${pctStr}`}
+            title={`${leaf.label}: ${pctStr}`}
             style={{
               position: "absolute",
               left: leaf.x0,
@@ -115,32 +128,59 @@ export function D3Treemap({
               width: w,
               height: h,
               backgroundColor: bg,
+              // Metallic gradient: bright top-left, dark bottom-right
+              backgroundImage: [
+                `linear-gradient(135deg,`,
+                `rgba(255,255,255,0.12) 0%,`,
+                `rgba(255,255,255,0.04) 40%,`,
+                `rgba(0,0,0,0.18) 100%)`,
+              ].join(" "),
               boxSizing: "border-box",
               cursor: onSelect ? "pointer" : "default",
-              outline: isSelected ? "2px solid rgba(255,255,255,0.5)" : undefined,
-              outlineOffset: isSelected ? "-2px" : undefined,
-              transition: "filter 0.15s",
-              borderRadius: 3,
+              // Selected: bright ring; default: subtle inset depth
+              boxShadow: isSelected
+                ? "inset 0 0 0 2px rgba(255,255,255,0.55), inset 0 1px 0 rgba(255,255,255,0.3)"
+                : "inset 0 1px 0 rgba(255,255,255,0.14), inset 0 -1px 0 rgba(0,0,0,0.3)",
+              transition: "filter 0.12s, box-shadow 0.12s",
+              padding: pad,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              overflow: "hidden",
             }}
-            className="hover:brightness-110 overflow-hidden flex flex-col justify-between p-[5px]"
+            className="hover:brightness-110"
           >
-            {!tiny && (
+            {/* Event name — top */}
+            {showLabel && (
               <span
-                className="text-white/90 leading-tight font-normal"
-                style={{ fontSize: small ? 7 : 9 }}
+                style={{
+                  fontSize: labelSize,
+                  color: "rgba(255,255,255,0.88)",
+                  lineHeight: 1.25,
+                  fontWeight: 400,
+                  letterSpacing: "0.01em",
+                  display: "-webkit-box",
+                  WebkitLineClamp: large ? 3 : 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
               >
                 {leaf.label}
               </span>
             )}
-            {!tiny && leaf.sublabel && (
-              <span className="text-white/60 leading-tight" style={{ fontSize: 7 }}>
-                {leaf.sublabel}
-              </span>
-            )}
-            {!tiny && (
+
+            {/* Percentage — bottom */}
+            {showValue && (
               <span
-                className="text-white font-semibold tabular-nums leading-none"
-                style={{ fontSize: small ? 9 : 11 }}
+                style={{
+                  fontSize: valueSize,
+                  color: "rgba(255,255,255,0.97)",
+                  fontWeight: 600,
+                  letterSpacing: "0.02em",
+                  lineHeight: 1,
+                  fontVariantNumeric: "tabular-nums",
+                  textShadow: "0 1px 3px rgba(0,0,0,0.4)",
+                }}
               >
                 {pctStr}
               </span>
