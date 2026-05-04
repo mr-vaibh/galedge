@@ -94,6 +94,8 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     try {
       const selSaved = sessionStorage.getItem(ANALYTICS_KEY);
       const { source, sourceId } = selSaved ? JSON.parse(selSaved) : {};
+      // Sync legacy v1 selectedPortfolioId
+      if (source === "portfolio" && sourceId) setId(sourceId);
       const cacheKey = `galedge_analytics_${source}_${sourceId}`;
       const cached = sessionStorage.getItem(cacheKey);
       if (cached) {
@@ -137,6 +139,10 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     setSelectedSource(source);
     setSelectedSourceId(sourceId);
     setSelectedBacktestId(backtestId ?? null);
+    // Sync with legacy v1 context so Peer Comparison page works
+    if (source === "portfolio") {
+      setId(sourceId);
+    }
     // Persist selection so pages auto-reload on navigation
     try {
       sessionStorage.setItem(ANALYTICS_KEY, JSON.stringify({ source, sourceId, backtestId, benchmark }));
