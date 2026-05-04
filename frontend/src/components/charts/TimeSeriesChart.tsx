@@ -63,12 +63,15 @@ export function TimeSeriesChart({
         <Tooltip
           contentStyle={{
             backgroundColor: "#18181b",
-            border: "1px solid #27272a",
+            border: "1px solid #3f3f46",
             borderRadius: 8,
             fontSize: 11,
+            color: "#f4f4f5",
           }}
-          labelStyle={{ color: "#a1a1aa" }}
+          labelStyle={{ color: "#a1a1aa", marginBottom: 4 }}
+          itemStyle={{ color: "#f4f4f5" }}
           formatter={(value) => [yFormatter(Number(value))]}
+          wrapperStyle={{ zIndex: 50 }}
         />
         <Legend
           iconType="line"

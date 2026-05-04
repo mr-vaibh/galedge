@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, BarChart3 } from "lucide-react";
@@ -25,6 +25,7 @@ function ColoredCell({ value }: { value: unknown }) {
 interface HoldingDetail {
   symbol: string;
   holdings_pct?: number;
+  avg_weight?: number;
   raw_return_pct?: number;
   total_return_contribution_pct?: number;
   total_risk_contribution_pct?: number;
@@ -50,6 +51,17 @@ export default function HoldingsSummaryPage() {
 
   const [selectedHoldings, setSelectedHoldings] = useState<Set<string>>(new Set());
   const [selectedFactors, setSelectedFactors] = useState<Set<string>>(new Set());
+
+  // Initialize with top 5 holdings and top 5 factors by weight/exposure
+  useEffect(() => {
+    if (!analyticsData) return;
+    const h = (analyticsData.holdings_detail as HoldingDetail[] | undefined) ?? [];
+    const top5 = [...h].sort((a, b) => Number(b.avg_weight ?? 0) - Number(a.avg_weight ?? 0)).slice(0, 5).map(x => x.symbol);
+    setSelectedHoldings(new Set(top5));
+    const f = (analyticsData.factor_detail as FactorDetail[] | undefined) ?? [];
+    const top5f = [...f].sort((a, b) => Math.abs(Number(b.exposure_pct ?? 0)) - Math.abs(Number(a.exposure_pct ?? 0))).slice(0, 5).map(x => x.factor_name ?? x.factor ?? "");
+    setSelectedFactors(new Set(top5f.filter(Boolean)));
+  }, [analyticsData]);
 
   if (analyticsLoading) {
     return (
@@ -100,7 +112,7 @@ export default function HoldingsSummaryPage() {
     const row: Record<string, unknown> = { date: pt.date };
     Array.from(selectedHoldings).forEach((sym) => {
       const h = holdings.find((x) => x.symbol === sym);
-      row[sym] = h ? Number(h.holdings_pct ?? 0) : 0;
+      row[sym] = h ? Number(h.avg_weight ?? h.holdings_pct ?? 0) * 100 : 0;
     });
     return row;
   });
@@ -168,7 +180,7 @@ export default function HoldingsSummaryPage() {
                         onChange={() => toggleHolding(h.symbol)} className="h-3 w-3" />
                     </td>
                     <td className="px-2 py-1 font-medium">{h.symbol}</td>
-                    <td className="px-2 py-1"><ColoredCell value={fmt(h.holdings_pct)} /></td>
+                    <td className="px-2 py-1"><ColoredCell value={fmt(Number(h.avg_weight ?? h.holdings_pct ?? 0) * 100)} /></td>
                     <td className="px-2 py-1"><ColoredCell value={fmt(h.raw_return_pct)} /></td>
                     <td className="px-2 py-1"><ColoredCell value={fmt(h.total_return_contribution_pct)} /></td>
                     <td className="px-2 py-1"><ColoredCell value={fmt(h.total_risk_contribution_pct)} /></td>
