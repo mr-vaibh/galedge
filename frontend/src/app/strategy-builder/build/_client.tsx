@@ -1094,7 +1094,7 @@ export default function BuildStrategyPageInner() {
                 <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <input
                   placeholder="Search factors..."
-                  className="flex-1 text-xs bg-transparent outline-none placeholder:text-muted-foreground"
+                  className="flex-1 h-full text-xs bg-transparent outline-none border-0 p-0 placeholder:text-muted-foreground"
                   value={userFactorSearch}
                   onChange={(e) => { setUserFactorSearch(e.target.value); setScreenerFactorSearch(e.target.value); }}
                 />
