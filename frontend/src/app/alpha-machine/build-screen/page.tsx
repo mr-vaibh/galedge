@@ -527,7 +527,7 @@ function BuildScreenContent() {
                     const r = row as any;
                     const pe = r.pe ?? r.PE ?? r.pe_ratio ?? null;
                     const roe = r.roe ?? r.ROE ?? null;
-                    const dy = r.dividend_yield ?? r.DividendYield ?? r.div_yield ?? null;
+                    const dy = r.dividendYield ?? r.dividend_yield ?? r.DividendYield ?? r.div_yield ?? null;
                     const mcap = r.market_cap ?? r.MarketCap ?? r.marketCap ?? null;
                     const w = r.weight ?? r.Weight ?? null;
                     const numColor = (v: unknown, positiveIsGood = true) => {
