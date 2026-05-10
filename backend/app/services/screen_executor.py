@@ -369,7 +369,9 @@ def run_screen(
             info["priceToSalesTrailing12Months"] = si.ps
             info["pegRatio"] = si.peg
             info["enterpriseToEbitda"] = si.ev_ebitda
-            info["dividendYield"] = si.dividend_yield
+            # DB stores dividend_yield as percentage (e.g. 4.71 = 4.71%)
+            # but _get_metric_value multiplies by 100, so divide back to decimal first
+            info["dividendYield"] = si.dividend_yield / 100 if si.dividend_yield is not None else None
             info["returnOnEquity"] = si.roe
             info["returnOnAssets"] = si.roa
             info["profitMargins"] = si.profit_margin
@@ -411,11 +413,14 @@ def run_screen(
                     "industry": si.industry if si else "",
                     "marketCap": round((si.market_cap or 0) / 1e7, 2) if si else 0,
                     "price": sp.close if sp else None,
-                    "pe": None,
-                    "pb": None,
-                    "roe": None,
-                    "dividendYield": None,
-                    "beta": None,
+                    # Fundamentals from DB
+                    "pe": si.pe if si else None,
+                    "pb": si.pb if si else None,
+                    # roe stored as decimal (0.281 = 28.1%) → convert to %
+                    "roe": round(si.roe * 100, 2) if (si and si.roe is not None) else None,
+                    # dividend_yield stored as % already (4.71 = 4.71%)
+                    "dividendYield": round(si.dividend_yield, 2) if (si and si.dividend_yield is not None) else None,
+                    "beta": si.beta if si else None,
                 })
         except Exception as e:
             logger.warning("Query evaluation failed for %s: %s", sym, e)
