@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Maximize2, CheckCircle2, Save, Loader2 } from "lucide-react";
+import { Search, Maximize2, CheckCircle2, Save, Loader2, Download } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
@@ -504,7 +504,36 @@ function BuildScreenContent() {
           <CardContent className="pt-4 pb-2">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-medium">{resultsTotal} result{resultsTotal !== 1 ? "s" : ""} found</span>
-              <Badge variant="outline" className="text-[10px]">Showing {results.length} of {resultsTotal}</Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-[10px]">Showing {results.length} of {resultsTotal}</Badge>
+                <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1 px-2"
+                  onClick={() => {
+                    const headers = ["#","Symbol","Name","Sector","Market Cap","P/E","ROE","Div Yield","Weight"];
+                    const rows = results.map((row, i) => {
+                      /* eslint-disable @typescript-eslint/no-explicit-any */
+                      const r = row as any;
+                      return [
+                        i + 1,
+                        r.symbol ?? "",
+                        r.name ?? "",
+                        r.sector ?? "",
+                        r.market_cap ?? r.MarketCap ?? r.marketCap ?? "",
+                        r.pe ?? r.PE ?? "",
+                        r.roe ?? r.ROE ?? "",
+                        r.dividendYield ?? r.dividend_yield ?? "",
+                        r.weight ?? "",
+                      ].join(",");
+                    });
+                    const csv = [headers.join(","), ...rows].join("\n");
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+                    a.download = "screen_results.csv";
+                    a.click();
+                  }}
+                >
+                  <Download className="h-3 w-3" /> CSV
+                </Button>
+              </div>
             </div>
             <div className="overflow-x-auto border border-border/40 rounded-md">
               <table className="w-full text-xs">
