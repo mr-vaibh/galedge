@@ -63,6 +63,7 @@ function BuildScreenContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("id");
+  const prefilledQuery = searchParams.get("query");
   const { token } = useAuth();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -104,6 +105,11 @@ function BuildScreenContent() {
         // keep fallback metrics on error
       });
   }, []);
+
+  // Pre-fill from Standard Alpha "Run" link
+  useEffect(() => {
+    if (prefilledQuery && !editId) setScreenerQuery(decodeURIComponent(prefilledQuery));
+  }, [prefilledQuery, editId]);
 
   // Pre-populate when editing an existing screen
   useEffect(() => {
