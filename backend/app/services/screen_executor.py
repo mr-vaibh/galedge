@@ -396,9 +396,9 @@ def run_screen(
             info["price"] = sp.close
         return info
 
-    # Filter by query
+    # Filter by query — scan full universe first, apply limit after sorting
     matches = []
-    for sym in universe[:limit * 4]:
+    for sym in universe:
         info = build_info(sym)
         if not info:
             continue
