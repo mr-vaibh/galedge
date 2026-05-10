@@ -1070,10 +1070,11 @@ export default function BuildStrategyPageInner() {
             <DialogTrigger>
               <Button variant="outline" size="sm">Additional Analytics</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+            <DialogContent className="max-w-lg flex flex-col max-h-[80vh]">
               <DialogHeader><DialogTitle>Additional Analytics</DialogTitle></DialogHeader>
-              <p className="text-xs text-muted-foreground mb-3">Select user created and screener factors for additional analytics.</p>
+              <p className="text-xs text-muted-foreground">Select user created and screener factors for additional analytics.</p>
 
+              <div className="flex-1 overflow-y-auto pr-1 space-y-4 mt-2">
               {/* User Created Factors */}
               <div className="space-y-2">
                 <Label className="text-xs font-semibold">User created factors</Label>
@@ -1112,7 +1113,7 @@ export default function BuildStrategyPageInner() {
               </div>
 
               {/* Screener Factors */}
-              <div className="space-y-2 mt-4">
+              <div className="space-y-2">
                 <Label className="text-xs font-semibold">Screener factors</Label>
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -1148,7 +1149,9 @@ export default function BuildStrategyPageInner() {
                 )}
               </div>
 
-              <Button size="sm" className="mt-4 w-full" onClick={() => setShowBacktestDialog(false)}>
+              </div>{/* end scrollable */}
+
+              <Button size="sm" className="mt-3 w-full shrink-0" onClick={() => setShowBacktestDialog(false)}>
                 Done ({selectedUserFactors.length + selectedScreenerFactors.length} selected)
               </Button>
             </DialogContent>

@@ -49,6 +49,7 @@ class AlphaModelCreate(BaseModel):
 def list_screens(user: User = Depends(require_user), db: Session = Depends(get_db)):
     screens = db.query(Screen).filter(Screen.user_id == user.id).order_by(Screen.updated_at.desc()).all()
     return [{"id": s.id, "name": s.name, "description": s.description,
+             "screener_query": s.screener_query or "",
              "created_at": str(s.created_at), "updated_at": str(s.updated_at)} for s in screens]
 
 
