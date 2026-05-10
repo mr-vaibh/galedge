@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
-import { Loader2, Plus, Upload, Download, Trash2, Pencil, ChevronDown, Search } from "lucide-react";
+import { Loader2, Plus, Upload, Download, Trash2, Pencil, ChevronDown, Search, Filter, Play, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePortfolio } from "@/lib/portfolio-context";
 import { useCurrency } from "@/lib/currency";
@@ -118,6 +118,148 @@ const OBJECTIVE_FIELDS: Record<string, string[]> = {
   "Tracking Error Minimization": ["benchmark", "weight"],
 };
 
+const STANDARD_SCREEN_QUERIES = [
+  { name: "Quality Compounder", query: "ROE > 15 AND PE < 30 AND DebtToEquity < 0.5 AND MarketCap > 1000" },
+  { name: "Deep Value", query: "PE < 12 AND PB < 1.5 AND DividendYield > 1.5 AND MarketCap > 500" },
+  { name: "GARP", query: "ROE > 18 AND PE < 25 AND EarningsGrowth > 10 AND MarketCap > 2000" },
+  { name: "Dividend Aristocrat", query: "DividendYield > 3 AND ROE > 12 AND DebtToEquity < 1 AND PE < 20" },
+  { name: "Small Cap Value", query: "MarketCap < 5000 AND MarketCap > 200 AND PE < 15 AND ROE > 12" },
+  { name: "Capital Efficiency", query: "ROCE > 25 AND PE < 35 AND MarketCap > 500" },
+];
+
+// ── Screen Picker Dialog ─────────────────────────────────────────────────────
+function ScreenPickerDialog({
+  open, onClose, onSelect, token,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSelect: (symbols: string[], label: string) => void;
+  token: string | null;
+}) {
+  const [tab, setTab] = useState<"saved" | "standard" | "query">("standard");
+  const [savedScreens, setSavedScreens] = useState<{ id: number; name: string; screener_query: string }[]>([]);
+  const [customQuery, setCustomQuery] = useState("");
+  const [running, setRunning] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ symbols: string[]; label: string } | null>(null);
+
+  useEffect(() => {
+    if (!open || !token) return;
+    fetch(`${API_BASE}/api/alpha/screens`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : [])
+      .then(d => setSavedScreens(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, [open, token]);
+
+  async function runQuery(query: string, label: string) {
+    setRunning(label);
+    setPreview(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/alpha/screens/execute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ query, weight: "equal", limit: 100 }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const symbols: string[] = (data.stocks ?? []).map((s: { symbol: string }) => s.symbol);
+        setPreview({ symbols, label });
+      }
+    } catch { /* silent */ }
+    setRunning(null);
+  }
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative z-10 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl w-[600px] max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-700">
+          <span className="text-sm font-semibold flex items-center gap-2"><Filter className="h-4 w-4 text-blue-400" /> Choose Screen as Universe</span>
+          <button onClick={onClose}><X className="h-4 w-4 text-muted-foreground hover:text-foreground" /></button>
+        </div>
+
+        <div className="flex gap-1 px-4 pt-3">
+          {(["standard", "saved", "query"] as const).map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`px-3 py-1 text-[11px] rounded-md font-medium transition-colors ${tab === t ? "bg-blue-600 text-white" : "text-muted-foreground hover:text-foreground"}`}>
+              {t === "standard" ? "Standard Alphas" : t === "saved" ? "My Screens" : "Quick Query"}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {tab === "standard" && STANDARD_SCREEN_QUERIES.map(s => (
+            <div key={s.name} className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-neutral-700 hover:border-neutral-600">
+              <div className="min-w-0">
+                <p className="text-[12px] font-medium">{s.name}</p>
+                <p className="text-[10px] text-muted-foreground font-mono truncate">{s.query}</p>
+              </div>
+              <Button size="sm" className="h-7 text-[10px] gap-1 shrink-0"
+                disabled={running === s.name}
+                onClick={() => runQuery(s.query, s.name)}>
+                {running === s.name ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+                Run
+              </Button>
+            </div>
+          ))}
+
+          {tab === "saved" && (savedScreens.length === 0
+            ? <p className="text-[11px] text-muted-foreground text-center py-6">No saved screens yet.</p>
+            : savedScreens.map(s => (
+              <div key={s.id} className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-neutral-700 hover:border-neutral-600">
+                <div className="min-w-0">
+                  <p className="text-[12px] font-medium">{s.name}</p>
+                  <p className="text-[10px] text-muted-foreground font-mono truncate">{s.screener_query}</p>
+                </div>
+                <Button size="sm" className="h-7 text-[10px] gap-1 shrink-0"
+                  disabled={running === s.name}
+                  onClick={() => runQuery(s.screener_query, s.name)}>
+                  {running === s.name ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+                  Run
+                </Button>
+              </div>
+            ))
+          )}
+
+          {tab === "query" && (
+            <div className="space-y-3">
+              <div>
+                <label className="text-[11px] text-muted-foreground block mb-1">Screener Query</label>
+                <textarea
+                  value={customQuery}
+                  onChange={e => setCustomQuery(e.target.value)}
+                  placeholder="e.g. ROE > 15 AND PE < 25 AND MarketCap > 1000"
+                  className="w-full h-24 bg-neutral-800 border border-neutral-700 rounded-md px-3 py-2 text-[11px] font-mono text-foreground resize-none focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <Button size="sm" className="gap-1.5" disabled={!customQuery.trim() || running === "custom"}
+                onClick={() => runQuery(customQuery.trim(), "Custom Query")}>
+                {running === "custom" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+                Run Query
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Preview + Use */}
+        {preview && (
+          <div className="border-t border-neutral-700 px-4 py-3 flex items-center justify-between gap-3 bg-neutral-800/50">
+            <div>
+              <p className="text-[11px] font-medium text-emerald-400">{preview.label} — {preview.symbols.length} stocks</p>
+              <p className="text-[10px] text-muted-foreground truncate">{preview.symbols.slice(0, 8).join(", ")}{preview.symbols.length > 8 ? ` +${preview.symbols.length - 8} more` : ""}</p>
+            </div>
+            <Button size="sm" className="h-7 text-[10px] shrink-0 bg-emerald-600 hover:bg-emerald-700"
+              onClick={() => { onSelect(preview.symbols, preview.label); onClose(); }}>
+              Use as Universe
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function BuildStrategyPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -131,6 +273,9 @@ export default function BuildStrategyPageInner() {
   const [iterationName, setIterationName] = useState("");
   const [universe, setUniverse] = useState("");
   const [benchmark, setBenchmark] = useState("");
+  const [customSymbols, setCustomSymbols] = useState<string[]>([]);
+  const [customUniverseLabel, setCustomUniverseLabel] = useState("");
+  const [showScreenPicker, setShowScreenPicker] = useState(false);
   const [constraints, setConstraints] = useState<Constraint[]>([]);
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [showConstraintDialog, setShowConstraintDialog] = useState(false);
@@ -188,6 +333,18 @@ export default function BuildStrategyPageInner() {
   const [oneDayResults, setOneDayResults] = useState<Record<string, unknown> | null>(null);
   const [oneDayLoading, setOneDayLoading] = useState(false);
   const [editStrategyId, setEditStrategyId] = useState<number | null>(null);
+
+  // Pre-fill symbols from Build Screen "Send to Strategy" button
+  useEffect(() => {
+    const symParam = searchParams.get("symbols");
+    const labelParam = searchParams.get("universe_label");
+    if (symParam) {
+      const syms = symParam.split(",").filter(Boolean);
+      setCustomSymbols(syms);
+      setCustomUniverseLabel(labelParam ? decodeURIComponent(labelParam) : "Custom Screen");
+      setUniverse("custom_screen");
+    }
+  }, []);  // eslint-disable-line
 
   // Load existing strategy when ?id= is present
   useEffect(() => {
@@ -260,7 +417,9 @@ export default function BuildStrategyPageInner() {
         fund_name: fundName || "Untitled Strategy",
         scheme_name: schemeName,
         iteration_name: iterationName,
-        universe: universe || "NIFTY 50",
+        universe: universe === "custom_screen" && customUniverseLabel
+          ? `Screen: ${customUniverseLabel}`
+          : (universe || "NIFTY 50"),
         benchmark: benchmark || "NIFTY 50",
       };
 
@@ -347,19 +506,25 @@ export default function BuildStrategyPageInner() {
       }
 
       // Step 5: Run backtest with optimizer
+      const backtestPayload: Record<string, unknown> = {
+        strategy_id: strategyId,
+        start_date: btStartDate,
+        end_date: btEndDate,
+        rebalance_frequency: btFrequency,
+        weight_method: "optimizer",
+        optimizer_objective: optObjective,
+        optimizer_constraints: mappedConstraints,
+      };
+      if (universe === "custom_screen" && customSymbols.length > 0) {
+        backtestPayload.symbols = customSymbols;
+        backtestPayload.universe = "CUSTOM";
+      } else {
+        backtestPayload.universe = universe || "NIFTY 50";
+      }
       const res = await fetch(`${API_BASE}/api/backtest/run`, {
         method: "POST",
         headers,
-        body: JSON.stringify({
-          strategy_id: strategyId,
-          universe: universe || "NIFTY 50",
-          start_date: btStartDate,
-          end_date: btEndDate,
-          rebalance_frequency: btFrequency,
-          weight_method: "optimizer",
-          optimizer_objective: optObjective,
-          optimizer_constraints: mappedConstraints,
-        }),
+        body: JSON.stringify(backtestPayload),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: "Backtest failed" }));
@@ -524,15 +689,47 @@ export default function BuildStrategyPageInner() {
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <div className="flex items-center gap-2 bg-card border rounded-lg px-3 py-1.5">
           <span className="text-xs text-muted-foreground">Universe</span>
-          <Select value={universe} onValueChange={(v) => { if (typeof v === "string") setUniverse(v); }}>
-            <SelectTrigger className="h-7 w-[180px] border-0 text-xs"><SelectValue placeholder="Select A Universe" /></SelectTrigger>
-            <SelectContent>
-              <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground">Standard</div>
-              {STANDARD_UNIVERSES.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
-              <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground mt-1">Screener</div>
-              <SelectItem value="custom_screen">Custom Screener...</SelectItem>
-            </SelectContent>
-          </Select>
+          {universe === "custom_screen" && customSymbols.length > 0 ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-emerald-400 font-medium">
+                {customUniverseLabel} ({customSymbols.length})
+              </span>
+              <button
+                onClick={() => { setUniverse(""); setCustomSymbols([]); setCustomUniverseLabel(""); }}
+                className="text-muted-foreground hover:text-foreground"
+              ><X className="h-3 w-3" /></button>
+              <button
+                onClick={() => setShowScreenPicker(true)}
+                className="text-[10px] text-blue-400 hover:underline"
+              >change</button>
+            </div>
+          ) : (
+            <Select value={universe} onValueChange={(v) => {
+              if (typeof v !== "string") return;
+              if (v === "custom_screen") { setShowScreenPicker(true); }
+              else { setUniverse(v); setCustomSymbols([]); setCustomUniverseLabel(""); }
+            }}>
+              <SelectTrigger className="h-7 w-[180px] border-0 text-xs"><SelectValue placeholder="Select A Universe" /></SelectTrigger>
+              <SelectContent>
+                <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground">Standard</div>
+                {STANDARD_UNIVERSES.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground mt-1">Screener</div>
+                <SelectItem value="custom_screen">
+                  <span className="flex items-center gap-1.5"><Filter className="h-3 w-3 text-blue-400" />Custom Screener...</span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          <ScreenPickerDialog
+            open={showScreenPicker}
+            onClose={() => { setShowScreenPicker(false); if (!customSymbols.length) setUniverse(""); }}
+            token={token}
+            onSelect={(syms, label) => {
+              setCustomSymbols(syms);
+              setCustomUniverseLabel(label);
+              setUniverse("custom_screen");
+            }}
+          />
         </div>
 
         <div className="flex items-center gap-2 bg-card border rounded-lg px-3 py-1.5">

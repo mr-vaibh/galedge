@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Maximize2, CheckCircle2, Save, Loader2, Download } from "lucide-react";
+import { Search, Maximize2, CheckCircle2, Save, Loader2, Download, ArrowRight } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
@@ -512,6 +512,16 @@ function BuildScreenContent() {
               <span className="text-xs font-medium">{resultsTotal} result{resultsTotal !== 1 ? "s" : ""} found</span>
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-[10px]">Showing {results.length} of {resultsTotal}</Badge>
+                <Button size="sm" variant="default" className="h-6 text-[10px] gap-1 px-2 bg-blue-600 hover:bg-blue-700"
+                  onClick={() => {
+                    /* eslint-disable @typescript-eslint/no-explicit-any */
+                    const symbols = results.map((r: any) => r.symbol).filter(Boolean).join(",");
+                    const label = encodeURIComponent(name || "Custom Screen");
+                    router.push(`/strategy-builder/build?symbols=${symbols}&universe_label=${label}`);
+                  }}
+                >
+                  <ArrowRight className="h-3 w-3" /> Strategy Builder
+                </Button>
                 <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1 px-2"
                   onClick={() => {
                     const headers = ["#","Symbol","Name","Sector","Market Cap","P/E","ROE","Div Yield","Weight"];
