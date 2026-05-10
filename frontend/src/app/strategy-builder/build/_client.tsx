@@ -1070,89 +1070,66 @@ export default function BuildStrategyPageInner() {
             <DialogTrigger>
               <Button variant="outline" size="sm">Additional Analytics</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-md">
               <DialogHeader><DialogTitle>Additional Analytics</DialogTitle></DialogHeader>
-              <p className="text-xs text-muted-foreground">Select user created and screener factors for additional analytics.</p>
 
-              <div className="overflow-y-auto max-h-[52vh] pr-1 space-y-4">
-              {/* User Created Factors */}
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold">User created factors</Label>
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    placeholder="Search factors..."
-                    className="h-8 pl-7 text-xs"
-                    value={userFactorSearch}
-                    onChange={(e) => setUserFactorSearch(e.target.value)}
-                  />
-                </div>
-                <div className="border rounded-md p-2 max-h-36 overflow-y-auto space-y-1">
-                  {filteredUserFactors.map((f) => (
-                    <label key={f} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5">
-                      <Checkbox
-                        checked={selectedUserFactors.includes(f)}
-                        onCheckedChange={() => toggleFactor(selectedUserFactors, setSelectedUserFactors, f)}
-                      />
-                      {f}
-                    </label>
+              {/* Selected chips */}
+              {(selectedUserFactors.length > 0 || selectedScreenerFactors.length > 0) && (
+                <div className="flex flex-wrap gap-1 pb-1 border-b border-border/50">
+                  {[...selectedUserFactors, ...selectedScreenerFactors].map((f) => (
+                    <button key={f}
+                      onClick={() => {
+                        toggleFactor(selectedUserFactors, setSelectedUserFactors, f);
+                        toggleFactor(selectedScreenerFactors, setSelectedScreenerFactors, f);
+                      }}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-600/20 text-blue-400 text-[10px] hover:bg-red-600/20 hover:text-red-400 transition-colors">
+                      {f} <X className="h-2.5 w-2.5" />
+                    </button>
                   ))}
-                  {filteredUserFactors.length === 0 && (
-                    <p className="text-[10px] text-muted-foreground text-center py-2">No matching factors</p>
-                  )}
                 </div>
-                {selectedUserFactors.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {selectedUserFactors.map((f) => (
-                      <Badge key={f} variant="secondary" className="text-[9px] gap-1 cursor-pointer" onClick={() => toggleFactor(selectedUserFactors, setSelectedUserFactors, f)}>
-                        {f} x
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+              )}
+
+              {/* Single search */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input placeholder="Search factors..." className="h-8 pl-8 text-xs"
+                  value={userFactorSearch}
+                  onChange={(e) => { setUserFactorSearch(e.target.value); setScreenerFactorSearch(e.target.value); }}
+                />
               </div>
 
-              {/* Screener Factors */}
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold">Screener factors</Label>
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    placeholder="Search factors..."
-                    className="h-8 pl-7 text-xs"
-                    value={screenerFactorSearch}
-                    onChange={(e) => setScreenerFactorSearch(e.target.value)}
-                  />
-                </div>
-                <div className="border rounded-md p-2 max-h-36 overflow-y-auto space-y-1">
-                  {filteredScreenerFactors.map((f) => (
-                    <label key={f} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5">
-                      <Checkbox
-                        checked={selectedScreenerFactors.includes(f)}
-                        onCheckedChange={() => toggleFactor(selectedScreenerFactors, setSelectedScreenerFactors, f)}
-                      />
-                      {f}
-                    </label>
-                  ))}
-                  {filteredScreenerFactors.length === 0 && (
-                    <p className="text-[10px] text-muted-foreground text-center py-2">No matching factors</p>
-                  )}
-                </div>
-                {selectedScreenerFactors.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {selectedScreenerFactors.map((f) => (
-                      <Badge key={f} variant="secondary" className="text-[9px] gap-1 cursor-pointer" onClick={() => toggleFactor(selectedScreenerFactors, setSelectedScreenerFactors, f)}>
-                        {f} x
-                      </Badge>
+              {/* Two columns */}
+              <div className="grid grid-cols-2 gap-3 overflow-y-auto max-h-[48vh]">
+                <div>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Alpha Factors</p>
+                  <div className="space-y-0.5">
+                    {filteredUserFactors.map((f) => (
+                      <label key={f} className={`flex items-center gap-2 text-[11px] cursor-pointer rounded px-1.5 py-1 transition-colors ${selectedUserFactors.includes(f) ? "bg-blue-600/15 text-blue-300" : "hover:bg-muted/50"}`}>
+                        <Checkbox checked={selectedUserFactors.includes(f)}
+                          onCheckedChange={() => toggleFactor(selectedUserFactors, setSelectedUserFactors, f)} />
+                        {f}
+                      </label>
                     ))}
+                    {filteredUserFactors.length === 0 && <p className="text-[10px] text-muted-foreground py-2 px-1">No matches</p>}
                   </div>
-                )}
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Screener Factors</p>
+                  <div className="space-y-0.5">
+                    {filteredScreenerFactors.map((f) => (
+                      <label key={f} className={`flex items-center gap-2 text-[11px] cursor-pointer rounded px-1.5 py-1 transition-colors ${selectedScreenerFactors.includes(f) ? "bg-blue-600/15 text-blue-300" : "hover:bg-muted/50"}`}>
+                        <Checkbox checked={selectedScreenerFactors.includes(f)}
+                          onCheckedChange={() => toggleFactor(selectedScreenerFactors, setSelectedScreenerFactors, f)} />
+                        {f}
+                      </label>
+                    ))}
+                    {filteredScreenerFactors.length === 0 && <p className="text-[10px] text-muted-foreground py-2 px-1">No matches</p>}
+                  </div>
+                </div>
               </div>
-
-              </div>{/* end scrollable */}
 
               <Button size="sm" className="w-full" onClick={() => setShowBacktestDialog(false)}>
-                Done ({selectedUserFactors.length + selectedScreenerFactors.length} selected)
+                Done {(selectedUserFactors.length + selectedScreenerFactors.length) > 0 && `(${selectedUserFactors.length + selectedScreenerFactors.length} selected)`}
               </Button>
             </DialogContent>
           </Dialog>
