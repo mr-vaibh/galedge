@@ -1090,9 +1090,11 @@ export default function BuildStrategyPageInner() {
               )}
 
               {/* Single search */}
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input placeholder="Search factors..." className="h-8 pl-8 text-xs"
+              <div className="flex items-center gap-2 border border-input rounded-md px-2.5 h-8 bg-background focus-within:ring-1 focus-within:ring-ring">
+                <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <input
+                  placeholder="Search factors..."
+                  className="flex-1 text-xs bg-transparent outline-none placeholder:text-muted-foreground"
                   value={userFactorSearch}
                   onChange={(e) => { setUserFactorSearch(e.target.value); setScreenerFactorSearch(e.target.value); }}
                 />
