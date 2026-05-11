@@ -720,8 +720,8 @@ export default function AlphaMachinePage() {
                   <Select value={editRegressionWeight} onValueChange={v => { if (typeof v === "string") setEditRegressionWeight(v); }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Market Cap">Sort Market Cap</SelectItem>
-                      <SelectItem value="Equal">Equal</SelectItem>
+                      <SelectItem value="Market Cap">mcap</SelectItem>
+                      <SelectItem value="Equal">equal</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -730,8 +730,8 @@ export default function AlphaMachinePage() {
                   <Select value={editUniverse} onValueChange={v => { if (typeof v === "string") setEditUniverse(v); }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Risk Model Estimation Universe">Risk Model Universe</SelectItem>
-                      <SelectItem value="NIFTY 500">NIFTY 500</SelectItem>
+                      <SelectItem value="Risk Model Estimation Universe">risk_model</SelectItem>
+                      <SelectItem value="NIFTY 500">nifty500</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
