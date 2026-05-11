@@ -9,6 +9,7 @@ import { RefreshCw, Pencil, Trash2, Plus, Loader2, Lock, Play, Copy, Cpu, BarCha
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
@@ -706,42 +707,50 @@ export default function AlphaMachinePage() {
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Return Type</Label>
-                  <select value={editReturnType} onChange={e => setEditReturnType(e.target.value)}
-                    className="w-full h-9 rounded-md border border-input bg-background px-2 text-xs">
-                    <option value="Total">Total</option>
-                    <option value="Excess">Excess</option>
-                  </select>
+                  <Select value={editReturnType} onValueChange={v => { if (typeof v === "string") setEditReturnType(v); }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Total">Total</SelectItem>
+                      <SelectItem value="Excess">Excess</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Regression Weight</Label>
-                  <select value={editRegressionWeight} onChange={e => setEditRegressionWeight(e.target.value)}
-                    className="w-full h-9 rounded-md border border-input bg-background px-2 text-xs">
-                    <option value="Market Cap">Sort Market Cap</option>
-                    <option value="Equal">Equal</option>
-                  </select>
+                  <Select value={editRegressionWeight} onValueChange={v => { if (typeof v === "string") setEditRegressionWeight(v); }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Market Cap">Sort Market Cap</SelectItem>
+                      <SelectItem value="Equal">Equal</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Universe</Label>
-                  <select value={editUniverse} onChange={e => setEditUniverse(e.target.value)}
-                    className="w-full h-9 rounded-md border border-input bg-background px-2 text-xs">
-                    <option value="Risk Model Estimation Universe">Risk Model Universe</option>
-                    <option value="NIFTY 500">NIFTY 500</option>
-                  </select>
+                  <Select value={editUniverse} onValueChange={v => { if (typeof v === "string") setEditUniverse(v); }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Risk Model Estimation Universe">Risk Model Universe</SelectItem>
+                      <SelectItem value="NIFTY 500">NIFTY 500</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Half Life (days)</Label>
-                  <Input type="number" placeholder="e.g. 126" value={editHalfLife} onChange={e => setEditHalfLife(e.target.value)} />
+                  <Input type="number" placeholder="e.g. 252" value={editHalfLife} onChange={e => setEditHalfLife(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Estimation Frequency</Label>
-                  <select value={editFrequency} onChange={e => setEditFrequency(e.target.value)}
-                    className="w-full h-9 rounded-md border border-input bg-background px-2 text-xs">
-                    <option value="Monthly">Monthly</option>
-                    <option value="Quarterly">Quarterly</option>
-                  </select>
+                  <Select value={editFrequency} onValueChange={v => { if (typeof v === "string") setEditFrequency(v); }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Monthly">Monthly</SelectItem>
+                      <SelectItem value="Quarterly">Quarterly</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Min Observations</Label>
