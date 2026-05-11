@@ -101,27 +101,28 @@ const STANDARD_SCREENS = [
 ];
 
 // ── Hardcoded locked Galedge Alpha models ────────────────────────────────────
+// factor names must match Factor.name values in the risk model DB
 const STANDARD_ALPHAS = [
   {
     id: "alpha_multifactor",
     name: "Galedge Multi-Factor Alpha",
     description: "Combines Value, Quality, and Momentum factors with equal weights across NIFTY 500.",
     tags: ["Multi-Factor", "NIFTY 500"],
-    factors: ["Value", "Quality", "Momentum"],
+    factors: ["VALUE", "PROFIT", "LTMOM"],
   },
   {
     id: "alpha_quality_tilt",
     name: "Quality Tilt Alpha",
     description: "Overweights high-ROE, low-debt compounders. Designed to outperform in sideways markets.",
     tags: ["Quality", "Low Volatility"],
-    factors: ["ROE", "DebtToEquity", "ProfitMargin"],
+    factors: ["PROFIT", "FINLVG", "EARNYILD"],
   },
   {
     id: "alpha_value_momentum",
     name: "Value + Momentum Combo",
     description: "Buys cheap stocks with positive price momentum — avoids value traps by requiring trend confirmation.",
     tags: ["Value", "Momentum"],
-    factors: ["PE", "PB", "Price Momentum"],
+    factors: ["VALUE", "LTMOM", "EARNYILD"],
   },
 ];
 
@@ -150,6 +151,7 @@ export default function AlphaMachinePage() {
   const [loading, setLoading] = useState(true);
   const [cloningId, setCloningId] = useState<string | null>(null);
   const [computingId, setComputingId] = useState<number | null>(null);
+  const [computingStdId, setComputingStdId] = useState<string | null>(null);
   const [resultsModel, setResultsModel] = useState<{
     model: AlphaModel;
     stocks: AlphaStock[];
@@ -228,6 +230,31 @@ export default function AlphaMachinePage() {
       }
     } catch { alert("Could not connect to server"); }
     setComputingId(null);
+  }
+
+  async function computeStandardAlpha(s: typeof STANDARD_ALPHAS[0]) {
+    if (!token) { router.push("/login"); return; }
+    setComputingStdId(s.id);
+    try {
+      const res = await fetch(`${API_BASE}/api/alpha/compute-factors`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ factors: s.factors, top_n: 100 }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Computation failed" }));
+        alert(err.detail || "Computation failed — ensure the risk model has been built.");
+      } else {
+        const data = await res.json();
+        setResultsModel({
+          model: { id: -1, name: s.name, description: s.description, status: "available", input_factors: s.factors, has_results: true, computed_at: new Date().toISOString().slice(0, 10), n_stocks: data.n_stocks, start_date: null, end_date: null },
+          stocks: data.stocks,
+          factorReturns: data.factor_returns ?? {},
+          computedAt: new Date().toISOString().slice(0, 10),
+        });
+      }
+    } catch { alert("Could not connect to server"); }
+    setComputingStdId(null);
   }
 
   async function viewResults(m: AlphaModel) {
@@ -448,7 +475,7 @@ export default function AlphaMachinePage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {STANDARD_ALPHAS.map((m) => (
-                <div key={m.id} className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 flex flex-col gap-2">
+                <div key={m.id} className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 flex flex-col gap-2 hover:border-amber-500/40 transition-colors">
                   <div className="flex items-center gap-1.5">
                     <Lock className="h-3 w-3 text-amber-400 shrink-0" />
                     <span className="text-[12px] font-semibold">{m.name}</span>
@@ -460,10 +487,20 @@ export default function AlphaMachinePage() {
                       <span key={f} className="text-[9px] px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground font-mono">{f}</span>
                     ))}
                   </div>
-                  <div className="flex gap-1 flex-wrap pt-1 border-t border-border/30">
+                  <div className="flex gap-1 flex-wrap">
                     {m.tags.map((t) => (
                       <span key={t} className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${TAG_COLORS[t] ?? "bg-muted text-muted-foreground"}`}>{t}</span>
                     ))}
+                  </div>
+                  <div className="pt-1 border-t border-amber-500/20 mt-auto">
+                    <Button size="sm" className="w-full h-7 text-[10px] gap-1.5 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30"
+                      variant="outline"
+                      disabled={computingStdId === m.id}
+                      onClick={() => computeStandardAlpha(m)}>
+                      {computingStdId === m.id
+                        ? <><Loader2 className="h-3 w-3 animate-spin" /> Computing...</>
+                        : <><Cpu className="h-3 w-3" /> Compute & View Results</>}
+                    </Button>
                   </div>
                 </div>
               ))}

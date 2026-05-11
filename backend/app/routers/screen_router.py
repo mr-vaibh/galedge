@@ -315,6 +315,88 @@ def compute_alpha_model(
         raise HTTPException(status_code=500, detail=f"Computation failed: {str(e)}")
 
 
+class ComputeFactorsBody(BaseModel):
+    factors: list[str]
+    top_n: int = 50
+    trailing_days: int = 63  # ~3 months of trading days
+
+
+@router.post("/compute-factors")
+def compute_factors_adhoc(
+    body: ComputeFactorsBody,
+    user: User = Depends(require_user),
+    prices_db: Session = Depends(get_prices_db),
+):
+    """Compute alpha scores for any factor list on-the-fly — no model record needed."""
+    from app.models.factor import Factor, FactorReturn, FactorExposure
+
+    if not body.factors:
+        raise HTTPException(status_code=400, detail="No factors provided.")
+
+    factors = prices_db.query(Factor).filter(Factor.name.in_(body.factors)).all()
+    factor_map = {f.name: f.id for f in factors}
+    if not factor_map:
+        raise HTTPException(status_code=400, detail="No matching factors found. Ensure risk model is built.")
+
+    factor_ids = list(factor_map.values())
+    id_to_name = {v: k for k, v in factor_map.items()}
+
+    since = date.today() - timedelta(days=max(body.trailing_days * 2, 180))
+    fr_rows = prices_db.query(FactorReturn).filter(
+        FactorReturn.factor_id.in_(factor_ids), FactorReturn.date >= since
+    ).all()
+    if not fr_rows:
+        raise HTTPException(status_code=400, detail="No factor return data. Build the risk model first.")
+
+    fr_df = pd.DataFrame([{"factor_id": r.factor_id, "daily_return": r.daily_return or 0.0} for r in fr_rows])
+    # Keep only the trailing window
+    all_dates = sorted(fr_df["factor_id"].unique())  # not needed; just sum all available
+    cum_by_id = fr_df.groupby("factor_id")["daily_return"].sum().to_dict()
+    cum_by_name = {id_to_name[fid]: round(ret, 6) for fid, ret in cum_by_id.items() if fid in id_to_name}
+
+    latest_snap = prices_db.query(func.max(FactorExposure.date)).filter(
+        FactorExposure.factor_id.in_(factor_ids)
+    ).scalar()
+    if not latest_snap:
+        raise HTTPException(status_code=400, detail="No factor exposure data. Build the risk model first.")
+
+    exp_rows = prices_db.query(FactorExposure).filter(
+        FactorExposure.factor_id.in_(factor_ids), FactorExposure.date == latest_snap
+    ).all()
+
+    exposure_map: dict[str, dict[str, float]] = {}
+    for row in exp_rows:
+        fname = id_to_name.get(row.factor_id)
+        if fname:
+            exposure_map.setdefault(row.symbol, {})[fname] = row.exposure or 0.0
+
+    if not exposure_map:
+        raise HTTPException(status_code=400, detail="No exposure data at latest snapshot.")
+
+    scores: list[dict] = []
+    for symbol, exps in exposure_map.items():
+        raw = sum(exps.get(f, 0.0) * cum_by_name.get(f, 0.0) for f in body.factors)
+        scores.append({"symbol": symbol, "score": raw, "exposures": {k: round(v, 4) for k, v in exps.items()}})
+
+    raw_arr = np.array([s["score"] for s in scores], dtype=float)
+    mean, std = float(raw_arr.mean()), float(raw_arr.std())
+    for s in scores:
+        s["z_score"] = round((s["score"] - mean) / std, 4) if std > 0 else 0.0
+        s["score"] = round(s["score"], 6)
+
+    scores.sort(key=lambda x: x["z_score"], reverse=True)
+    for i, s in enumerate(scores):
+        s["rank"] = i + 1
+
+    return {
+        "factors": body.factors,
+        "factor_returns": cum_by_name,
+        "exposure_snapshot_date": str(latest_snap),
+        "n_stocks": len(scores),
+        "stocks": scores[:body.top_n],
+    }
+
+
 @router.post("/upload-factor")
 async def upload_factor(
     alpha_name: str = Form(...),
