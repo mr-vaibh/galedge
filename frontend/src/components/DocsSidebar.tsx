@@ -107,6 +107,7 @@ const DOCS_NAV: DocSection[] = [
       { title: "Backtesting", href: "/docs/strategy-builder#backtesting" },
       { title: "Promote & Demote", href: "/docs/strategy-builder#promote" },
       { title: "Live Rebalance", href: "/docs/strategy-builder#rebalance" },
+      { title: "Constraints & Objectives", href: "/docs/strategy-builder/constraints" },
     ],
   },
   {

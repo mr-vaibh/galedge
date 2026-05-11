@@ -728,7 +728,7 @@ export default function BuildStrategyPageInner() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Build New Strategy</h1>
         <Button variant="outline" size="sm" className="text-[11px] gap-1.5"
-          onClick={() => router.push("/docs/strategy-builder#constraints")}>
+          onClick={() => router.push("/docs/strategy-builder/constraints")}>
           <Search className="h-3.5 w-3.5" /> Constraints & Objectives Guide
         </Button>
       </div>
