@@ -28,6 +28,13 @@ interface AlphaModel {
   description: string;
   status: string;
   input_factors: string[];
+  control_factors: string[];
+  return_type: string;
+  regression_weight: string;
+  universe: string;
+  half_life: number | null;
+  estimation_frequency: string;
+  min_observations: number | null;
   has_results: boolean;
   computed_at: string | null;
   n_stocks: number | null;
@@ -159,6 +166,13 @@ export default function AlphaMachinePage() {
   const [editingModel, setEditingModel] = useState<AlphaModel | null>(null);
   const [editName, setEditName] = useState("");
   const [editFactors, setEditFactors] = useState<string[]>([]);
+  const [editControlFactors, setEditControlFactors] = useState<string[]>([]);
+  const [editReturnType, setEditReturnType] = useState("Total");
+  const [editRegressionWeight, setEditRegressionWeight] = useState("Market Cap");
+  const [editUniverse, setEditUniverse] = useState("Risk Model Estimation Universe");
+  const [editHalfLife, setEditHalfLife] = useState("");
+  const [editFrequency, setEditFrequency] = useState("Monthly");
+  const [editMinObs, setEditMinObs] = useState("");
   const [saving, setSaving] = useState(false);
   const [resultsModel, setResultsModel] = useState<{
     model: AlphaModel;
@@ -255,7 +269,7 @@ export default function AlphaMachinePage() {
       } else {
         const data = await res.json();
         setResultsModel({
-          model: { id: -1, name: s.name, description: s.description, status: "available", input_factors: s.factors, has_results: true, computed_at: new Date().toISOString().slice(0, 10), n_stocks: data.n_stocks, start_date: null, end_date: null },
+          model: { id: -1, name: s.name, description: s.description, status: "available", input_factors: s.factors, control_factors: [], return_type: "Total", regression_weight: "Market Cap", universe: "Risk Model Estimation Universe", half_life: null, estimation_frequency: "Monthly", min_observations: null, has_results: true, computed_at: new Date().toISOString().slice(0, 10), n_stocks: data.n_stocks, start_date: null, end_date: null },
           stocks: data.stocks,
           factorReturns: data.factor_returns ?? {},
           computedAt: new Date().toISOString().slice(0, 10),
@@ -334,6 +348,13 @@ export default function AlphaMachinePage() {
     setEditingModel(m);
     setEditName(m.name);
     setEditFactors(m.input_factors || []);
+    setEditControlFactors(m.control_factors || []);
+    setEditReturnType(m.return_type || "Total");
+    setEditRegressionWeight(m.regression_weight || "Market Cap");
+    setEditUniverse(m.universe || "Risk Model Estimation Universe");
+    setEditHalfLife(m.half_life != null ? String(m.half_life) : "");
+    setEditFrequency(m.estimation_frequency || "Monthly");
+    setEditMinObs(m.min_observations != null ? String(m.min_observations) : "");
   }
 
   async function saveEdit() {
@@ -346,10 +367,13 @@ export default function AlphaMachinePage() {
         body: JSON.stringify({
           name: editName,
           input_factors: editFactors,
-          control_factors: [],
-          return_type: "Total",
-          regression_weight: "Market Cap",
-          universe: "Risk Model Estimation Universe",
+          control_factors: editControlFactors,
+          return_type: editReturnType,
+          regression_weight: editRegressionWeight,
+          universe: editUniverse,
+          half_life: editHalfLife ? parseInt(editHalfLife) : null,
+          estimation_frequency: editFrequency,
+          min_observations: editMinObs ? parseInt(editMinObs) : null,
         }),
       });
       setEditingModel(null);
@@ -528,12 +552,11 @@ export default function AlphaMachinePage() {
                     userModels.map((m) => (
                       <tr key={m.id} className="border-b border-border/30 hover:bg-muted/30">
                         <td className="px-3 py-2 font-medium">{m.name}</td>
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-2 max-w-[200px]">
                           <div className="flex flex-wrap gap-0.5">
-                            {(m.input_factors || []).slice(0, 4).map(f => (
+                            {(m.input_factors || []).map(f => (
                               <span key={f} className="text-[8px] px-1 py-0.5 rounded bg-blue-500/15 text-blue-400 font-mono">{f}</span>
                             ))}
-                            {(m.input_factors || []).length > 4 && <span className="text-[8px] text-muted-foreground">+{(m.input_factors || []).length - 4}</span>}
                           </div>
                         </td>
                         <td className="px-3 py-2">
@@ -628,40 +651,110 @@ export default function AlphaMachinePage() {
       {/* Edit Alpha Model Dialog */}
       {editingModel && (
         <Dialog open onOpenChange={() => setEditingModel(null)}>
-          <DialogContent className="max-w-md">
-            <DialogHeader><DialogTitle>Edit Alpha Model</DialogTitle></DialogHeader>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader><DialogTitle>Edit Alpha Model — {editingModel.name}</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <Label className="text-xs">Name</Label>
+                <Label className="text-xs">Name *</Label>
                 <Input value={editName} onChange={e => setEditName(e.target.value)} />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Input Factors <span className="text-muted-foreground text-[10px]">({editFactors.length} selected)</span></Label>
-                <div className="flex flex-wrap gap-1 mb-2 min-h-[28px]">
-                  {editFactors.map(f => (
-                    <button key={f} onClick={() => setEditFactors(prev => prev.filter(x => x !== f))}
-                      className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-600/20 text-blue-400 text-[10px] hover:bg-red-600/20 hover:text-red-400 transition-colors">
-                      {f} <X className="h-2.5 w-2.5" />
-                    </button>
-                  ))}
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Input Factors */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Input Factors <span className="text-muted-foreground">({editFactors.length} selected)</span></Label>
+                  <div className="border rounded-md p-2 min-h-[60px] flex flex-wrap gap-1 content-start">
+                    {editFactors.map(f => (
+                      <button key={f} onClick={() => setEditFactors(prev => prev.filter(x => x !== f))}
+                        className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-600/20 text-blue-400 text-[10px] hover:bg-red-600/20 hover:text-red-400 transition-colors">
+                        {f} <X className="h-2.5 w-2.5" />
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {["MARKET","BETA","SIZE","LTMOM","EARNYILD","VALUE","GROWTH","DIVYILD","PROFIT","FINLVG","LIQUIDITY"]
+                      .filter(f => !editFactors.includes(f)).map(f => (
+                        <button key={f} onClick={() => setEditFactors(prev => [...prev, f])}
+                          className="px-1.5 py-0.5 rounded border border-border text-[9px] text-muted-foreground hover:border-blue-500 hover:text-blue-400 transition-colors">
+                          + {f}
+                        </button>
+                      ))}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {["MARKET","BETA","SIZE","LTMOM","EARNYILD","VALUE","GROWTH","DIVYILD","PROFIT","FINLVG","LIQUIDITY"]
-                    .filter(f => !editFactors.includes(f))
-                    .map(f => (
-                      <button key={f} onClick={() => setEditFactors(prev => [...prev, f])}
-                        className="px-2 py-0.5 rounded border border-border text-[10px] text-muted-foreground hover:border-blue-500 hover:text-blue-400 transition-colors">
+                {/* Control Factors */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Control Factors <span className="text-muted-foreground">(optional)</span></Label>
+                  <div className="border rounded-md p-2 min-h-[60px] flex flex-wrap gap-1 content-start">
+                    {editControlFactors.map(f => (
+                      <button key={f} onClick={() => setEditControlFactors(prev => prev.filter(x => x !== f))}
+                        className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-neutral-600/30 text-neutral-300 text-[10px] hover:bg-red-600/20 hover:text-red-400 transition-colors">
+                        {f} <X className="h-2.5 w-2.5" />
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {["MARKET","SIZE","BETA"].filter(f => !editControlFactors.includes(f)).map(f => (
+                      <button key={f} onClick={() => setEditControlFactors(prev => [...prev, f])}
+                        className="px-1.5 py-0.5 rounded border border-border text-[9px] text-muted-foreground hover:border-neutral-400 hover:text-neutral-300 transition-colors">
                         + {f}
                       </button>
                     ))}
+                  </div>
                 </div>
               </div>
-              <p className="text-[10px] text-amber-400">Editing will reset status to draft and clear existing results.</p>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Return Type</Label>
+                  <select value={editReturnType} onChange={e => setEditReturnType(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-background px-2 text-xs">
+                    <option value="Total">Total</option>
+                    <option value="Excess">Excess</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Regression Weight</Label>
+                  <select value={editRegressionWeight} onChange={e => setEditRegressionWeight(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-background px-2 text-xs">
+                    <option value="Market Cap">Sort Market Cap</option>
+                    <option value="Equal">Equal</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Universe</Label>
+                  <select value={editUniverse} onChange={e => setEditUniverse(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-background px-2 text-xs">
+                    <option value="Risk Model Estimation Universe">Risk Model Universe</option>
+                    <option value="NIFTY 500">NIFTY 500</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Half Life (days)</Label>
+                  <Input type="number" placeholder="e.g. 126" value={editHalfLife} onChange={e => setEditHalfLife(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Estimation Frequency</Label>
+                  <select value={editFrequency} onChange={e => setEditFrequency(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-background px-2 text-xs">
+                    <option value="Monthly">Monthly</option>
+                    <option value="Quarterly">Quarterly</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Min Observations</Label>
+                  <Input type="number" placeholder="e.g. 60" value={editMinObs} onChange={e => setEditMinObs(e.target.value)} />
+                </div>
+              </div>
+
+              <p className="text-[10px] text-amber-400">Saving resets status to draft and clears existing results — re-compute after saving.</p>
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => setEditingModel(null)}>Cancel</Button>
                 <Button className="flex-1 gap-1.5" disabled={saving || !editName || editFactors.length === 0} onClick={saveEdit}>
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                  Save
+                  Save Changes
                 </Button>
               </div>
             </div>
