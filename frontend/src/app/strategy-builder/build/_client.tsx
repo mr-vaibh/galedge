@@ -868,19 +868,18 @@ export default function BuildStrategyPageInner() {
 
         <div className="flex items-center gap-2 bg-card border rounded-lg px-3 py-1.5">
           <span className="text-xs text-muted-foreground">Include futures</span>
-          <button
-            type="button"
+          <div
             role="switch"
             aria-checked={includeFutures}
             onClick={() => setIncludeFutures(v => !v)}
-            className="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border-2 border-transparent focus:outline-none cursor-pointer overflow-hidden"
-            style={{ backgroundColor: includeFutures ? "#2563eb" : "#3f3f46", transition: "background-color 0.2s" }}
+            className="relative shrink-0 cursor-pointer rounded-full"
+            style={{ width: 36, height: 20, backgroundColor: includeFutures ? "#2563eb" : "#52525b", transition: "background-color 0.2s" }}
           >
-            <span
-              className="pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm"
-              style={{ transform: includeFutures ? "translateX(14px)" : "translateX(1px)", transition: "transform 0.2s" }}
+            <div
+              className="absolute top-[2px] h-4 w-4 rounded-full bg-white shadow"
+              style={{ left: includeFutures ? 18 : 2, transition: "left 0.15s ease" }}
             />
-          </button>
+          </div>
         </div>
       </div>
 
