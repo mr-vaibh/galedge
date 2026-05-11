@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
-import { Loader2, Plus, Upload, Download, Trash2, Pencil, ChevronDown, Search, Filter, Play, X } from "lucide-react";
+import { Loader2, Plus, Upload, Download, Trash2, Pencil, ChevronDown, Search, Filter, Play, X, Zap } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePortfolio } from "@/lib/portfolio-context";
 import { useCurrency } from "@/lib/currency";
@@ -323,6 +323,7 @@ export default function BuildStrategyPageInner() {
   const [customScores, setCustomScores] = useState<Record<string, number> | null>(null);
   const [showScreenPicker, setShowScreenPicker] = useState(false);
   const [includeFutures, setIncludeFutures] = useState(false);
+  const [quickTest, setQuickTest] = useState(false);
   const [constraints, setConstraints] = useState<Constraint[]>([]);
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [showConstraintDialog, setShowConstraintDialog] = useState(false);
@@ -459,7 +460,9 @@ export default function BuildStrategyPageInner() {
       if (!authToken) throw new Error("Please log in first");
       const headers = { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` };
 
-      let strategyId = editStrategyId;
+      let strategyId = quickTest ? null : editStrategyId;
+
+      if (!quickTest) {
       const strategyPayload = {
         fund_name: fundName || "Untitled Strategy",
         scheme_name: schemeName,
@@ -518,6 +521,7 @@ export default function BuildStrategyPageInner() {
         headers,
         body: JSON.stringify(objectiveData),
       });
+      } // end if (!quickTest)
 
       // Step 4: Map constraints for optimizer
       const mappedConstraints = constraints
@@ -554,7 +558,7 @@ export default function BuildStrategyPageInner() {
 
       // Step 5: Run backtest with optimizer
       const backtestPayload: Record<string, unknown> = {
-        strategy_id: strategyId,
+        ...(strategyId ? { strategy_id: strategyId } : {}),
         start_date: btStartDate,
         end_date: btEndDate,
         rebalance_frequency: btFrequency,
@@ -726,14 +730,49 @@ export default function BuildStrategyPageInner() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Build New Strategy</h1>
-        <Button variant="outline" size="sm" className="text-[11px] gap-1.5"
-          onClick={() => router.push("/docs/strategy-builder/constraints")}>
-          <Search className="h-3.5 w-3.5" /> Constraints & Objectives Guide
-        </Button>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-bold">Build New Strategy</h1>
+          {quickTest && (
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[11px] font-medium">
+              <Zap className="h-3 w-3" /> Quick Test
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setQuickTest(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-medium transition-all ${
+              quickTest
+                ? "bg-amber-500/15 border-amber-500/40 text-amber-400 hover:bg-amber-500/25"
+                : "border-border text-muted-foreground hover:text-foreground hover:border-amber-500/40"
+            }`}
+          >
+            <Zap className="h-3.5 w-3.5" />
+            {quickTest ? "Exit Quick Test" : "Quick Test"}
+          </button>
+          <Button variant="outline" size="sm" className="text-[11px] gap-1.5"
+            onClick={() => router.push("/docs/strategy-builder/constraints")}>
+            <Search className="h-3.5 w-3.5" /> Constraints & Objectives Guide
+          </Button>
+        </div>
       </div>
 
-      {/* Strategy Metadata */}
+      {/* Quick Test banner */}
+      {quickTest && (
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-amber-500/30 bg-amber-500/8">
+          <Zap className="h-4 w-4 text-amber-400 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[12px] font-medium text-amber-300">Quick Test Mode — results will not be saved</p>
+            <p className="text-[10px] text-amber-400/70">Configure universe, constraints and objectives below, then run the backtest. No strategy is created.</p>
+          </div>
+          <button onClick={() => setQuickTest(false)} className="ml-auto text-amber-400/60 hover:text-amber-400 transition-colors shrink-0">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Strategy Metadata — hidden in Quick Test */}
+      {!quickTest && (
       <Card>
         <CardContent className="pt-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -752,6 +791,7 @@ export default function BuildStrategyPageInner() {
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Configuration Row */}
       <div className="flex flex-wrap items-center gap-3 text-sm">
