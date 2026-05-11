@@ -61,7 +61,13 @@ export default function StrategyBuilderDocsPage() {
 
       {/* Constraints */}
       <section id="constraints" className="mb-12">
-        <h2 className="text-xl font-semibold mb-3">Constraints</h2>
+        <div className="flex items-start justify-between gap-4 mb-3">
+          <h2 className="text-xl font-semibold">Constraints</h2>
+          <Link href="/docs/strategy-builder/constraints"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors shrink-0">
+            Full Constraints & Objectives Guide →
+          </Link>
+        </div>
         <p className="text-neutral-400 mb-3 leading-relaxed">
           Click <strong className="text-white">Add</strong> in the Constraints card to add one or more constraints.
           The optimizer enforces all active constraints at every rebalance date. You can upload/download constraint sets as files
