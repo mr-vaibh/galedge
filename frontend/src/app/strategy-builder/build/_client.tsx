@@ -923,7 +923,7 @@ export default function BuildStrategyPageInner() {
                 </DialogHeader>
                 <Select value={selectedConstraintType} onValueChange={(v) => { if (typeof v === "string") setSelectedConstraintType(v); }}>
                   <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="w-auto min-w-[340px]">
                     {CONSTRAINT_TYPES.map((c) => (
                       <SelectItem key={c} value={c} disabled={constraints.some(x => x.type === c)}>
                         {c}{constraints.some(x => x.type === c) ? " (already added)" : ""}
@@ -1037,7 +1037,7 @@ export default function BuildStrategyPageInner() {
                 </DialogHeader>
                 <Select value={selectedObjectiveType} onValueChange={(v) => { if (typeof v === "string") setSelectedObjectiveType(v); }}>
                   <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="w-auto min-w-[340px]">
                     {OBJECTIVE_TYPES.map((o) => (
                       <SelectItem key={o} value={o} disabled={objectives.some(x => x.type === o)}>
                         {o}{objectives.some(x => x.type === o) ? " (already added)" : ""}
