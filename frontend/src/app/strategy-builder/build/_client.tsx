@@ -677,6 +677,10 @@ export default function BuildStrategyPageInner() {
 
   function addConstraint() {
     if (!selectedConstraintType) return;
+    if (constraints.some(c => c.type === selectedConstraintType)) {
+      alert(`"${selectedConstraintType}" is already added. Remove the existing one first.`);
+      return;
+    }
     const fields = CONSTRAINT_FIELDS[selectedConstraintType] || [];
     const params: Record<string, string> = {};
     fields.forEach(f => { params[f] = ""; });
@@ -693,6 +697,10 @@ export default function BuildStrategyPageInner() {
 
   function addObjective() {
     if (!selectedObjectiveType) return;
+    if (objectives.some(o => o.type === selectedObjectiveType)) {
+      alert(`"${selectedObjectiveType}" is already added. Remove the existing one first.`);
+      return;
+    }
     const fields = OBJECTIVE_FIELDS[selectedObjectiveType] || [];
     const params: Record<string, string> = {};
     fields.forEach(f => { params[f] = ""; });
@@ -831,7 +839,15 @@ export default function BuildStrategyPageInner() {
                       try {
                         const parsed: Constraint[] = JSON.parse(text);
                         if (!Array.isArray(parsed)) throw new Error("Expected array");
-                        setConstraints(parsed.map((c, i) => ({ ...c, id: Date.now() + i })));
+                        const seen = new Set<string>();
+                        const dupes: string[] = [];
+                        const deduped = parsed.filter(c => {
+                          const key = c.type || c.name;
+                          if (seen.has(key)) { dupes.push(key); return false; }
+                          seen.add(key); return true;
+                        });
+                        if (dupes.length > 0) alert(`Duplicates removed: ${[...new Set(dupes)].join(", ")}`);
+                        setConstraints(deduped.map((c, i) => ({ ...c, id: Date.now() + i })));
                       } catch { alert("Invalid JSON. Expected an array of constraints."); }
                     });
                   };
@@ -908,7 +924,11 @@ export default function BuildStrategyPageInner() {
                 <Select value={selectedConstraintType} onValueChange={(v) => { if (typeof v === "string") setSelectedConstraintType(v); }}>
                   <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>
-                    {CONSTRAINT_TYPES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    {CONSTRAINT_TYPES.map((c) => (
+                      <SelectItem key={c} value={c} disabled={constraints.some(x => x.type === c)}>
+                        {c}{constraints.some(x => x.type === c) ? " (already added)" : ""}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <Button onClick={addConstraint} disabled={!selectedConstraintType}>Add Constraint</Button>
@@ -933,7 +953,15 @@ export default function BuildStrategyPageInner() {
                       try {
                         const parsed: Objective[] = JSON.parse(text);
                         if (!Array.isArray(parsed)) throw new Error("Expected array");
-                        setObjectives(parsed.map((o, i) => ({ ...o, id: Date.now() + i })));
+                        const seen = new Set<string>();
+                        const dupes: string[] = [];
+                        const deduped = parsed.filter(o => {
+                          const key = o.type || o.name;
+                          if (seen.has(key)) { dupes.push(key); return false; }
+                          seen.add(key); return true;
+                        });
+                        if (dupes.length > 0) alert(`Duplicates removed: ${[...new Set(dupes)].join(", ")}`);
+                        setObjectives(deduped.map((o, i) => ({ ...o, id: Date.now() + i })));
                       } catch { alert("Invalid JSON. Expected an array of objectives."); }
                     });
                   };
@@ -1010,7 +1038,11 @@ export default function BuildStrategyPageInner() {
                 <Select value={selectedObjectiveType} onValueChange={(v) => { if (typeof v === "string") setSelectedObjectiveType(v); }}>
                   <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>
-                    {OBJECTIVE_TYPES.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                    {OBJECTIVE_TYPES.map((o) => (
+                      <SelectItem key={o} value={o} disabled={objectives.some(x => x.type === o)}>
+                        {o}{objectives.some(x => x.type === o) ? " (already added)" : ""}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <Button onClick={addObjective} disabled={!selectedObjectiveType}>Add Objective</Button>
