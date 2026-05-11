@@ -33,9 +33,10 @@ class BacktestRequest(BaseModel):
     slippage_bps: float = 10
     stop_loss_total: float | None = None
     benchmark: str = "NIFTY 50"
-    weight_method: str = "equal"  # equal, momentum, optimizer
+    weight_method: str = "equal"  # equal, momentum, optimizer, alpha_score
     optimizer_objective: str = "maximize_sharpe"
     optimizer_constraints: list[dict] = []
+    alpha_scores: dict[str, float] | None = None  # symbol → z_score for alpha_score weighting
 
 
 _UNIVERSE_MAP_RAW = {
@@ -216,7 +217,23 @@ def run_strategy_backtest(
         raise HTTPException(status_code=400, detail="No symbols specified")
 
     # Determine weight function
-    if req.weight_method == "optimizer":
+    if req.weight_method == "alpha_score" and req.alpha_scores:
+        _scores = req.alpha_scores
+        def _alpha_weight_fn(symbols: list[str]):
+            # Softmax of z-scores → stable positive weights summing to 1
+            import math
+            raw = [math.exp(max(_scores.get(s, 0.0), -3.0)) for s in symbols]
+            total = sum(raw)
+            weights = {s: raw[i] / total for i, s in enumerate(symbols)}
+            def fn(dt, prices_df):
+                available = [s for s in symbols if s in prices_df.columns]
+                if not available:
+                    return {}
+                t = sum(weights.get(s, 0.0) for s in available)
+                return {s: weights.get(s, 0.0) / t for s in available} if t > 0 else {}
+            return fn
+        weight_fn = _alpha_weight_fn(symbols)
+    elif req.weight_method == "optimizer":
         weight_fn = _optimizer_weight_fn(symbols, req.optimizer_objective, req.optimizer_constraints)
     elif req.weight_method == "momentum":
         weight_fn = _momentum_weight_fn(symbols)

@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, Pencil, Trash2, Plus, Loader2, Lock, Play, Copy, Cpu, BarChart2, ArrowRight, X, Check } from "lucide-react";
+import { RefreshCw, Pencil, Trash2, Plus, Loader2, Lock, Play, Copy, Cpu, BarChart2, ArrowRight, X, Check, TrendingUp } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -49,6 +50,24 @@ interface AlphaStock {
   score: number;
   z_score: number;
   exposures: Record<string, number>;
+}
+
+interface ICStats {
+  ic_mean: number;
+  ic_std: number;
+  ir: number;
+  t_stat: number;
+  n_days: number;
+  pct_positive: number;
+  daily_ic: { date: string; ic: number }[];
+}
+
+interface ICData {
+  model_name: string;
+  factors: Record<string, ICStats>;
+  model: ICStats | null;
+  exposure_snapshot_date: string;
+  note: string;
 }
 
 // ── Hardcoded locked standard screens ────────────────────────────────────────
@@ -175,6 +194,8 @@ export default function AlphaMachinePage() {
   const [editFrequency, setEditFrequency] = useState("Monthly");
   const [editMinObs, setEditMinObs] = useState("");
   const [saving, setSaving] = useState(false);
+  const [icData, setIcData] = useState<ICData | null>(null);
+  const [icLoading, setIcLoading] = useState(false);
   const [resultsModel, setResultsModel] = useState<{
     model: AlphaModel;
     stocks: AlphaStock[];
@@ -390,6 +411,20 @@ export default function AlphaMachinePage() {
       fetchData();
     } catch { /* silent */ }
     setSaving(false);
+  }
+
+  async function loadIC(modelId: number) {
+    if (!token) return;
+    setIcLoading(true);
+    setIcData(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/alpha/models/${modelId}/ic-analysis`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setIcData(await res.json());
+      else alert("IC analysis failed. Ensure model is computed and price data is available.");
+    } catch { alert("Failed to load IC analysis"); }
+    setIcLoading(false);
   }
 
   async function viewResults(m: AlphaModel) {
@@ -782,73 +817,161 @@ export default function AlphaMachinePage() {
 
       {/* Alpha Model Results Modal */}
       {resultsModel && (
-        <Dialog open onOpenChange={() => setResultsModel(null)}>
-          <DialogContent className="max-w-3xl">
+        <Dialog open onOpenChange={() => { setResultsModel(null); setIcData(null); }}>
+          <DialogContent className="max-w-4xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <BarChart2 className="h-4 w-4 text-blue-400" />
-                {resultsModel.model.name} — Alpha Scores
+                {resultsModel.model.name}
               </DialogTitle>
             </DialogHeader>
 
-            {/* Factor returns summary */}
-            <div className="flex flex-wrap gap-2 pb-2 border-b border-border/50">
-              {Object.entries(resultsModel.factorReturns).map(([f, r]) => (
-                <div key={f} className="flex items-center gap-1 px-2 py-1 rounded bg-muted/40">
-                  <span className="text-[9px] font-mono text-muted-foreground">{f}</span>
-                  <span className={`text-[9px] font-semibold ${r >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {r >= 0 ? "+" : ""}{(r * 100).toFixed(2)}%
-                  </span>
-                </div>
-              ))}
-              <span className="text-[9px] text-muted-foreground self-center ml-auto">Computed: {resultsModel.computedAt}</span>
-            </div>
+            <Tabs defaultValue="scores">
+              <TabsList className="mb-2">
+                <TabsTrigger value="scores">Alpha Scores</TabsTrigger>
+                <TabsTrigger value="ic" onClick={() => { if (!icData && !icLoading && resultsModel.model.id > 0) loadIC(resultsModel.model.id); }}>
+                  <TrendingUp className="h-3.5 w-3.5 mr-1" /> IC Analysis
+                </TabsTrigger>
+              </TabsList>
 
-            {/* Use as Universe button */}
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">{resultsModel.stocks.length} stocks ranked by alpha score</span>
-              <Button size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-[11px]"
-                onClick={() => {
-                  const symbols = resultsModel.stocks.slice(0, 50).map(s => s.symbol).join(",");
-                  const label = encodeURIComponent(`${resultsModel.model.name} (Top 50)`);
-                  router.push(`/strategy-builder/build?symbols=${symbols}&universe_label=${label}`);
-                  setResultsModel(null);
-                }}>
-                <ArrowRight className="h-3.5 w-3.5" /> Use Top 50 in Strategy Builder
-              </Button>
-            </div>
-
-            {/* Ranked stocks table */}
-            <div className="overflow-y-auto max-h-[50vh] border rounded-lg">
-              <table className="w-full text-[11px]">
-                <thead className="sticky top-0 bg-card border-b border-border/50">
-                  <tr>
-                    {["Rank", "Symbol", "Alpha Score", "Z-Score", ...Object.keys(resultsModel.factorReturns).map(f => `${f} Exp`)].map(h => (
-                      <th key={h} className="px-3 py-2 text-left font-medium text-muted-foreground whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {resultsModel.stocks.map((s) => (
-                    <tr key={s.symbol} className="border-b border-border/30 hover:bg-muted/20">
-                      <td className="px-3 py-1.5 text-muted-foreground">{s.rank}</td>
-                      <td className="px-3 py-1.5 font-medium">{s.symbol}</td>
-                      <td className={`px-3 py-1.5 tabular-nums font-mono ${s.score >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                        {s.score >= 0 ? "+" : ""}{s.score.toFixed(4)}
-                      </td>
-                      <td className={`px-3 py-1.5 tabular-nums font-mono ${s.z_score >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                        {s.z_score >= 0 ? "+" : ""}{s.z_score.toFixed(2)}σ
-                      </td>
-                      {Object.keys(resultsModel.factorReturns).map(f => (
-                        <td key={f} className="px-3 py-1.5 tabular-nums text-muted-foreground">
-                          {s.exposures[f] != null ? s.exposures[f].toFixed(3) : "—"}
-                        </td>
-                      ))}
-                    </tr>
+              {/* ── Scores Tab ── */}
+              <TabsContent value="scores" className="space-y-3 mt-0">
+                {/* Factor returns */}
+                <div className="flex flex-wrap gap-2 pb-2 border-b border-border/50">
+                  {Object.entries(resultsModel.factorReturns).map(([f, r]) => (
+                    <div key={f} className="flex items-center gap-1 px-2 py-1 rounded bg-muted/40">
+                      <span className="text-[9px] font-mono text-muted-foreground">{f}</span>
+                      <span className={`text-[9px] font-semibold ${r >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                        {r >= 0 ? "+" : ""}{(r * 100).toFixed(2)}%
+                      </span>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                  <span className="text-[9px] text-muted-foreground self-center ml-auto">Computed: {resultsModel.computedAt}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">{resultsModel.stocks.length} stocks ranked by alpha score</span>
+                  <Button size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-[11px]"
+                    onClick={() => {
+                      const symbols = resultsModel.stocks.slice(0, 50).map(s => s.symbol).join(",");
+                      const label = encodeURIComponent(`${resultsModel.model.name} (Top 50)`);
+                      router.push(`/strategy-builder/build?symbols=${symbols}&universe_label=${label}`);
+                      setResultsModel(null);
+                    }}>
+                    <ArrowRight className="h-3.5 w-3.5" /> Use Top 50 in Strategy Builder
+                  </Button>
+                </div>
+                <div className="overflow-y-auto max-h-[48vh] border rounded-lg">
+                  <table className="w-full text-[11px]">
+                    <thead className="sticky top-0 bg-card border-b border-border/50">
+                      <tr>
+                        {["Rank", "Symbol", "Score", "Z-Score", ...Object.keys(resultsModel.factorReturns).map(f => `${f}`)].map(h => (
+                          <th key={h} className="px-3 py-2 text-left font-medium text-muted-foreground whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resultsModel.stocks.map((s) => (
+                        <tr key={s.symbol} className="border-b border-border/30 hover:bg-muted/20">
+                          <td className="px-3 py-1.5 text-muted-foreground">{s.rank}</td>
+                          <td className="px-3 py-1.5 font-medium">{s.symbol}</td>
+                          <td className={`px-3 py-1.5 tabular-nums font-mono text-[10px] ${s.score >= 0 ? "text-emerald-400" : "text-red-400"}`}>{s.score >= 0 ? "+" : ""}{s.score.toFixed(4)}</td>
+                          <td className={`px-3 py-1.5 tabular-nums font-mono ${s.z_score >= 0 ? "text-emerald-400" : "text-red-400"}`}>{s.z_score >= 0 ? "+" : ""}{s.z_score.toFixed(2)}σ</td>
+                          {Object.keys(resultsModel.factorReturns).map(f => (
+                            <td key={f} className="px-3 py-1.5 tabular-nums text-muted-foreground text-[10px]">{s.exposures[f] != null ? s.exposures[f].toFixed(2) : "—"}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </TabsContent>
+
+              {/* ── IC Analysis Tab ── */}
+              <TabsContent value="ic" className="space-y-3 mt-0">
+                {icLoading ? (
+                  <div className="flex items-center justify-center py-16 gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Computing IC across {"{"}~252{"}"} trading days...</span>
+                  </div>
+                ) : !icData ? (
+                  <div className="text-center py-12 space-y-3">
+                    <TrendingUp className="h-10 w-10 text-muted-foreground/30 mx-auto" />
+                    <p className="text-sm text-muted-foreground">Click the IC Analysis tab to compute.</p>
+                    {resultsModel.model.id < 0 && <p className="text-[11px] text-amber-400">IC analysis is only available for saved models, not Galedge Alphas.</p>}
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-[10px] text-muted-foreground">{icData.note}</p>
+
+                    {/* Model-level IC summary */}
+                    {icData.model && (
+                      <div className="grid grid-cols-5 gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                        {[
+                          { label: "Model IC Mean", val: icData.model.ic_mean, pct: true },
+                          { label: "IC Std", val: icData.model.ic_std, pct: true },
+                          { label: "IR (ann.)", val: icData.model.ir, pct: false },
+                          { label: "T-Stat", val: icData.model.t_stat, pct: false },
+                          { label: "% Positive IC", val: icData.model.pct_positive, pct: false, suffix: "%" },
+                        ].map(({ label, val, pct, suffix }) => (
+                          <div key={label} className="text-center">
+                            <p className="text-[9px] text-muted-foreground">{label}</p>
+                            <p className={`text-[13px] font-semibold tabular-nums ${val >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                              {val >= 0 ? "+" : ""}{pct ? (val * 100).toFixed(2) + "%" : val.toFixed(3)}{suffix ?? ""}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Per-factor IC table */}
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full text-[11px]">
+                        <thead className="bg-muted/30 border-b border-border/50">
+                          <tr>
+                            {["Factor", "IC Mean", "IC Std", "IR (ann.)", "T-Stat", "% IC+ve", "Signal Strength"].map(h => (
+                              <th key={h} className="px-3 py-2 text-left font-medium text-muted-foreground">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(icData.factors).map(([fname, stats]) => {
+                            const absIC = Math.abs(stats.ic_mean);
+                            const strength = absIC > 0.05 ? "Strong" : absIC > 0.02 ? "Moderate" : "Weak";
+                            const strengthColor = absIC > 0.05 ? "text-emerald-400" : absIC > 0.02 ? "text-amber-400" : "text-red-400";
+                            return (
+                              <tr key={fname} className="border-b border-border/30 hover:bg-muted/20">
+                                <td className="px-3 py-2 font-mono font-medium">{fname}</td>
+                                <td className={`px-3 py-2 tabular-nums ${stats.ic_mean >= 0 ? "text-emerald-400" : "text-red-400"}`}>{(stats.ic_mean * 100).toFixed(2)}%</td>
+                                <td className="px-3 py-2 tabular-nums text-muted-foreground">{(stats.ic_std * 100).toFixed(2)}%</td>
+                                <td className={`px-3 py-2 tabular-nums font-semibold ${stats.ir >= 0 ? "text-emerald-400" : "text-red-400"}`}>{stats.ir.toFixed(3)}</td>
+                                <td className={`px-3 py-2 tabular-nums ${Math.abs(stats.t_stat) > 2 ? "text-emerald-400" : "text-muted-foreground"}`}>{stats.t_stat.toFixed(2)}</td>
+                                <td className="px-3 py-2 tabular-nums text-muted-foreground">{stats.pct_positive}%</td>
+                                <td className={`px-3 py-2 font-medium text-[10px] ${strengthColor}`}>{strength}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Rolling IC chart for model */}
+                    {icData.model && icData.model.daily_ic.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-medium text-muted-foreground mb-1">Model IC Over Time (daily cross-sectional correlation)</p>
+                        <TimeSeriesChart
+                          data={icData.model.daily_ic.map(d => ({ date: d.date, IC: d.ic }))}
+                          series={[{ key: "IC", name: "IC", color: "#3b82f6" }]}
+                          height={160}
+                          yFormatter={v => v.toFixed(3)}
+                        />
+                      </div>
+                    )}
+
+                    <p className="text-[9px] text-muted-foreground">|IC| &gt; 0.05 = Strong · 0.02–0.05 = Moderate · &lt;0.02 = Weak · IR &gt; 0.5 = Good signal · T-stat &gt; 2 = Statistically significant</p>
+                  </>
+                )}
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
       )}

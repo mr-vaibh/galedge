@@ -327,6 +327,127 @@ def compute_alpha_model(
         raise HTTPException(status_code=500, detail=f"Computation failed: {str(e)}")
 
 
+@router.get("/models/{model_id}/ic-analysis")
+def compute_ic_analysis(
+    model_id: int,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+    prices_db: Session = Depends(get_prices_db),
+):
+    """Compute Information Coefficient for each factor using historical cross-sectional correlations.
+    IC_t = corr(factor_exposures, actual_stock_returns_on_day_t).
+    Uses current exposure snapshot as proxy — look-ahead bias acknowledged for single-snapshot models.
+    """
+    from app.models.factor import Factor, FactorExposure, FactorModel as FM
+    from app.models.market_data import StockPrice
+
+    model = db.query(AlphaModel).filter(AlphaModel.id == model_id, AlphaModel.user_id == user.id).first()
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+    if not model.results or model.status != "available":
+        raise HTTPException(status_code=400, detail="Model not computed yet. Run Compute first.")
+
+    input_factors = model.input_factors or []
+    primary_fm = prices_db.query(FM).order_by(FM.id.desc()).first()
+    if not primary_fm:
+        raise HTTPException(status_code=400, detail="No factor model found.")
+
+    factors = prices_db.query(Factor).filter(
+        Factor.model_id == primary_fm.id, Factor.name.in_(input_factors)
+    ).all()
+    fmap = {f.name: f.id for f in factors}
+    rev = {v: k for k, v in fmap.items()}
+    fids = list(fmap.values())
+
+    snap = prices_db.query(func.max(FactorExposure.date)).filter(FactorExposure.factor_id.in_(fids)).scalar()
+    exp_rows = prices_db.query(FactorExposure).filter(
+        FactorExposure.factor_id.in_(fids), FactorExposure.date == snap
+    ).all()
+
+    sym_exps: dict[str, dict[str, float]] = {}
+    for e in exp_rows:
+        fn = rev.get(e.factor_id)
+        if fn:
+            sym_exps.setdefault(e.symbol, {})[fn] = float(e.exposure or 0.0)
+
+    symbols = list(sym_exps.keys())
+    since = date.today() - timedelta(days=252)
+    price_rows = prices_db.query(StockPrice).filter(
+        StockPrice.symbol.in_(symbols), StockPrice.date >= since
+    ).order_by(StockPrice.date).all()
+
+    if not price_rows:
+        raise HTTPException(status_code=400, detail="No price data for IC computation.")
+
+    price_df = pd.DataFrame([{"date": r.date, "symbol": r.symbol, "close": r.close} for r in price_rows])
+    pivot = price_df.pivot(index="date", columns="symbol", values="close")
+    returns = pivot.pct_change().dropna()
+
+    # Per-factor IC
+    factor_ic: dict[str, dict] = {}
+    for fname in input_factors:
+        exp_series = pd.Series({sym: sym_exps.get(sym, {}).get(fname, 0.0) for sym in symbols})
+        daily_ics = []
+        for dt in returns.index:
+            row = returns.loc[dt].dropna()
+            common = exp_series.index.intersection(row.index)
+            if len(common) < 20:
+                continue
+            ic = float(exp_series.loc[common].corr(row.loc[common]))
+            if np.isfinite(ic):
+                daily_ics.append({"date": str(dt), "ic": round(ic, 4)})
+
+        if daily_ics:
+            vals = np.array([d["ic"] for d in daily_ics])
+            ic_mean = float(vals.mean())
+            ic_std = float(vals.std())
+            n = len(vals)
+            factor_ic[fname] = {
+                "ic_mean": round(ic_mean, 4),
+                "ic_std": round(ic_std, 4),
+                "ir": round(ic_mean / ic_std * np.sqrt(252), 3) if ic_std > 0 else 0.0,
+                "t_stat": round(ic_mean / (ic_std / np.sqrt(n)), 3) if ic_std > 0 else 0.0,
+                "n_days": n,
+                "pct_positive": round(float((vals > 0).mean()) * 100, 1),
+                "daily_ic": daily_ics,
+            }
+
+    # Model-level IC (composite score vs returns)
+    score_map = {s["symbol"]: s["z_score"] for s in model.results.get("stocks", [])}
+    score_series = pd.Series(score_map)
+    model_daily_ics = []
+    for dt in returns.index:
+        row = returns.loc[dt].dropna()
+        common = score_series.index.intersection(row.index)
+        if len(common) < 20:
+            continue
+        ic = float(score_series.loc[common].corr(row.loc[common]))
+        if np.isfinite(ic):
+            model_daily_ics.append({"date": str(dt), "ic": round(ic, 4)})
+
+    model_ic = None
+    if model_daily_ics:
+        vals = np.array([d["ic"] for d in model_daily_ics])
+        model_ic = {
+            "ic_mean": round(float(vals.mean()), 4),
+            "ic_std": round(float(vals.std()), 4),
+            "ir": round(float(vals.mean() / vals.std() * np.sqrt(252)), 3) if vals.std() > 0 else 0.0,
+            "t_stat": round(float(vals.mean() / (vals.std() / np.sqrt(len(vals)))), 3) if vals.std() > 0 else 0.0,
+            "n_days": len(vals),
+            "pct_positive": round(float((vals > 0).mean()) * 100, 1),
+            "daily_ic": model_daily_ics,
+        }
+
+    return {
+        "model_id": model_id,
+        "model_name": model.name,
+        "factors": factor_ic,
+        "model": model_ic,
+        "exposure_snapshot_date": str(snap),
+        "note": "Uses current factor exposures as proxy. True IC requires rolling historical exposures.",
+    }
+
+
 class ComputeFactorsBody(BaseModel):
     factors: list[str]
     top_n: int = 50

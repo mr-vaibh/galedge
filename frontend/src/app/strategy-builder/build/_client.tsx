@@ -133,7 +133,7 @@ function ScreenPickerDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  onSelect: (symbols: string[], label: string) => void;
+  onSelect: (symbols: string[], label: string, scores?: Record<string, number>) => void;
   token: string | null;
 }) {
   const [tab, setTab] = useState<"saved" | "standard" | "query" | "alpha">("standard");
@@ -141,7 +141,7 @@ function ScreenPickerDialog({
   const [alphaModels, setAlphaModels] = useState<{ id: number; name: string; status: string; has_results: boolean; n_stocks: number | null; input_factors: string[] }[]>([]);
   const [customQuery, setCustomQuery] = useState("");
   const [running, setRunning] = useState<string | null>(null);
-  const [preview, setPreview] = useState<{ symbols: string[]; label: string } | null>(null);
+  const [preview, setPreview] = useState<{ symbols: string[]; label: string; scores?: Record<string, number> } | null>(null);
 
   useEffect(() => {
     if (!open || !token) return;
@@ -251,8 +251,11 @@ function ScreenPickerDialog({
                       });
                       if (res.ok) {
                         const data = await res.json();
-                        const symbols = (data.stocks ?? []).map((s: { symbol: string }) => s.symbol);
-                        setPreview({ symbols, label: `${m.name} (Top 50)` });
+                        const stocks = data.stocks ?? [];
+                        const symbols = stocks.map((s: { symbol: string }) => s.symbol);
+                        const scores: Record<string, number> = {};
+                        stocks.forEach((s: { symbol: string; z_score: number }) => { scores[s.symbol] = s.z_score; });
+                        setPreview({ symbols, label: `${m.name} (Top 50)`, scores });
                       }
                     } catch { /* silent */ }
                     setRunning(null);
@@ -292,7 +295,7 @@ function ScreenPickerDialog({
               <p className="text-[10px] text-muted-foreground truncate">{preview.symbols.slice(0, 8).join(", ")}{preview.symbols.length > 8 ? ` +${preview.symbols.length - 8} more` : ""}</p>
             </div>
             <Button size="sm" className="h-7 text-[10px] shrink-0 bg-emerald-600 hover:bg-emerald-700"
-              onClick={() => { onSelect(preview.symbols, preview.label); onClose(); }}>
+              onClick={() => { onSelect(preview.symbols, preview.label, preview.scores); onClose(); }}>
               Use as Universe
             </Button>
           </div>
@@ -317,6 +320,7 @@ export default function BuildStrategyPageInner() {
   const [benchmark, setBenchmark] = useState("");
   const [customSymbols, setCustomSymbols] = useState<string[]>([]);
   const [customUniverseLabel, setCustomUniverseLabel] = useState("");
+  const [customScores, setCustomScores] = useState<Record<string, number> | null>(null);
   const [showScreenPicker, setShowScreenPicker] = useState(false);
   const [constraints, setConstraints] = useState<Constraint[]>([]);
   const [objectives, setObjectives] = useState<Objective[]>([]);
@@ -553,10 +557,16 @@ export default function BuildStrategyPageInner() {
         start_date: btStartDate,
         end_date: btEndDate,
         rebalance_frequency: btFrequency,
-        weight_method: "optimizer",
+        weight_method: btMethod === "alpha_score" ? "alpha_score"
+          : btMethod === "equal" ? "equal"
+          : btMethod === "momentum" ? "momentum"
+          : "optimizer",
         optimizer_objective: optObjective,
         optimizer_constraints: mappedConstraints,
       };
+      if (btMethod === "alpha_score" && customScores) {
+        backtestPayload.alpha_scores = customScores;
+      }
       if (universe === "custom_screen" && customSymbols.length > 0) {
         backtestPayload.symbols = customSymbols;
         backtestPayload.universe = "CUSTOM";
@@ -737,7 +747,7 @@ export default function BuildStrategyPageInner() {
                 {customUniverseLabel} ({customSymbols.length})
               </span>
               <button
-                onClick={() => { setUniverse(""); setCustomSymbols([]); setCustomUniverseLabel(""); }}
+                onClick={() => { setUniverse(""); setCustomSymbols([]); setCustomUniverseLabel(""); setCustomScores(null); }}
                 className="text-muted-foreground hover:text-foreground"
               ><X className="h-3 w-3" /></button>
               <button
@@ -749,7 +759,7 @@ export default function BuildStrategyPageInner() {
             <Select value={universe} onValueChange={(v) => {
               if (typeof v !== "string") return;
               if (v === "custom_screen") { setShowScreenPicker(true); }
-              else { setUniverse(v); setCustomSymbols([]); setCustomUniverseLabel(""); }
+              else { setUniverse(v); setCustomSymbols([]); setCustomUniverseLabel(""); setCustomScores(null); }
             }}>
               <SelectTrigger className="h-7 w-[180px] border-0 text-xs"><SelectValue placeholder="Select A Universe" /></SelectTrigger>
               <SelectContent>
@@ -766,9 +776,10 @@ export default function BuildStrategyPageInner() {
             open={showScreenPicker}
             onClose={() => { setShowScreenPicker(false); if (!customSymbols.length) setUniverse(""); }}
             token={token}
-            onSelect={(syms, label) => {
+            onSelect={(syms, label, scores) => {
               setCustomSymbols(syms);
               setCustomUniverseLabel(label);
+              setCustomScores(scores ?? null);
               setUniverse("custom_screen");
             }}
           />
@@ -1239,10 +1250,15 @@ export default function BuildStrategyPageInner() {
                   <Select value={btMethod} onValueChange={(v) => { if (typeof v === "string") setBtMethod(v); }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="optimizer">Optimizer</SelectItem>
                       <SelectItem value="equal">Equal Weight</SelectItem>
                       <SelectItem value="momentum">Momentum</SelectItem>
+                      {customScores && <SelectItem value="alpha_score">Alpha Score Weighted</SelectItem>}
                     </SelectContent>
                   </Select>
+                  {btMethod === "alpha_score" && (
+                    <p className="text-[10px] text-blue-400 mt-1">Softmax of z-scores — higher alpha stocks get more weight.</p>
+                  )}
                 </div>
 
                 {/* Stop Loss Section */}
