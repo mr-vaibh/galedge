@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -156,56 +155,44 @@ export default function BuildAlphaModelPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Input Factors <span className="text-muted-foreground">Selected: {inputFactors.length}</span></Label>
-                  <div className="border rounded-md p-2 h-32 overflow-y-auto space-y-1">
-                    {inputFactors.length === 0 ? (
-                      <p className="text-[10px] text-muted-foreground text-center py-4">Click factors below to add</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {inputFactors.map(f => (
-                          <Badge key={f} variant="secondary" className="gap-1 pr-1 text-[9px]">
-                            {f}
-                            <button onClick={() => toggleFactor(f, inputFactors, setInputFactors)}>
-                              <X className="h-2.5 w-2.5" />
-                            </button>
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
+                  <Label className="text-xs">Input Factors <span className="text-muted-foreground">({inputFactors.length} selected)</span></Label>
+                  <div className="border rounded-md p-2 min-h-[72px] flex flex-wrap gap-1 content-start">
+                    {inputFactors.length === 0
+                      ? <p className="text-[10px] text-muted-foreground w-full text-center py-3">Click factors below to add</p>
+                      : inputFactors.map(f => (
+                        <button key={f} onClick={() => toggleFactor(f, inputFactors, setInputFactors)}
+                          className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-600/20 text-blue-400 text-[10px] hover:bg-red-600/20 hover:text-red-400 transition-colors">
+                          {f} <X className="h-2.5 w-2.5" />
+                        </button>
+                      ))}
                   </div>
-                  <div className="flex flex-wrap gap-1 mt-1">
+                  <div className="flex flex-wrap gap-1">
                     {AVAILABLE_FACTORS.filter(f => !inputFactors.includes(f)).map(f => (
-                      <Button key={f} variant="outline" size="sm" className="h-5 text-[9px] px-1.5"
-                        onClick={() => toggleFactor(f, inputFactors, setInputFactors)}>
+                      <button key={f} onClick={() => toggleFactor(f, inputFactors, setInputFactors)}
+                        className="px-1.5 py-0.5 rounded border border-border text-[9px] text-muted-foreground hover:border-blue-500 hover:text-blue-400 transition-colors">
                         + {f}
-                      </Button>
+                      </button>
                     ))}
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Control Factors (Optional)</Label>
-                  <div className="border rounded-md p-2 h-32 overflow-y-auto">
-                    {controlFactors.length === 0 ? (
-                      <p className="text-[10px] text-muted-foreground text-center py-4">Optional — click to add</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {controlFactors.map(f => (
-                          <Badge key={f} variant="secondary" className="gap-1 pr-1 text-[9px]">
-                            {f}
-                            <button onClick={() => toggleFactor(f, controlFactors, setControlFactors)}>
-                              <X className="h-2.5 w-2.5" />
-                            </button>
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
+                  <Label className="text-xs">Control Factors <span className="text-muted-foreground">(optional)</span></Label>
+                  <div className="border rounded-md p-2 min-h-[72px] flex flex-wrap gap-1 content-start">
+                    {controlFactors.length === 0
+                      ? <p className="text-[10px] text-muted-foreground w-full text-center py-3">Optional — click to add</p>
+                      : controlFactors.map(f => (
+                        <button key={f} onClick={() => toggleFactor(f, controlFactors, setControlFactors)}
+                          className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-neutral-600/30 text-neutral-300 text-[10px] hover:bg-red-600/20 hover:text-red-400 transition-colors">
+                          {f} <X className="h-2.5 w-2.5" />
+                        </button>
+                      ))}
                   </div>
-                  <div className="flex flex-wrap gap-1 mt-1">
+                  <div className="flex flex-wrap gap-1">
                     {CONTROL_FACTOR_OPTIONS.filter(f => !controlFactors.includes(f)).map(f => (
-                      <Button key={f} variant="outline" size="sm" className="h-5 text-[9px] px-1.5"
-                        onClick={() => toggleFactor(f, controlFactors, setControlFactors)}>
+                      <button key={f} onClick={() => toggleFactor(f, controlFactors, setControlFactors)}
+                        className="px-1.5 py-0.5 rounded border border-border text-[9px] text-muted-foreground hover:border-neutral-400 hover:text-neutral-300 transition-colors">
                         + {f}
-                      </Button>
+                      </button>
                     ))}
                   </div>
                 </div>
