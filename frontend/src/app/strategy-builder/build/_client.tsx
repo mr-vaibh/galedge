@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { Loader2, Plus, Upload, Download, Trash2, Pencil, ChevronDown, Search, Filter, Play, X, Zap } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/auth";
 import { usePortfolio } from "@/lib/portfolio-context";
 import { useCurrency } from "@/lib/currency";
@@ -868,18 +869,7 @@ export default function BuildStrategyPageInner() {
 
         <div className="flex items-center gap-2 bg-card border rounded-lg px-3 py-1.5">
           <span className="text-xs text-muted-foreground">Include futures</span>
-          <div
-            role="switch"
-            aria-checked={includeFutures}
-            onClick={() => setIncludeFutures(v => !v)}
-            className="relative shrink-0 cursor-pointer rounded-full"
-            style={{ width: 36, height: 20, backgroundColor: includeFutures ? "#2563eb" : "#52525b", transition: "background-color 0.2s" }}
-          >
-            <div
-              className="absolute top-[2px] h-4 w-4 rounded-full bg-white shadow"
-              style={{ left: includeFutures ? 18 : 2, transition: "left 0.15s ease" }}
-            />
-          </div>
+          <Switch checked={includeFutures} onCheckedChange={setIncludeFutures} />
         </div>
       </div>
 
