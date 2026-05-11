@@ -869,7 +869,7 @@ export default function BuildStrategyPageInner() {
 
         <div className="flex items-center gap-2 bg-card border rounded-lg px-3 py-1.5">
           <span className="text-xs text-muted-foreground">Include futures</span>
-          <Switch checked={includeFutures} onCheckedChange={setIncludeFutures} />
+          <Switch checked={includeFutures} onCheckedChange={setIncludeFutures} className="data-checked:bg-emerald-500" />
         </div>
       </div>
 
