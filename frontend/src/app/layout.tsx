@@ -48,6 +48,9 @@ export const metadata: Metadata = {
     "insider trading",
     "analyst recommendations",
   ],
+  verification: {
+    google: "wNBPgyCM82GVZ-4nfvUVGBoxrx3SoP_3TLrYYinp9MI",
+  },
   authors: [{ name: "Galedge", url: SITE_URL }],
   creator: "Galedge",
   metadataBase: new URL(SITE_URL),
