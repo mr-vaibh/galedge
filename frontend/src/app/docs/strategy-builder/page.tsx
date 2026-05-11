@@ -64,7 +64,7 @@ export default function StrategyBuilderDocsPage() {
         <div className="flex items-start justify-between gap-4 mb-3">
           <h2 className="text-xl font-semibold">Constraints</h2>
           <Link href="/docs/strategy-builder/constraints"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors shrink-0">
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-violet-500/50 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 hover:border-violet-400 text-sm font-medium transition-all shrink-0">
             Full Constraints & Objectives Guide →
           </Link>
         </div>
