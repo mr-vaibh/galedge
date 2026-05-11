@@ -339,7 +339,15 @@ export default function BuildStrategyPageInner() {
   useEffect(() => {
     fetch(`${API_BASE}/api/data/latest-trading-date`)
       .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d?.date) setBtEndDate(d.date); })
+      .then((d) => {
+        if (d?.date) {
+          setBtEndDate(d.date);
+          // Default start = 1 year before latest trading date
+          const end = new Date(d.date);
+          end.setFullYear(end.getFullYear() - 1);
+          setBtStartDate(end.toISOString().split("T")[0]);
+        }
+      })
       .catch(() => {});
   }, []);
   const [btFrequency, setBtFrequency] = useState("Monthly");
@@ -641,18 +649,24 @@ export default function BuildStrategyPageInner() {
         }
       }
 
+      const optimPayload: Record<string, unknown> = {
+        objective,
+        constraints: mappedConstraints,
+      };
+      if (universe === "custom_screen" && customSymbols.length > 0) {
+        optimPayload.symbols = customSymbols;
+      } else {
+        optimPayload.universe = universe || "NIFTY 50";
+      }
+
       const res = await fetch(`${API_BASE}/api/optimize/smart`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          universe: universe || "NIFTY 50",
-          objective,
-          constraints: mappedConstraints,
-        }),
+        body: JSON.stringify(optimPayload),
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({ detail: "Optimization failed" }));
         setOneDayResults({ total_return: "Error", sharpe_ratio: err.detail || "Failed", total_trades: 0 });
       } else {
         const data = await res.json();
@@ -666,8 +680,9 @@ export default function BuildStrategyPageInner() {
         });
       }
     } catch (e) {
-      console.error("1-day results failed:", e);
-      setOneDayResults({ total_return: "N/A", sharpe_ratio: "N/A", total_trades: "N/A" });
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      console.error("1-day results failed:", msg);
+      setOneDayResults({ total_return: "Error", sharpe_ratio: msg, total_trades: 0 });
     }
     setOneDayLoading(false);
   }, [universe, constraints, objectives]);
@@ -849,11 +864,6 @@ export default function BuildStrategyPageInner() {
               {BENCHMARKS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
             </SelectContent>
           </Select>
-        </div>
-
-        <div className="flex items-center gap-2 bg-card border rounded-lg px-3 py-1.5">
-          <span className="text-xs text-muted-foreground">Date</span>
-          <Input type="date" className="h-7 w-[150px] border-0 text-xs" />
         </div>
 
         <div className="flex items-center gap-2 bg-card border rounded-lg px-3 py-1.5">
