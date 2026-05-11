@@ -350,9 +350,12 @@ export default function AlphaMachinePage() {
     setEditName(m.name);
     setEditFactors(m.input_factors || []);
     setEditControlFactors(m.control_factors || []);
-    setEditReturnType(m.return_type || "Total");
-    setEditRegressionWeight(m.regression_weight || "Market Cap");
-    setEditUniverse(m.universe || "Risk Model Estimation Universe");
+    setEditReturnType(m.return_type === "Excess" ? "Excess" : "Total");
+    // Map DB full names → short values (to match add-new form)
+    const rw = m.regression_weight || "Market Cap";
+    setEditRegressionWeight(rw === "Equal" ? "equal" : "mcap");
+    const uni = m.universe || "Risk Model Estimation Universe";
+    setEditUniverse(uni.includes("NIFTY") ? "nifty500" : "risk_model");
     setEditHalfLife(m.half_life != null ? String(m.half_life) : "");
     setEditFrequency(m.estimation_frequency || "Monthly");
     setEditMinObs(m.min_observations != null ? String(m.min_observations) : "");
@@ -370,8 +373,9 @@ export default function AlphaMachinePage() {
           input_factors: editFactors,
           control_factors: editControlFactors,
           return_type: editReturnType,
-          regression_weight: editRegressionWeight,
-          universe: editUniverse,
+          // Map short values → full DB strings (same as build-model page)
+          regression_weight: editRegressionWeight === "mcap" ? "Market Cap" : "Equal",
+          universe: editUniverse === "risk_model" ? "Risk Model Estimation Universe" : "NIFTY 500",
           half_life: editHalfLife ? parseInt(editHalfLife) : null,
           estimation_frequency: editFrequency,
           min_observations: editMinObs ? parseInt(editMinObs) : null,
@@ -720,8 +724,8 @@ export default function AlphaMachinePage() {
                   <Select value={editRegressionWeight} onValueChange={v => { if (typeof v === "string") setEditRegressionWeight(v); }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Market Cap">mcap</SelectItem>
-                      <SelectItem value="Equal">equal</SelectItem>
+                      <SelectItem value="mcap">Sort Market Cap</SelectItem>
+                      <SelectItem value="equal">Equal</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -730,8 +734,8 @@ export default function AlphaMachinePage() {
                   <Select value={editUniverse} onValueChange={v => { if (typeof v === "string") setEditUniverse(v); }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Risk Model Estimation Universe">risk_model</SelectItem>
-                      <SelectItem value="NIFTY 500">nifty500</SelectItem>
+                      <SelectItem value="risk_model">Risk Model Estimation Universe</SelectItem>
+                      <SelectItem value="nifty500">NIFTY 500</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
