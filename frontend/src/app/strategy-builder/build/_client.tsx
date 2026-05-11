@@ -861,10 +861,15 @@ export default function BuildStrategyPageInner() {
           <button
             type="button"
             role="switch"
+            aria-checked={includeFutures}
             onClick={() => setIncludeFutures(v => !v)}
-            className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${includeFutures ? "bg-blue-600" : "bg-muted"}`}
+            className="relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent focus:outline-none cursor-pointer"
+            style={{ backgroundColor: includeFutures ? "#2563eb" : "#3f3f46", transition: "background-color 0.2s" }}
           >
-            <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200 ${includeFutures ? "translate-x-4" : "translate-x-0"}`} />
+            <span
+              className="pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow"
+              style={{ transform: includeFutures ? "translateX(16px)" : "translateX(0px)", transition: "transform 0.2s" }}
+            />
           </button>
         </div>
       </div>
