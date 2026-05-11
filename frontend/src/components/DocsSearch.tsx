@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Fuse from "fuse.js";
 import { Search, ArrowRight, X, Hash } from "lucide-react";
@@ -149,10 +150,10 @@ export function DocsSearch() {
         </kbd>
       </button>
 
-      {/* ── Modal overlay ─────────────────────────────────────────────────── */}
-      {open && (
+      {/* ── Modal overlay — rendered via portal so sidebar stacking context doesn't clip it ── */}
+      {open && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center px-4"
           onClick={() => setOpen(false)}
         >
           {/* Backdrop */}
@@ -257,7 +258,8 @@ export function DocsSearch() {
               </span>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
