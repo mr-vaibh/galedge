@@ -1,8 +1,12 @@
 """Screen/Factor and Alpha Model CRUD endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import func
+from datetime import date, timedelta
+import numpy as np
+import pandas as pd
 
 from app.database import get_db, get_prices_db
 from app.models.user import User
@@ -154,7 +158,12 @@ def list_alpha_models(user: User = Depends(require_user), db: Session = Depends(
     platform_models = db.query(AlphaModel).filter(AlphaModel.user_id == None, AlphaModel.model_type == "platform").all()
     return {
         "user_models": [{"id": m.id, "name": m.name, "description": m.description,
-                         "status": m.status, "start_date": str(m.start_date) if m.start_date else None,
+                         "status": m.status,
+                         "input_factors": m.input_factors or [],
+                         "has_results": bool(m.results and m.status == "available"),
+                         "computed_at": (m.results or {}).get("computed_at"),
+                         "n_stocks": (m.results or {}).get("n_stocks"),
+                         "start_date": str(m.start_date) if m.start_date else None,
                          "end_date": str(m.end_date) if m.end_date else None} for m in user_models],
         "platform_models": [{"id": m.id, "name": m.name, "description": m.description,
                              "status": m.status, "start_date": str(m.start_date) if m.start_date else None,
@@ -169,6 +178,141 @@ def create_alpha_model(data: AlphaModelCreate, user: User = Depends(require_user
     db.commit()
     db.refresh(model)
     return {"id": model.id, "name": model.name}
+
+
+@router.get("/models/{model_id}/results")
+def get_alpha_model_results(
+    model_id: int,
+    top_n: int = Query(100, ge=1, le=500),
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    model = db.query(AlphaModel).filter(AlphaModel.id == model_id, AlphaModel.user_id == user.id).first()
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+    if model.status != "available" or not model.results:
+        raise HTTPException(status_code=400, detail="Model not computed yet. Run Compute first.")
+    results = model.results
+    return {
+        "model_id": model_id,
+        "model_name": model.name,
+        "input_factors": model.input_factors or [],
+        "computed_at": results.get("computed_at"),
+        "exposure_snapshot_date": results.get("exposure_snapshot_date"),
+        "n_stocks": results.get("n_stocks"),
+        "factor_returns": results.get("factor_returns", {}),
+        "stocks": results.get("stocks", [])[:top_n],
+    }
+
+
+@router.post("/models/{model_id}/compute")
+def compute_alpha_model(
+    model_id: int,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+    prices_db: Session = Depends(get_prices_db),
+):
+    """Compute per-stock alpha scores: factor exposure × trailing factor return, z-scored."""
+    from app.models.factor import Factor, FactorReturn, FactorExposure
+
+    model = db.query(AlphaModel).filter(AlphaModel.id == model_id, AlphaModel.user_id == user.id).first()
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    input_factor_names: list[str] = model.input_factors or []
+    if not input_factor_names:
+        raise HTTPException(status_code=400, detail="No input factors defined on this model.")
+
+    model.status = "computing"
+    db.commit()
+
+    try:
+        # Resolve factor names → factor_ids
+        factors = prices_db.query(Factor).filter(Factor.name.in_(input_factor_names)).all()
+        factor_map = {f.name: f.id for f in factors}
+        if not factor_map:
+            raise HTTPException(status_code=400, detail="No matching factors found. Ensure risk model is built.")
+
+        factor_ids = list(factor_map.values())
+        id_to_name = {v: k for k, v in factor_map.items()}
+
+        # Trailing cumulative factor returns (last ~63 trading days = 3 months)
+        since = date.today() - timedelta(days=120)
+        fr_rows = (
+            prices_db.query(FactorReturn)
+            .filter(FactorReturn.factor_id.in_(factor_ids), FactorReturn.date >= since)
+            .all()
+        )
+        if not fr_rows:
+            raise HTTPException(status_code=400, detail="No factor return data. Build the risk model first.")
+
+        fr_df = pd.DataFrame([{"factor_id": r.factor_id, "daily_return": r.daily_return or 0.0} for r in fr_rows])
+        cum_by_id = fr_df.groupby("factor_id")["daily_return"].sum().to_dict()
+        cum_by_name = {id_to_name[fid]: round(ret, 6) for fid, ret in cum_by_id.items() if fid in id_to_name}
+
+        # Latest exposure snapshot
+        latest_snap = prices_db.query(func.max(FactorExposure.date)).filter(
+            FactorExposure.factor_id.in_(factor_ids)
+        ).scalar()
+        if not latest_snap:
+            raise HTTPException(status_code=400, detail="No factor exposure data. Build the risk model first.")
+
+        exp_rows = (
+            prices_db.query(FactorExposure)
+            .filter(FactorExposure.factor_id.in_(factor_ids), FactorExposure.date == latest_snap)
+            .all()
+        )
+
+        # Build {symbol → {factor_name → exposure}}
+        exposure_map: dict[str, dict[str, float]] = {}
+        for row in exp_rows:
+            fname = id_to_name.get(row.factor_id)
+            if fname:
+                exposure_map.setdefault(row.symbol, {})[fname] = row.exposure or 0.0
+
+        if not exposure_map:
+            raise HTTPException(status_code=400, detail="No exposure data at latest snapshot.")
+
+        # Compute composite alpha score = Σ (exposure × factor_trailing_return)
+        scores: list[dict] = []
+        for symbol, exps in exposure_map.items():
+            raw = sum(exps.get(f, 0.0) * cum_by_name.get(f, 0.0) for f in input_factor_names)
+            scores.append({"symbol": symbol, "score": raw, "exposures": {k: round(v, 4) for k, v in exps.items()}})
+
+        # Z-score
+        raw_arr = np.array([s["score"] for s in scores], dtype=float)
+        mean, std = float(raw_arr.mean()), float(raw_arr.std())
+        for s in scores:
+            s["z_score"] = round((s["score"] - mean) / std, 4) if std > 0 else 0.0
+            s["score"] = round(s["score"], 6)
+
+        # Rank descending
+        scores.sort(key=lambda x: x["z_score"], reverse=True)
+        for i, s in enumerate(scores):
+            s["rank"] = i + 1
+
+        results_payload = {
+            "computed_at": str(date.today()),
+            "exposure_snapshot_date": str(latest_snap),
+            "factor_returns": cum_by_name,
+            "n_stocks": len(scores),
+            "stocks": scores,
+        }
+
+        model.results = results_payload
+        model.status = "available"
+        db.commit()
+
+        return {"model_id": model_id, "n_stocks": len(scores), "top10": scores[:10]}
+
+    except HTTPException:
+        model.status = "draft"
+        db.commit()
+        raise
+    except Exception as e:
+        model.status = "draft"
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Computation failed: {str(e)}")
 
 
 @router.post("/upload-factor")

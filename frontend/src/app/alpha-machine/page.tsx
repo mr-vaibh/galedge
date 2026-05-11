@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, Pencil, Trash2, Plus, Loader2, Lock, Play, Copy } from "lucide-react";
+import { RefreshCw, Pencil, Trash2, Plus, Loader2, Lock, Play, Copy, Cpu, BarChart2, ArrowRight, X } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
@@ -23,8 +24,20 @@ interface AlphaModel {
   name: string;
   description: string;
   status: string;
+  input_factors: string[];
+  has_results: boolean;
+  computed_at: string | null;
+  n_stocks: number | null;
   start_date: string | null;
   end_date: string | null;
+}
+
+interface AlphaStock {
+  rank: number;
+  symbol: string;
+  score: number;
+  z_score: number;
+  exposures: Record<string, number>;
 }
 
 // ── Hardcoded locked standard screens ────────────────────────────────────────
@@ -136,6 +149,13 @@ export default function AlphaMachinePage() {
   const [userModels, setUserModels] = useState<AlphaModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [cloningId, setCloningId] = useState<string | null>(null);
+  const [computingId, setComputingId] = useState<number | null>(null);
+  const [resultsModel, setResultsModel] = useState<{
+    model: AlphaModel;
+    stocks: AlphaStock[];
+    factorReturns: Record<string, number>;
+    computedAt: string;
+  } | null>(null);
 
   async function fetchData() {
     setLoading(true);
@@ -191,6 +211,35 @@ export default function AlphaMachinePage() {
       fetchData();
     } catch { /* silent */ }
     setCloningId(null);
+  }
+
+  async function computeModel(m: AlphaModel) {
+    if (!token) return;
+    setComputingId(m.id);
+    try {
+      const res = await fetch(`${API_BASE}/api/alpha/models/${m.id}/compute`, {
+        method: "POST", headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Computation failed" }));
+        alert(err.detail || "Computation failed");
+      } else {
+        await fetchData();
+      }
+    } catch { alert("Could not connect to server"); }
+    setComputingId(null);
+  }
+
+  async function viewResults(m: AlphaModel) {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/alpha/models/${m.id}/results?top_n=200`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) { alert("No results yet. Click Compute first."); return; }
+      const data = await res.json();
+      setResultsModel({ model: m, stocks: data.stocks, factorReturns: data.factor_returns ?? {}, computedAt: data.computed_at ?? "" });
+    } catch { alert("Failed to load results"); }
   }
 
   return (
@@ -329,16 +378,16 @@ export default function AlphaMachinePage() {
               <table className="w-full text-[11px]">
                 <thead>
                   <tr className="border-b border-border/50 bg-muted/20">
-                    {["Model Name", "Start Date", "End Date", "Status", "Delete"].map((h) => (
+                    {["Model", "Factors", "Status", "Stocks", "Computed", "Actions"].map((h) => (
                       <th key={h} className="px-3 py-2.5 text-left font-medium text-muted-foreground">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={5} className="px-3 py-8 text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></td></tr>
+                    <tr><td colSpan={6} className="px-3 py-8 text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></td></tr>
                   ) : userModels.length === 0 ? (
-                    <tr><td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">
+                    <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
                       No alpha models yet.{" "}
                       <button className="text-blue-400 hover:underline" onClick={() => router.push("/alpha-machine/build-model")}>
                         Build your first model
@@ -348,13 +397,39 @@ export default function AlphaMachinePage() {
                     userModels.map((m) => (
                       <tr key={m.id} className="border-b border-border/30 hover:bg-muted/30">
                         <td className="px-3 py-2 font-medium">{m.name}</td>
-                        <td className="px-3 py-2 text-muted-foreground">{m.start_date || "—"}</td>
-                        <td className="px-3 py-2 text-muted-foreground">{m.end_date || "—"}</td>
-                        <td className="px-3 py-2"><Badge className="text-[8px]">{m.status}</Badge></td>
                         <td className="px-3 py-2">
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteModel(m.id)}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                          <div className="flex flex-wrap gap-0.5">
+                            {(m.input_factors || []).slice(0, 4).map(f => (
+                              <span key={f} className="text-[8px] px-1 py-0.5 rounded bg-blue-500/15 text-blue-400 font-mono">{f}</span>
+                            ))}
+                            {(m.input_factors || []).length > 4 && <span className="text-[8px] text-muted-foreground">+{(m.input_factors || []).length - 4}</span>}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <Badge className={`text-[8px] ${m.status === "available" ? "bg-emerald-600" : m.status === "computing" ? "bg-amber-600" : ""}`}>
+                            {m.status}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">{m.n_stocks ?? "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground text-[10px]">{m.computed_at ?? "—"}</td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-1">
+                            <Button variant="outline" size="sm" className="h-6 text-[9px] gap-0.5"
+                              disabled={computingId === m.id}
+                              onClick={() => computeModel(m)}>
+                              {computingId === m.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Cpu className="h-3 w-3" />}
+                              Compute
+                            </Button>
+                            {m.has_results && (
+                              <Button variant="secondary" size="sm" className="h-6 text-[9px] gap-0.5"
+                                onClick={() => viewResults(m)}>
+                                <BarChart2 className="h-3 w-3" /> Results
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteModel(m.id)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -396,6 +471,79 @@ export default function AlphaMachinePage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Alpha Model Results Modal */}
+      {resultsModel && (
+        <Dialog open onOpenChange={() => setResultsModel(null)}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <BarChart2 className="h-4 w-4 text-blue-400" />
+                {resultsModel.model.name} — Alpha Scores
+              </DialogTitle>
+            </DialogHeader>
+
+            {/* Factor returns summary */}
+            <div className="flex flex-wrap gap-2 pb-2 border-b border-border/50">
+              {Object.entries(resultsModel.factorReturns).map(([f, r]) => (
+                <div key={f} className="flex items-center gap-1 px-2 py-1 rounded bg-muted/40">
+                  <span className="text-[9px] font-mono text-muted-foreground">{f}</span>
+                  <span className={`text-[9px] font-semibold ${r >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {r >= 0 ? "+" : ""}{(r * 100).toFixed(2)}%
+                  </span>
+                </div>
+              ))}
+              <span className="text-[9px] text-muted-foreground self-center ml-auto">Computed: {resultsModel.computedAt}</span>
+            </div>
+
+            {/* Use as Universe button */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{resultsModel.stocks.length} stocks ranked by alpha score</span>
+              <Button size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-[11px]"
+                onClick={() => {
+                  const symbols = resultsModel.stocks.slice(0, 50).map(s => s.symbol).join(",");
+                  const label = encodeURIComponent(`${resultsModel.model.name} (Top 50)`);
+                  router.push(`/strategy-builder/build?symbols=${symbols}&universe_label=${label}`);
+                  setResultsModel(null);
+                }}>
+                <ArrowRight className="h-3.5 w-3.5" /> Use Top 50 in Strategy Builder
+              </Button>
+            </div>
+
+            {/* Ranked stocks table */}
+            <div className="overflow-y-auto max-h-[50vh] border rounded-lg">
+              <table className="w-full text-[11px]">
+                <thead className="sticky top-0 bg-card border-b border-border/50">
+                  <tr>
+                    {["Rank", "Symbol", "Alpha Score", "Z-Score", ...Object.keys(resultsModel.factorReturns).map(f => `${f} Exp`)].map(h => (
+                      <th key={h} className="px-3 py-2 text-left font-medium text-muted-foreground whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {resultsModel.stocks.map((s) => (
+                    <tr key={s.symbol} className="border-b border-border/30 hover:bg-muted/20">
+                      <td className="px-3 py-1.5 text-muted-foreground">{s.rank}</td>
+                      <td className="px-3 py-1.5 font-medium">{s.symbol}</td>
+                      <td className={`px-3 py-1.5 tabular-nums font-mono ${s.score >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                        {s.score >= 0 ? "+" : ""}{s.score.toFixed(4)}
+                      </td>
+                      <td className={`px-3 py-1.5 tabular-nums font-mono ${s.z_score >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                        {s.z_score >= 0 ? "+" : ""}{s.z_score.toFixed(2)}σ
+                      </td>
+                      {Object.keys(resultsModel.factorReturns).map(f => (
+                        <td key={f} className="px-3 py-1.5 tabular-nums text-muted-foreground">
+                          {s.exposures[f] != null ? s.exposures[f].toFixed(3) : "—"}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

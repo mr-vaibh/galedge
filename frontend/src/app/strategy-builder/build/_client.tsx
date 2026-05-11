@@ -136,17 +136,23 @@ function ScreenPickerDialog({
   onSelect: (symbols: string[], label: string) => void;
   token: string | null;
 }) {
-  const [tab, setTab] = useState<"saved" | "standard" | "query">("standard");
+  const [tab, setTab] = useState<"saved" | "standard" | "query" | "alpha">("standard");
   const [savedScreens, setSavedScreens] = useState<{ id: number; name: string; screener_query: string }[]>([]);
+  const [alphaModels, setAlphaModels] = useState<{ id: number; name: string; status: string; has_results: boolean; n_stocks: number | null; input_factors: string[] }[]>([]);
   const [customQuery, setCustomQuery] = useState("");
   const [running, setRunning] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ symbols: string[]; label: string } | null>(null);
 
   useEffect(() => {
     if (!open || !token) return;
-    fetch(`${API_BASE}/api/alpha/screens`, { headers: { Authorization: `Bearer ${token}` } })
+    const h = { Authorization: `Bearer ${token}` };
+    fetch(`${API_BASE}/api/alpha/screens`, { headers: h })
       .then(r => r.ok ? r.json() : [])
       .then(d => setSavedScreens(Array.isArray(d) ? d : []))
+      .catch(() => {});
+    fetch(`${API_BASE}/api/alpha/models`, { headers: h })
+      .then(r => r.ok ? r.json() : { user_models: [] })
+      .then(d => setAlphaModels((d.user_models || []).filter((m: { has_results: boolean }) => m.has_results)))
       .catch(() => {});
   }, [open, token]);
 
@@ -179,11 +185,11 @@ function ScreenPickerDialog({
           <button onClick={onClose}><X className="h-4 w-4 text-muted-foreground hover:text-foreground" /></button>
         </div>
 
-        <div className="flex gap-1 px-4 pt-3">
-          {(["standard", "saved", "query"] as const).map(t => (
+        <div className="flex gap-1 px-4 pt-3 flex-wrap">
+          {(["standard", "saved", "alpha", "query"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-3 py-1 text-[11px] rounded-md font-medium transition-colors ${tab === t ? "bg-blue-600 text-white" : "text-muted-foreground hover:text-foreground"}`}>
-              {t === "standard" ? "Standard Alphas" : t === "saved" ? "My Screens" : "Quick Query"}
+              {t === "standard" ? "Standard Alphas" : t === "saved" ? "My Screens" : t === "alpha" ? `Alpha Models${alphaModels.length > 0 ? ` (${alphaModels.length})` : ""}` : "Quick Query"}
             </button>
           ))}
         </div>
@@ -205,7 +211,7 @@ function ScreenPickerDialog({
           ))}
 
           {tab === "saved" && (savedScreens.length === 0
-            ? <p className="text-[11px] text-muted-foreground text-center py-6">No saved screens yet.</p>
+            ? <p className="text-[11px] text-muted-foreground text-center py-6">No saved screens yet. <a href="/alpha-machine/build-screen" className="text-blue-400 hover:underline">Create one</a></p>
             : savedScreens.map(s => (
               <div key={s.id} className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-neutral-700 hover:border-neutral-600">
                 <div className="min-w-0">
@@ -217,6 +223,42 @@ function ScreenPickerDialog({
                   onClick={() => runQuery(s.screener_query, s.name)}>
                   {running === s.name ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
                   Run
+                </Button>
+              </div>
+            ))
+          )}
+
+          {tab === "alpha" && (alphaModels.length === 0
+            ? (
+              <div className="text-center py-6 space-y-2">
+                <p className="text-[11px] text-muted-foreground">No computed alpha models yet.</p>
+                <a href="/alpha-machine" className="text-[11px] text-blue-400 hover:underline">Go to Alpha Machine → Build Model → Compute</a>
+              </div>
+            ) : alphaModels.map(m => (
+              <div key={m.id} className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-neutral-700 hover:border-neutral-600">
+                <div className="min-w-0">
+                  <p className="text-[12px] font-medium">{m.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{m.n_stocks} stocks · factors: {(m.input_factors || []).join(", ")}</p>
+                </div>
+                <Button size="sm" className="h-7 text-[10px] gap-1 shrink-0"
+                  disabled={running === m.name}
+                  onClick={async () => {
+                    setRunning(m.name);
+                    setPreview(null);
+                    try {
+                      const res = await fetch(`${API_BASE}/api/alpha/models/${m.id}/results?top_n=50`, {
+                        headers: token ? { Authorization: `Bearer ${token}` } : {},
+                      });
+                      if (res.ok) {
+                        const data = await res.json();
+                        const symbols = (data.stocks ?? []).map((s: { symbol: string }) => s.symbol);
+                        setPreview({ symbols, label: `${m.name} (Top 50)` });
+                      }
+                    } catch { /* silent */ }
+                    setRunning(null);
+                  }}>
+                  {running === m.name ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+                  Use Top 50
                 </Button>
               </div>
             ))
