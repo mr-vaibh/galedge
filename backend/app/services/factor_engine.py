@@ -60,12 +60,20 @@ def _get_price_matrix(db: Session, symbols: list[str], start: date, end: date) -
 
 
 def _get_stock_info_map(db: Session, symbols: list[str]) -> dict[str, dict]:
-    """Get stock info as a dict: symbol -> {sector, industry, market_cap, ...}."""
+    """Get stock info as a dict: symbol -> {sector, industry, market_cap, fundamentals...}."""
     infos = db.query(StockInfo).filter(StockInfo.symbol.in_(symbols)).all()
     return {i.symbol: {
         "sector": i.sector,
         "industry": i.industry,
         "market_cap": i.market_cap,
+        "pe": i.pe,
+        "pb": i.pb,
+        "roe": i.roe,
+        "dividend_yield": i.dividend_yield,
+        "debt_to_equity": i.debt_to_equity,
+        "profit_margin": i.profit_margin,
+        "earnings_growth": i.earnings_growth,
+        "revenue_growth": i.revenue_growth,
     } for i in infos}
 
 
@@ -105,25 +113,45 @@ def compute_style_exposures(
     sizes = {sym: np.log(max(info_map.get(sym, {}).get("market_cap", 1e6), 1)) for sym in symbols}
     exposures["SIZE"] = pd.Series(sizes)
 
-    # LTMOM: 12-month return minus 1-month return
-    ret_12m = (price_matrix.iloc[-1] / price_matrix.iloc[max(0, -252)] - 1) if len(price_matrix) > 252 else pd.Series(0, index=symbols)
-    ret_1m = (price_matrix.iloc[-1] / price_matrix.iloc[max(0, -21)] - 1) if len(price_matrix) > 21 else pd.Series(0, index=symbols)
-    exposures["LTMOM"] = ret_12m - ret_1m
+    # LTMOM: 12-month return minus 1-month return — computed per symbol to handle sparse data
+    ltmom_dict: dict[str, float] = {}
+    for sym in symbols:
+        col = price_matrix[sym].dropna() if sym in price_matrix.columns else pd.Series(dtype=float)
+        if len(col) >= 252:
+            r12 = col.iloc[-1] / col.iloc[-252] - 1
+            r1 = col.iloc[-1] / col.iloc[-21] - 1 if len(col) >= 21 else 0.0
+            ltmom_dict[sym] = float(r12 - r1) if np.isfinite(r12) else np.nan
+        else:
+            ltmom_dict[sym] = np.nan  # insufficient history — excluded from z-score
+    exposures["LTMOM"] = pd.Series(ltmom_dict)
 
-    # EARNYILD, VALUE, GROWTH, DIVYILD, PROFIT, FINLVG — from stock info
+    # Fundamentals from StockInfo — real data, no placeholders
+    earnyild, value, growth, divyild, profit, finlvg = {}, {}, {}, {}, {}, {}
     for sym in symbols:
         info = info_map.get(sym, {})
-        # These would come from fundamental data — using market_cap as proxy for now
-        mcap = info.get("market_cap", 0)
+        pe  = info.get("pe")
+        pb  = info.get("pb")
+        roe = info.get("roe")
+        dy  = info.get("dividend_yield")
+        de  = info.get("debt_to_equity")
+        pm  = info.get("profit_margin")
+        eg  = info.get("earnings_growth")
+        rg  = info.get("revenue_growth")
 
-    # For now, generate from available data
-    # In production, these come from quarterly financial statements
-    exposures["EARNYILD"] = pd.Series({sym: np.random.normal(0.05, 0.03) for sym in symbols})
-    exposures["VALUE"] = pd.Series({sym: np.random.normal(0.5, 0.2) for sym in symbols})
-    exposures["GROWTH"] = pd.Series({sym: np.random.normal(0.1, 0.15) for sym in symbols})
-    exposures["DIVYILD"] = pd.Series({sym: np.random.normal(0.02, 0.01) for sym in symbols})
-    exposures["PROFIT"] = pd.Series({sym: np.random.normal(0.15, 0.08) for sym in symbols})
-    exposures["FINLVG"] = pd.Series({sym: np.random.normal(0.5, 0.3) for sym in symbols})
+        earnyild[sym] = (1.0 / pe)  if (pe  and pe  > 0)  else np.nan
+        value[sym]    = (1.0 / pb)  if (pb  and pb  > 0)  else np.nan
+        profit[sym]   = float(roe)  if (roe is not None)  else (float(pm) if pm is not None else np.nan)
+        divyild[sym]  = float(dy)   if (dy  is not None)  else np.nan
+        finlvg[sym]   = float(de)   if (de  is not None)  else np.nan
+        # GROWTH: prefer earnings growth, fallback to revenue growth
+        growth[sym]   = float(eg)   if (eg  is not None)  else (float(rg) if rg is not None else np.nan)
+
+    exposures["EARNYILD"] = pd.Series(earnyild)
+    exposures["VALUE"]    = pd.Series(value)
+    exposures["GROWTH"]   = pd.Series(growth)
+    exposures["DIVYILD"]  = pd.Series(divyild)
+    exposures["PROFIT"]   = pd.Series(profit)
+    exposures["FINLVG"]   = pd.Series(finlvg)
 
     # LIQUIDITY: average daily volume ratio
     if not volume_matrix.empty:
@@ -133,16 +161,17 @@ def compute_style_exposures(
     else:
         exposures["LIQUIDITY"] = pd.Series(1.0, index=symbols)
 
-    # Z-score all exposures (cross-sectional standardization)
+    # Z-score all exposures cross-sectionally; NaN stocks get 0 (neutral) after standardisation
     for col in exposures.columns:
-        mean = exposures[col].mean()
-        std = exposures[col].std()
-        if std > 0:
-            exposures[col] = (exposures[col] - mean) / std
-        else:
-            exposures[col] = 0.0
-
-    exposures = exposures.replace([np.inf, -np.inf], 0).fillna(0)
+        valid = exposures[col].dropna()
+        if len(valid) > 1:
+            mean = valid.mean()
+            std  = valid.std()
+            if std > 0:
+                exposures[col] = (exposures[col] - mean) / std
+            # else: all same value → leave as-is, fillna(0) handles it
+        # stocks with NaN get neutral exposure = 0
+    exposures = exposures.replace([np.inf, -np.inf], np.nan).fillna(0)
     return exposures
 
 

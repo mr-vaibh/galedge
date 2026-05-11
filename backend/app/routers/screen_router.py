@@ -234,8 +234,13 @@ def compute_alpha_model(
     db.commit()
 
     try:
-        # Resolve factor names → factor_ids
-        factors = prices_db.query(Factor).filter(Factor.name.in_(input_factor_names)).all()
+        # Resolve factor names → factor_ids — use primary (latest) factor model only
+        from app.models.factor import FactorModel as FM
+        primary_model = prices_db.query(FM).order_by(FM.id.desc()).first()
+        factor_query = prices_db.query(Factor).filter(Factor.name.in_(input_factor_names))
+        if primary_model:
+            factor_query = factor_query.filter(Factor.model_id == primary_model.id)
+        factors = factor_query.all()
         factor_map = {f.name: f.id for f in factors}
         if not factor_map:
             raise HTTPException(status_code=400, detail="No matching factors found. Ensure risk model is built.")
@@ -340,7 +345,12 @@ def compute_factors_adhoc(
     if not body.factors:
         raise HTTPException(status_code=400, detail="No factors provided.")
 
-    factors = prices_db.query(Factor).filter(Factor.name.in_(body.factors)).all()
+    from app.models.factor import FactorModel as FM
+    primary_model = prices_db.query(FM).order_by(FM.id.desc()).first()
+    fq = prices_db.query(Factor).filter(Factor.name.in_(body.factors))
+    if primary_model:
+        fq = fq.filter(Factor.model_id == primary_model.id)
+    factors = fq.all()
     factor_map = {f.name: f.id for f in factors}
     if not factor_map:
         raise HTTPException(status_code=400, detail="No matching factors found. Ensure risk model is built.")
