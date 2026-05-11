@@ -60,7 +60,7 @@ export default function StrategyBuilderDocsPage() {
       </section>
 
       {/* Constraints */}
-      <section className="mb-12">
+      <section id="constraints" className="mb-12">
         <h2 className="text-xl font-semibold mb-3">Constraints</h2>
         <p className="text-neutral-400 mb-3 leading-relaxed">
           Click <strong className="text-white">Add</strong> in the Constraints card to add one or more constraints.
@@ -132,7 +132,7 @@ export default function StrategyBuilderDocsPage() {
       </section>
 
       {/* Objectives */}
-      <section className="mb-12">
+      <section id="objectives" className="mb-12">
         <h2 className="text-xl font-semibold mb-3">Objectives</h2>
         <p className="text-neutral-400 mb-3 leading-relaxed">
           Click <strong className="text-white">Add</strong> in the Objectives card to define what the optimizer should aim for.
