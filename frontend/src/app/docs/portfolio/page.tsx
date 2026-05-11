@@ -1,4 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Portfolio Management | Galedge Docs",
+  description: "Learn how to upload your portfolio via CSV, select holdings for analysis, and track profit & loss in real time across NSE-listed equities.",
+  keywords: ["portfolio upload", "CSV import", "holdings", "P&L tracking", "NSE portfolio", "portfolio management"],
+  openGraph: {
+    title: "Portfolio Management | Galedge Docs",
+    description: "Learn how to upload your portfolio via CSV, select holdings for analysis, and track profit & loss in real time across NSE-listed equities.",
+  },
+};
 
 export default function PortfolioDocsPage() {
   return (

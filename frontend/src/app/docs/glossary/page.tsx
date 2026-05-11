@@ -1,3 +1,15 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Glossary | Galedge Docs",
+  description: "Financial and quantitative investing glossary — definitions for CAGR, Sharpe ratio, drawdown, alpha, beta, factor exposure, attribution, and more.",
+  keywords: ["CAGR", "Sharpe ratio", "drawdown", "alpha", "beta", "factor exposure", "glossary", "financial terms"],
+  openGraph: {
+    title: "Glossary | Galedge Docs",
+    description: "Financial and quantitative investing glossary — definitions for CAGR, Sharpe ratio, drawdown, alpha, beta, factor exposure, attribution, and more.",
+  },
+};
+
 const TERMS = [
   { term: "Alpha", definition: "Return in excess of what the risk model (factor exposures) would predict. True stock-picking skill, not explained by systematic factors. Positive alpha = outperformance; negative = underperformance." },
   { term: "Annualized Return", definition: "Return expressed as a yearly rate, regardless of the actual holding period. Converts returns over different periods to a common annual basis for comparison." },

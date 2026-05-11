@@ -1,4 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Documentation | Galedge Docs",
+  description: "Complete documentation for the Galedge platform — portfolio analytics, risk modelling, optimization, backtesting, and more for systematic investors.",
+  keywords: ["Galedge documentation", "portfolio analytics", "systematic investing", "factor model", "NSE", "backtesting"],
+  openGraph: {
+    title: "Documentation | Galedge Docs",
+    description: "Complete documentation for the Galedge platform — portfolio analytics, risk modelling, optimization, backtesting, and more for systematic investors.",
+  },
+};
 import {
   Rocket, GraduationCap, Briefcase, BarChart3, Shield, Sliders,
   Target, Atom, Wrench, Settings, Code2, BookA, ArrowRight,

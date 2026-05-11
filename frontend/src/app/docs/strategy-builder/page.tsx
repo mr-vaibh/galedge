@@ -1,4 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Strategy Builder | Galedge Docs",
+  description: "Build and backtest quantitative strategies on NSE historical data — configure rebalancing schedules, transaction costs, and generate actionable trade lists for deployment.",
+  keywords: ["backtesting", "rebalancing", "trade list", "strategy deployment", "quantitative strategy", "NSE", "transaction costs"],
+  openGraph: {
+    title: "Strategy Builder | Galedge Docs",
+    description: "Build and backtest quantitative strategies on NSE historical data — configure rebalancing schedules, transaction costs, and generate actionable trade lists for deployment.",
+  },
+};
 
 export default function StrategyBuilderDocsPage() {
   return (

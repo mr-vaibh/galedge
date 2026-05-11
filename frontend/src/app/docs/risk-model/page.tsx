@@ -1,4 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Risk Model | Galedge Docs",
+  description: "Galedge's 21-factor risk model — built on CAPM and extended with momentum, value, quality, and sector factors to decompose portfolio factor exposures.",
+  keywords: ["21-factor model", "CAPM", "factor exposures", "momentum", "value", "quality", "risk model", "systematic risk"],
+  openGraph: {
+    title: "Risk Model | Galedge Docs",
+    description: "Galedge's 21-factor risk model — built on CAPM and extended with momentum, value, quality, and sector factors to decompose portfolio factor exposures.",
+  },
+};
 
 export default function RiskModelDocsPage() {
   return (

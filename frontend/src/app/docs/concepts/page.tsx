@@ -1,3 +1,15 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Concepts | Galedge Docs",
+  description: "Understand the core financial concepts behind Galedge — factor models, Sharpe ratio, alpha, beta, and return attribution explained for systematic investors.",
+  keywords: ["factor model", "Sharpe ratio", "alpha", "beta", "attribution", "systematic investing", "financial concepts"],
+  openGraph: {
+    title: "Concepts | Galedge Docs",
+    description: "Understand the core financial concepts behind Galedge — factor models, Sharpe ratio, alpha, beta, and return attribution explained for systematic investors.",
+  },
+};
+
 export default function ConceptsPage() {
   return (
     <div>

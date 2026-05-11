@@ -1,3 +1,15 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Settings | Galedge Docs",
+  description: "Configure your Galedge platform preferences — display currency, benchmark index, notification settings, and account management options.",
+  keywords: ["settings", "display currency", "benchmark", "platform configuration", "account management"],
+  openGraph: {
+    title: "Settings | Galedge Docs",
+    description: "Configure your Galedge platform preferences — display currency, benchmark index, notification settings, and account management options.",
+  },
+};
+
 export default function SettingsDocsPage() {
   return (
     <div>

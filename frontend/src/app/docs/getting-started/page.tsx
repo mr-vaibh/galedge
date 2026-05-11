@@ -1,4 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Getting Started | Galedge Docs",
+  description: "Get up and running with Galedge in minutes — create an account, upload your portfolio via CSV, and run your first NSE backtest with systematic investing tools.",
+  keywords: ["systematic investing", "portfolio upload", "NSE backtest", "getting started", "Galedge setup"],
+  openGraph: {
+    title: "Getting Started | Galedge Docs",
+    description: "Get up and running with Galedge in minutes — create an account, upload your portfolio via CSV, and run your first NSE backtest with systematic investing tools.",
+  },
+};
 
 export default function GettingStartedPage() {
   return (

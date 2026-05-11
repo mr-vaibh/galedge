@@ -1,4 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Alpha Machine | Galedge Docs",
+  description: "Build and test custom alpha models on NSE equities — IC analysis, information ratio, factor scoring, and signal combination for quantitative research.",
+  keywords: ["alpha model", "IC analysis", "information ratio", "factor scoring", "quantitative research", "signal combination"],
+  openGraph: {
+    title: "Alpha Machine | Galedge Docs",
+    description: "Build and test custom alpha models on NSE equities — IC analysis, information ratio, factor scoring, and signal combination for quantitative research.",
+  },
+};
 
 export default function AlphaMachineDocsPage() {
   return (

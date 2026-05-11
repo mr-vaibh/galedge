@@ -1,4 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Portfolio Optimizer | Galedge Docs",
+  description: "Optimize your portfolio weights using CVXPY convex optimization — maximize Sharpe ratio, minimize volatility, and apply position, sector, and factor constraints.",
+  keywords: ["portfolio optimization", "CVXPY", "Sharpe maximization", "constraints", "convex optimization", "efficient frontier"],
+  openGraph: {
+    title: "Portfolio Optimizer | Galedge Docs",
+    description: "Optimize your portfolio weights using CVXPY convex optimization — maximize Sharpe ratio, minimize volatility, and apply position, sector, and factor constraints.",
+  },
+};
 
 export default function OptimizerDocsPage() {
   return (

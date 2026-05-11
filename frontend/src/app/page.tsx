@@ -55,6 +55,20 @@ const FEATURES = [
     color: "text-yellow-400",
     bg: "bg-yellow-500/10",
   },
+  {
+    icon: Layers,
+    title: "Build and score your own alpha models",
+    desc: "Combine VALUE, PROFIT, MOMENTUM factors into a scoring model. Compute IC, IR, and t-stats to know if your signal is real — or noise.",
+    color: "text-violet-400",
+    bg: "bg-violet-500/10",
+  },
+  {
+    icon: Target,
+    title: "Screen → Score → Backtest in one pipeline",
+    desc: "Filter stocks with a screener, rank survivors with alpha scores, weight by signal strength, backtest with real transaction costs.",
+    color: "text-rose-400",
+    bg: "bg-rose-500/10",
+  },
 ];
 
 const PERSONAS = [
@@ -87,8 +101,9 @@ const VS_EXCEL = [
   { feature: "Backtesting with transaction costs", galedge: true, excel: false },
   { feature: "Live rebalance trade lists", galedge: true, excel: false },
   { feature: "Python research environment", galedge: true, excel: false },
-  { feature: "NSE market data (100+ stocks)", galedge: true, excel: "Manual download" },
+  { feature: "NSE market data (500+ stocks, 2yr history)", galedge: true, excel: "Manual download" },
   { feature: "Peer comparison", galedge: true, excel: "Manual" },
+  { feature: "Alpha model IC/IR analysis", galedge: true, excel: false },
   { feature: "Free to start", galedge: true, excel: true },
 ];
 
@@ -99,7 +114,7 @@ const FAQS = [
   },
   {
     q: "What data does Galedge use?",
-    a: "NSE (National Stock Exchange of India) price and fundamental data via yfinance. 100+ stocks across NIFTY 50, 100, and 500. Data goes back ~1 year for backtesting, updated regularly.",
+    a: "NSE price and fundamental data for 500+ stocks (NIFTY 50, 100, 200, 500, MidCap, SmallCap) plus select US stocks. Price history goes back ~2 years, updated nightly. All data stored locally — no live API calls during analysis.",
   },
   {
     q: "What is a factor model and why does it matter?",
@@ -117,13 +132,17 @@ const FAQS = [
     q: "Can I use Galedge for live trading?",
     a: "Not directly — Galedge doesn't connect to brokers. But it generates trade lists (BUY/SELL/HOLD with quantities and current prices) that you can execute manually through any broker.",
   },
+  {
+    q: "What is an Alpha Model and how do I use it?",
+    a: "An Alpha Model scores every stock in your universe by combining factor signals — Value, Momentum, Profitability etc. The score predicts which stocks will outperform. Use it to rank your screener output, weight your portfolio proportionally, or just understand what's driving returns. Galedge includes IC and Information Ratio analysis so you know if the signal is statistically meaningful.",
+  },
 ];
 
 const STATS = [
-  { value: "100+", label: "NSE Stocks", icon: Database },
+  { value: "500+", label: "NSE Stocks", icon: Database },
   { value: "21", label: "Risk Factors", icon: Layers },
-  { value: "250+", label: "Trading Days", icon: Activity },
-  { value: "Real-time", label: "Market Data", icon: Globe },
+  { value: "500+", label: "Trading Days of Data", icon: Activity },
+  { value: "3", label: "Alpha Model Types", icon: Cpu },
 ];
 
 function FaqItem({ q, a }: { q: string; a: string }) {

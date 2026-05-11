@@ -1,4 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Analytics Suite | Galedge Docs",
+  description: "Deep-dive into Galedge's analytics — Brinson attribution, factor decomposition, peer comparison, drawdown analysis, and return attribution for your portfolio.",
+  keywords: ["Brinson attribution", "factor decomposition", "peer comparison", "portfolio analytics", "return attribution", "drawdown analysis"],
+  openGraph: {
+    title: "Analytics Suite | Galedge Docs",
+    description: "Deep-dive into Galedge's analytics — Brinson attribution, factor decomposition, peer comparison, drawdown analysis, and return attribution for your portfolio.",
+  },
+};
 
 export default function AnalyticsDocsPage() {
   return (

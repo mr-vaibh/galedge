@@ -1,3 +1,15 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Tools | Galedge Docs",
+  description: "Market research tools available to all users — stock screener with fundamental filters, sector heatmap, correlation matrix, and AI-powered price predictions.",
+  keywords: ["stock screener", "heatmap", "correlation matrix", "AI prediction", "market research", "fundamental filters"],
+  openGraph: {
+    title: "Tools | Galedge Docs",
+    description: "Market research tools available to all users — stock screener with fundamental filters, sector heatmap, correlation matrix, and AI-powered price predictions.",
+  },
+};
+
 export default function ToolsDocsPage() {
   return (
     <div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { DocsSearch } from "@/components/DocsSearch";
 import {
   BookOpen,
   Rocket,
@@ -216,6 +217,11 @@ export function DocsSidebar() {
             <span className="ml-1.5 text-xs text-neutral-500">Docs</span>
           </div>
         </Link>
+      </div>
+
+      {/* Search */}
+      <div className="px-3 py-2.5 border-b border-neutral-800">
+        <DocsSearch />
       </div>
 
       {/* Navigation */}

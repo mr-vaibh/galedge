@@ -1,3 +1,15 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "API Reference | Galedge Docs",
+  description: "Complete REST API reference for Galedge — authentication, market data, portfolio analytics, risk model, optimizer, and strategy endpoints with request/response examples.",
+  keywords: ["REST API", "authentication", "market data", "analytics endpoints", "API reference", "portfolio API"],
+  openGraph: {
+    title: "API Reference | Galedge Docs",
+    description: "Complete REST API reference for Galedge — authentication, market data, portfolio analytics, risk model, optimizer, and strategy endpoints with request/response examples.",
+  },
+};
+
 export default function ApiReferenceDocsPage() {
   return (
     <div>
