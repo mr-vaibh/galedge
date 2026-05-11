@@ -777,7 +777,7 @@ export default function BuildStrategyPageInner() {
           )}
           <ScreenPickerDialog
             open={showScreenPicker}
-            onClose={() => { setShowScreenPicker(false); if (!customSymbols.length) setUniverse(""); }}
+            onClose={() => { setShowScreenPicker(false); }}
             token={token}
             onSelect={(syms, label, scores) => {
               setCustomSymbols(syms);
