@@ -324,7 +324,15 @@ export default function BuildStrategyPageInner() {
   const [customScores, setCustomScores] = useState<Record<string, number> | null>(null);
   const [showScreenPicker, setShowScreenPicker] = useState(false);
   const [includeFutures, setIncludeFutures] = useState(false);
-  const [quickTest, setQuickTest] = useState(false);
+  const [quickTest, setQuickTest] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem("sb_quick_test") === "1";
+  });
+
+  const toggleQuickTest = (v: boolean) => {
+    setQuickTest(v);
+    try { sessionStorage.setItem("sb_quick_test", v ? "1" : "0"); } catch {}
+  };
   const [constraints, setConstraints] = useState<Constraint[]>([]);
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [showConstraintDialog, setShowConstraintDialog] = useState(false);
@@ -756,7 +764,7 @@ export default function BuildStrategyPageInner() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setQuickTest(v => !v)}
+            onClick={() => toggleQuickTest(!quickTest)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-medium transition-all ${
               quickTest
                 ? "bg-amber-500/15 border-amber-500/40 text-amber-400 hover:bg-amber-500/25"
@@ -781,7 +789,7 @@ export default function BuildStrategyPageInner() {
             <p className="text-[12px] font-medium text-amber-300">Quick Test Mode — results will not be saved</p>
             <p className="text-[10px] text-amber-400/70">Configure universe, constraints and objectives below, then run the backtest. No strategy is created.</p>
           </div>
-          <button onClick={() => setQuickTest(false)} className="ml-auto text-amber-400/60 hover:text-amber-400 transition-colors shrink-0">
+          <button onClick={() => toggleQuickTest(false)} className="ml-auto text-amber-400/60 hover:text-amber-400 transition-colors shrink-0">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
