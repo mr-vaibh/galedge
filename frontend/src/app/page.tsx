@@ -9,7 +9,7 @@ import {
   BarChart3, Brain, Code2, LineChart, Shield, Zap, TrendingUp,
   PieChart, Target, Activity, Layers, Database, ArrowRight,
   ChevronDown, Star, Users, Globe, CheckCircle2, XCircle, Plus, Minus,
-  BookOpen, Cpu, GraduationCap, Briefcase,
+  BookOpen, Cpu, GraduationCap, Briefcase, Clock, FlaskConical,
 } from "lucide-react";
 
 const FEATURES = [
@@ -114,7 +114,7 @@ const FAQS = [
   },
   {
     q: "What data does Galedge use?",
-    a: "NSE price and fundamental data for 500+ stocks (NIFTY 50, 100, 200, 500, MidCap, SmallCap) plus select US stocks. Price history goes back ~2 years, updated nightly. All data stored locally — no live API calls during analysis.",
+    a: "Price history for 400+ NSE and US stocks going back to 1962 — over 16,000 trading days per symbol where available. NIFTY 500 coverage plus select US stocks (Apple, Google, Microsoft, and more). Fundamental data (P/E, ROE, dividend yield) updated regularly. All data stored locally — no live API calls during analysis.",
   },
   {
     q: "What is a factor model and why does it matter?",
@@ -139,10 +139,10 @@ const FAQS = [
 ];
 
 const STATS = [
-  { value: "500+", label: "NSE Stocks", icon: Database },
-  { value: "21", label: "Risk Factors", icon: Layers },
-  { value: "500+", label: "Trading Days of Data", icon: Activity },
-  { value: "3", label: "Alpha Model Types", icon: Cpu },
+  { value: "60+", label: "Years of Price History", icon: Clock },
+  { value: "400+", label: "NSE & US Stocks", icon: Globe },
+  { value: "21-Factor", label: "Risk Decomposition", icon: Layers },
+  { value: "10+", label: "Portfolio Analytics Views", icon: BarChart3 },
 ];
 
 function FaqItem({ q, a }: { q: string; a: string }) {
