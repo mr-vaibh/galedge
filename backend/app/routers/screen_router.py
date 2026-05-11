@@ -587,6 +587,19 @@ def run_python_code(req: RunCodeRequest):
     return {"output": output + error_output if error_output else output, "error": None}
 
 
+@router.put("/models/{model_id}")
+def update_alpha_model(model_id: int, data: AlphaModelCreate, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    model = db.query(AlphaModel).filter(AlphaModel.id == model_id, AlphaModel.user_id == user.id).first()
+    if not model:
+        raise HTTPException(status_code=404, detail="Alpha model not found")
+    for k, v in data.model_dump().items():
+        setattr(model, k, v)
+    model.status = "draft"
+    model.results = None
+    db.commit()
+    return {"id": model.id, "name": model.name}
+
+
 @router.delete("/models/{model_id}")
 def delete_alpha_model(model_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
     model = db.query(AlphaModel).filter(AlphaModel.id == model_id, AlphaModel.user_id == user.id).first()

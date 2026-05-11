@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, Pencil, Trash2, Plus, Loader2, Lock, Play, Copy, Cpu, BarChart2, ArrowRight, X } from "lucide-react";
+import { RefreshCw, Pencil, Trash2, Plus, Loader2, Lock, Play, Copy, Cpu, BarChart2, ArrowRight, X, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
@@ -15,6 +17,7 @@ interface Screen {
   id: number;
   name: string;
   description: string;
+  screener_query: string;
   created_at: string;
   updated_at: string;
 }
@@ -152,6 +155,11 @@ export default function AlphaMachinePage() {
   const [cloningId, setCloningId] = useState<string | null>(null);
   const [computingId, setComputingId] = useState<number | null>(null);
   const [computingStdId, setComputingStdId] = useState<string | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<number | string | null>(null);
+  const [editingModel, setEditingModel] = useState<AlphaModel | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editFactors, setEditFactors] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
   const [resultsModel, setResultsModel] = useState<{
     model: AlphaModel;
     stocks: AlphaStock[];
@@ -257,6 +265,99 @@ export default function AlphaMachinePage() {
     setComputingStdId(null);
   }
 
+  async function duplicateScreen(s: Screen) {
+    if (!token) return;
+    setDuplicatingId(s.id);
+    try {
+      await fetch(`${API_BASE}/api/alpha/screens`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `Copy of ${s.name}`,
+          description: s.description,
+          screener_query: s.screener_query || "",
+          score_equation: "",
+          score_variable: "",
+          parent_universe: "NIFTY 500",
+          portfolio_weight: "equal",
+        }),
+      });
+      fetchData();
+    } catch { /* silent */ }
+    setDuplicatingId(null);
+  }
+
+  async function cloneModel(m: AlphaModel) {
+    if (!token) return;
+    setDuplicatingId(m.id);
+    try {
+      await fetch(`${API_BASE}/api/alpha/models`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `Copy of ${m.name}`,
+          input_factors: m.input_factors || [],
+          control_factors: [],
+          return_type: "Total",
+          regression_weight: "Market Cap",
+          universe: "Risk Model Estimation Universe",
+        }),
+      });
+      fetchData();
+    } catch { /* silent */ }
+    setDuplicatingId(null);
+  }
+
+  async function cloneStandardAlpha(s: typeof STANDARD_ALPHAS[0]) {
+    if (!token) { router.push("/login"); return; }
+    setDuplicatingId(s.id);
+    try {
+      await fetch(`${API_BASE}/api/alpha/models`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `${s.name} (Clone)`,
+          input_factors: s.factors,
+          control_factors: ["MARKET", "SIZE"],
+          return_type: "Excess",
+          regression_weight: "Market Cap",
+          universe: "Risk Model Estimation Universe",
+        }),
+      });
+      setActiveTab("alpha");
+      fetchData();
+    } catch { /* silent */ }
+    setDuplicatingId(null);
+  }
+
+  function openEdit(m: AlphaModel) {
+    setEditingModel(m);
+    setEditName(m.name);
+    setEditFactors(m.input_factors || []);
+  }
+
+  async function saveEdit() {
+    if (!editingModel || !token) return;
+    setSaving(true);
+    try {
+      await fetch(`${API_BASE}/api/alpha/models/${editingModel.id}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editName,
+          input_factors: editFactors,
+          control_factors: [],
+          return_type: "Total",
+          regression_weight: "Market Cap",
+          universe: "Risk Model Estimation Universe",
+        }),
+      });
+      setEditingModel(null);
+      fetchData();
+    } catch { /* silent */ }
+    setSaving(false);
+  }
+
   async function viewResults(m: AlphaModel) {
     if (!token) return;
     try {
@@ -307,7 +408,7 @@ export default function AlphaMachinePage() {
               <table className="w-full text-[11px]">
                 <thead>
                   <tr className="border-b border-border/50 bg-muted/20">
-                    {["Screen Name", "Description", "Created", "Modified", "Edit", "Delete"].map((h) => (
+                    {["Screen Name", "Description", "Created", "Modified", "Actions"].map((h) => (
                       <th key={h} className="px-3 py-2.5 text-left font-medium text-muted-foreground">{h}</th>
                     ))}
                   </tr>
@@ -330,14 +431,17 @@ export default function AlphaMachinePage() {
                         <td className="px-3 py-2 text-muted-foreground">{s.created_at?.slice(0, 10)}</td>
                         <td className="px-3 py-2 text-muted-foreground">{s.updated_at?.slice(0, 10)}</td>
                         <td className="px-3 py-2">
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => router.push(`/alpha-machine/build-screen?id=${s.id}`)}>
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                        </td>
-                        <td className="px-3 py-2">
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteScreen(s.id)}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="h-6 w-6" title="Edit" onClick={() => router.push(`/alpha-machine/build-screen?id=${s.id}`)}>
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" title="Duplicate" disabled={duplicatingId === s.id} onClick={() => duplicateScreen(s)}>
+                              {duplicatingId === s.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Copy className="h-3 w-3" />}
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" title="Delete" onClick={() => deleteScreen(s.id)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -440,7 +544,7 @@ export default function AlphaMachinePage() {
                         <td className="px-3 py-2 text-muted-foreground">{m.n_stocks ?? "—"}</td>
                         <td className="px-3 py-2 text-muted-foreground text-[10px]">{m.computed_at ?? "—"}</td>
                         <td className="px-3 py-2">
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 flex-wrap">
                             <Button variant="outline" size="sm" className="h-6 text-[9px] gap-0.5"
                               disabled={computingId === m.id}
                               onClick={() => computeModel(m)}>
@@ -453,7 +557,13 @@ export default function AlphaMachinePage() {
                                 <BarChart2 className="h-3 w-3" /> Results
                               </Button>
                             )}
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteModel(m.id)}>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" title="Edit" onClick={() => openEdit(m)}>
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" title="Clone" disabled={duplicatingId === m.id} onClick={() => cloneModel(m)}>
+                              {duplicatingId === m.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Copy className="h-3 w-3" />}
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" title="Delete" onClick={() => deleteModel(m.id)}>
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
@@ -492,14 +602,20 @@ export default function AlphaMachinePage() {
                       <span key={t} className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${TAG_COLORS[t] ?? "bg-muted text-muted-foreground"}`}>{t}</span>
                     ))}
                   </div>
-                  <div className="pt-1 border-t border-amber-500/20 mt-auto">
-                    <Button size="sm" className="w-full h-7 text-[10px] gap-1.5 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30"
+                  <div className="pt-1 border-t border-amber-500/20 mt-auto flex gap-1.5">
+                    <Button size="sm" className="flex-1 h-7 text-[10px] gap-1 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30"
                       variant="outline"
                       disabled={computingStdId === m.id}
                       onClick={() => computeStandardAlpha(m)}>
                       {computingStdId === m.id
                         ? <><Loader2 className="h-3 w-3 animate-spin" /> Computing...</>
-                        : <><Cpu className="h-3 w-3" /> Compute & View Results</>}
+                        : <><Cpu className="h-3 w-3" /> Compute & View</>}
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1 border-amber-500/30 text-amber-300 hover:bg-amber-600/20"
+                      disabled={duplicatingId === m.id}
+                      onClick={() => cloneStandardAlpha(m)}>
+                      {duplicatingId === m.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Copy className="h-3 w-3" />}
+                      Clone
                     </Button>
                   </div>
                 </div>
@@ -508,6 +624,50 @@ export default function AlphaMachinePage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Alpha Model Dialog */}
+      {editingModel && (
+        <Dialog open onOpenChange={() => setEditingModel(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>Edit Alpha Model</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Name</Label>
+                <Input value={editName} onChange={e => setEditName(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Input Factors <span className="text-muted-foreground text-[10px]">({editFactors.length} selected)</span></Label>
+                <div className="flex flex-wrap gap-1 mb-2 min-h-[28px]">
+                  {editFactors.map(f => (
+                    <button key={f} onClick={() => setEditFactors(prev => prev.filter(x => x !== f))}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-600/20 text-blue-400 text-[10px] hover:bg-red-600/20 hover:text-red-400 transition-colors">
+                      {f} <X className="h-2.5 w-2.5" />
+                    </button>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {["MARKET","BETA","SIZE","LTMOM","EARNYILD","VALUE","GROWTH","DIVYILD","PROFIT","FINLVG","LIQUIDITY"]
+                    .filter(f => !editFactors.includes(f))
+                    .map(f => (
+                      <button key={f} onClick={() => setEditFactors(prev => [...prev, f])}
+                        className="px-2 py-0.5 rounded border border-border text-[10px] text-muted-foreground hover:border-blue-500 hover:text-blue-400 transition-colors">
+                        + {f}
+                      </button>
+                    ))}
+                </div>
+              </div>
+              <p className="text-[10px] text-amber-400">Editing will reset status to draft and clear existing results.</p>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setEditingModel(null)}>Cancel</Button>
+                <Button className="flex-1 gap-1.5" disabled={saving || !editName || editFactors.length === 0} onClick={saveEdit}>
+                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                  Save
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Alpha Model Results Modal */}
       {resultsModel && (
