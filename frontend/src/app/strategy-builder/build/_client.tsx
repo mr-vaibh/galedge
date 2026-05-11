@@ -557,7 +557,7 @@ export default function BuildStrategyPageInner() {
         start_date: btStartDate,
         end_date: btEndDate,
         rebalance_frequency: btFrequency,
-        weight_method: btMethod === "alpha_score" ? "alpha_score"
+        weight_method: btMethod === "alpha_score" && customScores ? "alpha_score"
           : btMethod === "equal" ? "equal"
           : btMethod === "momentum" ? "momentum"
           : "optimizer",
@@ -566,6 +566,9 @@ export default function BuildStrategyPageInner() {
       };
       if (btMethod === "alpha_score" && customScores) {
         backtestPayload.alpha_scores = customScores;
+      } else if (btMethod === "alpha_score" && !customScores) {
+        // No scores available — silently fall back to equal weight
+        backtestPayload.weight_method = "equal";
       }
       if (universe === "custom_screen" && customSymbols.length > 0) {
         backtestPayload.symbols = customSymbols;
@@ -1253,11 +1256,14 @@ export default function BuildStrategyPageInner() {
                       <SelectItem value="optimizer">Optimizer</SelectItem>
                       <SelectItem value="equal">Equal Weight</SelectItem>
                       <SelectItem value="momentum">Momentum</SelectItem>
-                      {customScores && <SelectItem value="alpha_score">Alpha Score Weighted</SelectItem>}
+                      <SelectItem value="alpha_score">Alpha Score Weighted</SelectItem>
                     </SelectContent>
                   </Select>
-                  {btMethod === "alpha_score" && (
+                  {btMethod === "alpha_score" && customScores && (
                     <p className="text-[10px] text-blue-400 mt-1">Softmax of z-scores — higher alpha stocks get more weight.</p>
+                  )}
+                  {btMethod === "alpha_score" && !customScores && (
+                    <p className="text-[10px] text-amber-400 mt-1">No scores loaded. Select universe via Alpha Machine picker to enable score weighting.</p>
                   )}
                 </div>
 
