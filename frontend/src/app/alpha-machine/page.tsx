@@ -249,7 +249,12 @@ export default function AlphaMachinePage() {
         const err = await res.json().catch(() => ({ detail: "Computation failed" }));
         alert(err.detail || "Computation failed");
       } else {
-        await fetchData();
+        const data = await res.json();
+        setUserModels(prev => prev.map(model =>
+          model.id === m.id
+            ? { ...model, status: "available", has_results: true, n_stocks: data.n_stocks, computed_at: new Date().toISOString().slice(0, 10) }
+            : model
+        ));
       }
     } catch { alert("Could not connect to server"); }
     setComputingId(null);
