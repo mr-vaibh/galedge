@@ -718,6 +718,10 @@ export default function BuildStrategyPageInner() {
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Build New Strategy</h1>
+        <Button variant="outline" size="sm" className="text-[11px] gap-1.5"
+          onClick={() => router.push("/strategy-builder/docs")}>
+          <Search className="h-3.5 w-3.5" /> Constraints & Objectives Guide
+        </Button>
       </div>
 
       {/* Strategy Metadata */}
@@ -816,8 +820,33 @@ export default function BuildStrategyPageInner() {
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Constraints</CardTitle>
             <div className="flex gap-1">
-              <Button variant="ghost" size="icon" className="h-6 w-6"><Upload className="h-3 w-3" /></Button>
-              <Button variant="ghost" size="icon" className="h-6 w-6"><Download className="h-3 w-3" /></Button>
+              <Button variant="ghost" size="icon" className="h-6 w-6" title="Upload JSON"
+                onClick={() => {
+                  const el = document.createElement("input");
+                  el.type = "file"; el.accept = ".json";
+                  el.onchange = (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (!file) return;
+                    file.text().then(text => {
+                      try {
+                        const parsed: Constraint[] = JSON.parse(text);
+                        if (!Array.isArray(parsed)) throw new Error("Expected array");
+                        setConstraints(parsed.map((c, i) => ({ ...c, id: Date.now() + i })));
+                      } catch { alert("Invalid JSON. Expected an array of constraints."); }
+                    });
+                  };
+                  el.click();
+                }}>
+                <Upload className="h-3 w-3" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-6 w-6" title="Download JSON"
+                onClick={() => {
+                  const blob = new Blob([JSON.stringify(constraints, null, 2)], { type: "application/json" });
+                  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+                  a.download = "constraints.json"; a.click();
+                }}>
+                <Download className="h-3 w-3" />
+              </Button>
             </div>
           </CardHeader>
           <CardContent>
@@ -893,8 +922,33 @@ export default function BuildStrategyPageInner() {
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm">Objectives</CardTitle>
             <div className="flex gap-1">
-              <Button variant="ghost" size="icon" className="h-6 w-6"><Upload className="h-3 w-3" /></Button>
-              <Button variant="ghost" size="icon" className="h-6 w-6"><Download className="h-3 w-3" /></Button>
+              <Button variant="ghost" size="icon" className="h-6 w-6" title="Upload JSON"
+                onClick={() => {
+                  const el = document.createElement("input");
+                  el.type = "file"; el.accept = ".json";
+                  el.onchange = (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (!file) return;
+                    file.text().then(text => {
+                      try {
+                        const parsed: Objective[] = JSON.parse(text);
+                        if (!Array.isArray(parsed)) throw new Error("Expected array");
+                        setObjectives(parsed.map((o, i) => ({ ...o, id: Date.now() + i })));
+                      } catch { alert("Invalid JSON. Expected an array of objectives."); }
+                    });
+                  };
+                  el.click();
+                }}>
+                <Upload className="h-3 w-3" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-6 w-6" title="Download JSON"
+                onClick={() => {
+                  const blob = new Blob([JSON.stringify(objectives, null, 2)], { type: "application/json" });
+                  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+                  a.download = "objectives.json"; a.click();
+                }}>
+                <Download className="h-3 w-3" />
+              </Button>
             </div>
           </CardHeader>
           <CardContent>
