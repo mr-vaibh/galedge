@@ -293,8 +293,9 @@ async def get_options(
     expiry: str | None = Query(None, description="Expiry date YYYY-MM-DD"),
     kind: str = Query("calls", enum=["calls", "puts"]),
 ):
-    """Get options chain for a ticker."""
-    raise HTTPException(status_code=503, detail="Options data unavailable")
+    """Get options chain for a ticker — US stocks only (NSE options not available via yfinance)."""
+    if symbol.upper().endswith(".NS") or symbol.upper().endswith(".BO"):
+        raise HTTPException(status_code=503, detail="Options data not available for NSE/BSE stocks")
     def _fetch():
         t = _ticker(symbol)
         expirations = t.options
@@ -388,8 +389,9 @@ async def get_intel(
         "mutual_fund_holders", "recommendations", "news",
     ]),
 ):
-    """Get market intelligence — insiders, institutions, analysts, news."""
-    raise HTTPException(status_code=503, detail="Intel data unavailable")
+    """Get market intelligence — analysts, news (insider/institutional data disabled)."""
+    if kind in ("insider_transactions", "institutional_holders", "mutual_fund_holders"):
+        raise HTTPException(status_code=503, detail=f"{kind} data unavailable")
     def _fetch():
         t = _ticker(symbol)
         result = {"symbol": symbol.upper()}

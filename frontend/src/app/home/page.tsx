@@ -106,7 +106,7 @@ export default function HomePage() {
           Free Stock Market Data
         </h1>
         <p className="text-zinc-500 max-w-xl mx-auto">
-          End-of-day prices for 400+ NSE and US stocks. Updated daily.
+          End-of-day prices for 500+ NSE and 70+ US stocks. Updated daily.
         </p>
         <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-xs">
           <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 inline-block" />
