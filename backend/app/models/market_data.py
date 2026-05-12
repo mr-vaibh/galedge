@@ -66,6 +66,32 @@ class StockInfo(Base):
     low_52w: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
+class StockNews(Base):
+    """Latest news headlines per stock — populated by nightly GitHub Actions job."""
+    __tablename__ = "stock_news"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(50), index=True)
+    fetched_at: Mapped[date] = mapped_column(Date, index=True)
+    title: Mapped[str] = mapped_column(String(500), default="")
+    publisher: Mapped[str] = mapped_column(String(100), default="")
+    link: Mapped[str] = mapped_column(String(1000), default="")
+    published_at: Mapped[str] = mapped_column(String(50), default="")
+
+
+class StockRecommendation(Base):
+    """Analyst recommendations per stock — populated by nightly GitHub Actions job."""
+    __tablename__ = "stock_recommendations"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(50), index=True)
+    fetched_at: Mapped[date] = mapped_column(Date, index=True)
+    period: Mapped[str] = mapped_column(String(20), default="")
+    strong_buy: Mapped[int] = mapped_column(Integer, default=0)
+    buy: Mapped[int] = mapped_column(Integer, default=0)
+    hold: Mapped[int] = mapped_column(Integer, default=0)
+    sell: Mapped[int] = mapped_column(Integer, default=0)
+    strong_sell: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class IndexConstituent(Base):
     """Index membership over time (point-in-time)."""
     __tablename__ = "index_constituents"

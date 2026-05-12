@@ -29,6 +29,9 @@ jobs:
       - name: Fetch fundamentals
         run: python scripts/fetch_fundamentals.py
 
+      - name: Fetch news and recommendations
+        run: python scripts/fetch_intel.py
+
       - name: Set up SSH key
         run: |
           mkdir -p ~/.ssh
@@ -36,12 +39,14 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H 165.232.179.90 >> ~/.ssh/known_hosts
 
-      - name: Upload CSVs and import scripts to server
+      - name: Upload data and import scripts to server
         run: |
           scp -i ~/.ssh/id_ed25519 /tmp/prices_export.csv root@165.232.179.90:/tmp/prices_export.csv
           scp -i ~/.ssh/id_ed25519 /tmp/fundamentals_export.csv root@165.232.179.90:/tmp/fundamentals_export.csv
+          scp -i ~/.ssh/id_ed25519 /tmp/intel_export.json root@165.232.179.90:/tmp/intel_export.json
           scp -i ~/.ssh/id_ed25519 scripts/import_prices.py root@165.232.179.90:/tmp/import_prices.py
           scp -i ~/.ssh/id_ed25519 scripts/import_fundamentals.py root@165.232.179.90:/tmp/import_fundamentals.py
+          scp -i ~/.ssh/id_ed25519 scripts/import_intel.py root@165.232.179.90:/tmp/import_intel.py
 
       - name: Import prices into DB
         run: |
@@ -52,6 +57,11 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_ed25519 root@165.232.179.90 \
             "/opt/galedge/.venv/bin/python /tmp/import_fundamentals.py 2>&1 | tail -5"
+
+      - name: Import news and recommendations into DB
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@165.232.179.90 \
+            "/opt/galedge/.venv/bin/python /tmp/import_intel.py 2>&1 | tail -5"
 
       - name: Verify
         run: |

@@ -353,6 +353,8 @@ async def get_fundamentals(
             closes = [p.close for p in reversed(prices)]
             high_52w = max((p.high for p in prices), default=0)
             low_52w = min((p.low for p in prices), default=0)
+            def _v(val):
+                return val if val is not None else None
             return {
                 "symbol": sym,
                 "sheet": "info",
@@ -360,9 +362,36 @@ async def get_fundamentals(
                     "shortName": info.name if info else sym,
                     "sector": info.sector if info else "",
                     "industry": info.industry if info else "",
-                    "marketCap": info.market_cap if info else 0,
+                    "marketCap": _v(info.market_cap) if info else None,
                     "fiftyTwoWeekHigh": round(high_52w, 2),
                     "fiftyTwoWeekLow": round(low_52w, 2),
+                    # Valuation
+                    "trailingPE": _v(info.pe) if info else None,
+                    "forwardPE": _v(info.forward_pe) if info else None,
+                    "priceToBook": _v(info.pb) if info else None,
+                    "priceToSalesTrailing12Months": _v(info.ps) if info else None,
+                    "pegRatio": _v(info.peg) if info else None,
+                    "enterpriseToEbitda": _v(info.ev_ebitda) if info else None,
+                    "dividendYield": _v(info.dividend_yield) if info else None,
+                    # Profitability
+                    "returnOnEquity": _v(info.roe) if info else None,
+                    "returnOnAssets": _v(info.roa) if info else None,
+                    "profitMargins": _v(info.profit_margin) if info else None,
+                    "operatingMargins": _v(info.operating_margin) if info else None,
+                    "grossMargins": _v(info.gross_margin) if info else None,
+                    # Growth
+                    "revenueGrowth": _v(info.revenue_growth) if info else None,
+                    "earningsGrowth": _v(info.earnings_growth) if info else None,
+                    "trailingEps": _v(info.eps) if info else None,
+                    # Leverage & Liquidity
+                    "debtToEquity": _v(info.debt_to_equity) if info else None,
+                    "currentRatio": _v(info.current_ratio) if info else None,
+                    "beta": _v(info.beta) if info else None,
+                    # Size
+                    "totalRevenue": _v(info.revenue) if info else None,
+                    "netIncomeToCommon": _v(info.net_income) if info else None,
+                    "bookValue": _v(info.book_value) if info else None,
+                    "freeCashflow": _v(info.free_cash_flow) if info else None,
                 },
             }
         finally:
@@ -389,9 +418,36 @@ async def get_intel(
         "mutual_fund_holders", "recommendations", "news",
     ]),
 ):
-    """Get market intelligence — analysts, news (insider/institutional data disabled)."""
+    """Get market intelligence — served from DB (fetched nightly via GitHub Actions)."""
+    from app.database import PricesSessionLocal as SessionLocal
+    from app.models.market_data import StockNews, StockRecommendation
+
     if kind in ("insider_transactions", "institutional_holders", "mutual_fund_holders"):
-        raise HTTPException(status_code=503, detail=f"{kind} data unavailable")
+        raise HTTPException(status_code=503, detail=f"{kind} not available — requires institutional data feed")
+
+    sym = symbol.upper()
+    db = SessionLocal()
+    try:
+        result: dict = {"symbol": sym}
+
+        if kind in ("news", "all"):
+            news_rows = db.query(StockNews).filter(StockNews.symbol == sym).order_by(StockNews.fetched_at.desc()).limit(10).all()
+            result["news"] = [
+                {"title": n.title, "publisher": n.publisher, "link": n.link, "published_at": n.published_at}
+                for n in news_rows
+            ]
+
+        if kind in ("recommendations", "all"):
+            rec_rows = db.query(StockRecommendation).filter(StockRecommendation.symbol == sym).order_by(StockRecommendation.fetched_at.desc()).limit(12).all()
+            result["recommendations"] = [
+                {"period": r.period, "strongBuy": r.strong_buy, "buy": r.buy, "hold": r.hold, "sell": r.sell, "strongSell": r.strong_sell}
+                for r in rec_rows
+            ]
+
+        return result
+    finally:
+        db.close()
+
     def _fetch():
         t = _ticker(symbol)
         result = {"symbol": symbol.upper()}
