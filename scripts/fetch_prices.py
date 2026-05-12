@@ -16,7 +16,7 @@ for i in range(0, len(ALL_SYMBOLS), BATCH):
     chunk = ALL_SYMBOLS[i:i + BATCH]
     print(f"Batch {i//BATCH + 1}/{-(-len(ALL_SYMBOLS)//BATCH)}: {chunk[0]}...", flush=True)
     try:
-        df = yf.download(chunk, period="5d", interval="1d", group_by="ticker",
+        df = yf.download(chunk, period="10d", interval="1d", group_by="ticker",
                          progress=False, threads=True, auto_adjust=True)
         if df.empty:
             continue
