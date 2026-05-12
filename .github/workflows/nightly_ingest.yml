@@ -36,20 +36,22 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H 165.232.179.90 >> ~/.ssh/known_hosts
 
-      - name: Upload CSVs to server
+      - name: Upload CSVs and import scripts to server
         run: |
           scp -i ~/.ssh/id_ed25519 /tmp/prices_export.csv root@165.232.179.90:/tmp/prices_export.csv
           scp -i ~/.ssh/id_ed25519 /tmp/fundamentals_export.csv root@165.232.179.90:/tmp/fundamentals_export.csv
+          scp -i ~/.ssh/id_ed25519 scripts/import_prices.py root@165.232.179.90:/tmp/import_prices.py
+          scp -i ~/.ssh/id_ed25519 scripts/import_fundamentals.py root@165.232.179.90:/tmp/import_fundamentals.py
 
       - name: Import prices into DB
         run: |
           ssh -i ~/.ssh/id_ed25519 root@165.232.179.90 \
-            "/opt/galedge/.venv/bin/python /tmp/import_prices.py > /tmp/import_prices.log 2>&1 && tail -3 /tmp/import_prices.log"
+            "/opt/galedge/.venv/bin/python /tmp/import_prices.py 2>&1 | tail -5"
 
       - name: Import fundamentals into DB
         run: |
           ssh -i ~/.ssh/id_ed25519 root@165.232.179.90 \
-            "/opt/galedge/.venv/bin/python /tmp/import_fundamentals.py > /tmp/import_fundamentals.log 2>&1 && tail -3 /tmp/import_fundamentals.log"
+            "/opt/galedge/.venv/bin/python /tmp/import_fundamentals.py 2>&1 | tail -5"
 
       - name: Verify
         run: |
