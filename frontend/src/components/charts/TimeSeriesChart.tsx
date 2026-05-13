@@ -285,15 +285,6 @@ export function TimeSeriesChart({
         </LineChart>
       </ResponsiveContainer>
 
-      {/* Subtle hint */}
-      {!hasRange && !dragging && (
-        <div style={{
-          position: "absolute", bottom: 28, right: 12,
-          fontSize: 9, color: "#3f3f46", pointerEvents: "none",
-        }}>
-          drag to measure range
-        </div>
-      )}
 
       {/* Delta panel — follows cursor during drag, stays pinned after release */}
       {hasRange && (pinned || dragging) && (() => {
