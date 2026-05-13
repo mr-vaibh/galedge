@@ -1,0 +1,1 @@
+ - in upload portfolio, the BuyPrice is in which currency? it should give warning or info before uploading finally

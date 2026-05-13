@@ -400,6 +400,8 @@ def compute_pnl_metrics(
     bench_total_return: float | None = None
     alpha: float | None = None
 
+    # Benchmark metrics — computed when benchmark_returns provided
+    bench_metrics: dict = {}
     if benchmark_returns is not None and not benchmark_returns.empty:
         b = benchmark_returns.dropna()
         common_idx = r.index.intersection(b.index)
@@ -413,9 +415,30 @@ def compute_pnl_metrics(
 
             bench_total_return_dec = (1 + b_aligned).prod() - 1
             bench_total_return = bench_total_return_dec * 100
+            bench_n = len(b_aligned)
+
+            # Full benchmark metric suite
+            bench_cagr_dec   = (1 + bench_total_return_dec) ** (252.0 / bench_n) - 1
+            bench_vol_dec    = b_aligned.std() * np.sqrt(252)
+            bench_sharpe     = (b_aligned.mean() / b_aligned.std() * np.sqrt(252)) if b_aligned.std() > 1e-10 else 0.0
+            b_down           = b_aligned[b_aligned < 0]
+            bench_sortino    = (b_aligned.mean() / b_down.std() * np.sqrt(252)) if len(b_down) > 1 and b_down.std() > 1e-10 else 0.0
+            b_cum            = (1 + b_aligned).cumprod()
+            b_dd             = ((b_cum - b_cum.cummax()) / b_cum.cummax()).min() * 100
+
+            bench_metrics = {
+                "total_return": round(bench_total_return, 4),
+                "cagr":         round(bench_cagr_dec * 100, 4),
+                "sharpe":       round(bench_sharpe, 4),
+                "sortino":      round(bench_sortino, 4),
+                "volatility":   round(bench_vol_dec * 100, 4),
+                "max_drawdown": round(b_dd, 4),
+                "beta":         1.0,
+                "treynor":      round(bench_cagr_dec / 1.0, 4),
+            }
 
             # Jensen's alpha (annualised, rf=0)
-            alpha_dec = cagr_dec - beta * ((1 + bench_total_return_dec) ** (252 / len(b_aligned)) - 1)
+            alpha_dec = cagr_dec - beta * bench_cagr_dec
             alpha = alpha_dec * 100
 
         treynor = (total_return_dec / beta) if abs(beta) > 0.01 else 0.0
@@ -429,8 +452,16 @@ def compute_pnl_metrics(
         "max_drawdown": round(max_drawdown_pct, 4),
         "beta": round(beta, 4),
         "treynor": round(treynor, 4),
-        "benchmark_total_return": round(bench_total_return, 4) if bench_total_return is not None else None,
+        "benchmark_total_return": bench_metrics.get("total_return"),
+        "benchmark_cagr":         bench_metrics.get("cagr"),
+        "benchmark_sharpe":       bench_metrics.get("sharpe"),
+        "benchmark_sortino":      bench_metrics.get("sortino"),
+        "benchmark_volatility":   bench_metrics.get("volatility"),
+        "benchmark_max_drawdown": bench_metrics.get("max_drawdown"),
+        "benchmark_treynor":      bench_metrics.get("treynor"),
         "alpha": round(alpha, 4) if alpha is not None else None,
+        # Legacy keys kept for backward compatibility
+        "benchmark_total_return_legacy": bench_metrics.get("total_return"),
     }
 
 
@@ -1712,6 +1743,19 @@ def get_full_analytics(
     except Exception:
         pass
 
+    # Compute overall factor decomposition from factor_decomp_ts (sum of daily contributions)
+    _fts = factor_decomp_ts  # already computed above
+    _market_ret_total = _style_ret_total = _industry_ret_total = _idio_ret_total = None
+    try:
+        if _fts:
+            _market_ret_total = round(sum(row.get("market_return_pct", 0) or 0 for row in _fts), 4)
+            _style_ret_total  = round(sum(row.get("style_return_pct", 0)  or 0 for row in _fts), 4)
+            _indus_ret_total  = round(sum(row.get("industry_return_pct", 0) or 0 for row in _fts), 4)
+            _idio_ret_total   = round(sum(row.get("idio_return_pct", 0)  or 0 for row in _fts), 4)
+            _factor_ret_total = round((_market_ret_total or 0) + (_style_ret_total or 0) + (_indus_ret_total or 0), 4)
+    except Exception:
+        pass
+
     # Normalize pnl_metrics keys to _pct suffix for frontend compatibility
     pnl_pct = {
         "total_return_pct": pnl_metrics.get("total_return"),
@@ -1722,8 +1766,20 @@ def get_full_analytics(
         "max_drawdown_pct": pnl_metrics.get("max_drawdown"),
         "beta": pnl_metrics.get("beta"),
         "treynor": pnl_metrics.get("treynor"),
+        # Factor decomposition of total return
+        "market_return_pct":   _market_ret_total,
+        "style_return_pct":    _style_ret_total,
+        "industry_return_pct": _indus_ret_total if _fts else None,
+        "idio_return_pct":     _idio_ret_total,
+        "factor_return_pct":   _factor_ret_total if _fts else None,
+        # Benchmark full metrics
         "benchmark_total_return_pct": pnl_metrics.get("benchmark_total_return"),
-        "benchmark_cagr_pct": pnl_metrics.get("benchmark_cagr"),
+        "benchmark_cagr_pct":         pnl_metrics.get("benchmark_cagr"),
+        "benchmark_sharpe":           pnl_metrics.get("benchmark_sharpe"),
+        "benchmark_sortino":          pnl_metrics.get("benchmark_sortino"),
+        "benchmark_volatility_pct":   pnl_metrics.get("benchmark_volatility"),
+        "benchmark_max_drawdown_pct": pnl_metrics.get("benchmark_max_drawdown"),
+        "benchmark_treynor":          pnl_metrics.get("benchmark_treynor"),
         "alpha_pct": pnl_metrics.get("alpha"),
         "pe_ratio": pe_ratio,
         "pb_ratio": pb_ratio,

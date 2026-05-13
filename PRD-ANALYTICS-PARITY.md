@@ -341,3 +341,109 @@ Files parsed from `mt-data/`:
 - `portfolio-analysis/drawdowns.json`
 
 The JSONs are structured as `{ Active: {...}, Benchmark: {...}, Main: {...} }` for pages with the toggle, and `{ Active: {...}, Main: {...} }` for peer pages. Chart data is time-series heavy (bulk of the file size). Table data is compact and was fully extracted above.
+
+---
+
+## 8. Answers to Open Questions (Updated)
+
+### Peer Comparison Data Source
+Peers can be: your own other portfolios, your strategies (with backtests), AND external benchmarks (NIFTY 50, NIFTY 500, etc. as peers). All three types in the same comparison.
+
+### Period Analysis Columns
+Calendar years (2020, 2021, 2022...) same as MethodTech. May change to rolling later but start with calendar years.
+
+### Screenshots Confirmed
+
+**P&L Statistics table (Period Analysis - 3rd table)**
+- Title: "Profit and Loss Statistics - Total Return (%)"  
+- Columns: `[metric, Active]` (single value column, no Benchmark/Main)
+- Has own KPI dropdown switching between: Total Return (%), Idio Return (%), Factor Return (%), Market Return (%), Style Return (%), Industry Return (%), Transaction Cost (%)
+- Rows:
+  ```
+  Hit Rate (%)                    [+]  83.33%
+    Positive Periods Count              5
+    Negative Periods Count              1
+    Total Periods                       6
+  Max Period Return                    20.32
+  Min Period Return                    -3.20
+  Average Return Across Periods        6.75
+  Median Return Across Periods         1.75
+  25th Percentile Return               0.29
+  75th Percentile Return              15.51
+  ```
+
+**Contributor/Detractor Top 10 (Overall tab)**
+- Flat table (no nesting) 
+- Title: "Top 10 - Holdings (%)"
+- Columns: `[Symbol, Holdings(%), Raw Return(%), Total Return(%), Total Risk Contribution(%)]`
+- KPI dropdown switches the sort/rank metric: Holdings(%), Raw Return(%), Total Return(%), Total Risk Contribution(%)
+
+**Peer Breakdown tabs (Liquidity, Total Risk, Idiosyncratic Risk)**
+
+Each tab follows identical layout: 4 tables (top row) + 4 charts (bottom row)
+
+Tables — Columns: `[Bucket, Portfolio1, Portfolio2]`
+
+Bucket values per tab:
+- Liquidity: High, Medium, Unknown
+- Total Risk: High, Low, Medium, Unknown  
+- Idiosyncratic Risk: High, Low, Medium, Unknown
+- Sector: sector names (Energy, IT, Financials…)
+- Industry: industry names
+- Market Cap: Large Cap, Mid Cap, Small Cap, Unknown
+
+Each tab has 4 tables with different KPIs:
+1. Total Return (%) table — shows return per bucket for each portfolio
+2. Beta table — shows beta per bucket
+3. PE Ratio table — shows PE per bucket
+4. Brinson Decomposition table — shows Allocation Effect per bucket
+
+Charts (4 per tab, dual-line — one per portfolio):
+1. Total Return time series per bucket (with Level 2 KPI selecting bucket)
+2. Rolling 1Y Risk time series per bucket
+3. PE Ratio time series per bucket
+4. Allocation Effect time series per bucket
+
+---
+
+## 9. Implementation Plan (Confirmed Phase Order)
+
+### Phase 1A: Core UI Primitives (no backend changes)
+1. **AnalyticsTreeTable component** — reusable expandable row table  
+   - expand/collapse with +/- toggle per row
+   - configurable columns
+   - nested depth indentation
+   - supports Active/Benchmark/Main as column headers
+2. **ViewToggle component** — Active / Benchmark / Main segmented control
+   - Active/Main only variant (for peer pages)
+   - Active/Benchmark/Main variant (for non-peer pages)
+
+### Phase 1B: Performance Summary Rebuild
+Replace stat cards with AnalyticsTreeTable.
+Use existing `analyticsData` for initial rows (total return, CAGR, Sharpe, max DD).
+Toggle shows/hides Benchmark column based on existing `benchmark_*` fields in pnl_metrics.
+
+### Phase 2A: Backend Metric Additions (analytics_engine.py)
+New fields to add to `pnl_metrics`:
+- `sortino_ratio` — return / downside std * sqrt(252)
+- `treynor_ratio` — annualized_return / portfolio_beta
+- `market_return_pct` — cumulative from factor_decomp_ts daily market returns
+- `style_return_pct` — cumulative from factor_decomp_ts
+- `industry_return_pct` — cumulative from factor_decomp_ts  
+- `idio_return_pct` — cumulative from factor_decomp_ts
+- `factor_return_pct` — market + style + industry
+
+### Phase 2B: Full P&L Tree Table
+With Phase 2A backend data, populate the full nested tree:
+Total Return → [Idio, Factor [→ Market, Style, Industry], Dividend, Other, Transaction Cost]
+Same for CAGR, Sharpe, Sortino, Treynor.
+
+### Phase 3: Risk Summary + Period Analysis
+Risk tree table (Beta, Realized Risk, Predicted Risk, Risk Contribution, Portfolio Concentration).
+Period Analysis with per-year columns + P&L Statistics table.
+
+### Phase 4: Holdings + Event Sensitivity Upgrades
+Holdings with all columns. Event sensitivity Common Index Returns table.
+
+### Phase 5: Peer pages
+Peer Comparison with multi-portfolio columns. Peer Breakdown with 10 tabs.
