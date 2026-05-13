@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -114,6 +114,7 @@ export function TimeSeriesChart({
   height = 200,
   yFormatter = (v) => `${v.toFixed(2)}%`,
 }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const [dragStart, setDragStart] = useState<string | null>(null);
   const [dragEnd, setDragEnd]     = useState<string | null>(null);
   const [dragging, setDragging]   = useState(false);
@@ -173,11 +174,13 @@ export function TimeSeriesChart({
 
   return (
     <div
-      style={{ position: "relative", userSelect: "none" }}
+      ref={containerRef}
+      style={{ position: "relative", userSelect: "none", outline: "none" }}
       onMouseMove={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
         setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
       }}
+      onDragStart={(e) => e.preventDefault()}
     >
 
 
@@ -188,7 +191,8 @@ export function TimeSeriesChart({
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          style={{ cursor: dragging ? "col-resize" : "crosshair" }}
+          style={{ cursor: dragging ? "col-resize" : "crosshair", outline: "none" }}
+          tabIndex={-1}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
           <XAxis
@@ -212,6 +216,7 @@ export function TimeSeriesChart({
               x1={a} x2={b}
               fill="rgba(139,92,246,0.08)"
               stroke="none"
+              strokeWidth={0}
             />
           )}
 
@@ -293,10 +298,10 @@ export function TimeSeriesChart({
       {/* Delta panel — follows cursor during drag, stays pinned after release */}
       {hasRange && (pinned || dragging) && (() => {
         const pos = pinned ? pinnedPos : mousePos;
-        // Offset panel so it doesn't sit right on cursor; flip left if near right edge
         const panelW = 220;
-        const offsetX = pos.x + panelW + 20 > (typeof window !== "undefined" ? window.innerWidth : 800)
-          ? -panelW - 16 : 16;
+        const containerW = containerRef.current?.offsetWidth ?? 600;
+        // Flip to left if panel would overflow right edge of container
+        const offsetX = pos.x + panelW + 20 > containerW ? -panelW - 12 : 16;
         return (
           <div style={{
             position: "absolute",
