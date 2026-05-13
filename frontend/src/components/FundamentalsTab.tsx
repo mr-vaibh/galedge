@@ -124,8 +124,21 @@ function FinancialTable({ symbol, sheet, title }: { symbol: string; sheet: strin
   if (!data) return <div className="text-zinc-500 text-sm py-4">Loading {title}...</div>;
   if (data.length === 0) return <div className="text-zinc-500 text-sm py-4">No data available</div>;
 
-  // Filter out empty period columns (only have 'period' key, no metric values)
-  const validData = data.filter((r) => Object.keys(r).length > 1);
+  // Filter out columns with no meaningful data
+  // A column must have at least one of the key financial metrics populated
+  const KEY_METRICS = new Set([
+    "Total Revenue", "Net Income", "Gross Profit", "EBITDA", "Operating Income",
+    "Total Assets", "Total Debt", "Stockholders Equity", "Common Stock Equity",
+    "Free Cash Flow", "Operating Cash Flow", "Capital Expenditure",
+  ]);
+  const validData = data.filter((r) => {
+    const keys = new Set(Object.keys(r));
+    // Must have at least one key metric OR at least 5 non-period keys (lots of data)
+    for (const km of KEY_METRICS) {
+      if (keys.has(km) && r[km] != null) return true;
+    }
+    return Object.keys(r).length > 5;
+  });
   if (validData.length === 0) return <div className="text-zinc-500 text-sm py-4">No data available</div>;
 
   const dates = validData.map((r) => String(r.period ?? r.date ?? "").slice(0, 10));
