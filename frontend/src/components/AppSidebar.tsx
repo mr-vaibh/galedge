@@ -159,18 +159,21 @@ function FundSelector() {
       .then(r => r.json())
       .then(d => {
         const list: SelectorItem[] = [];
+        // Portfolios — one entry each
         (d.portfolios || []).forEach((p: { id: number; fund_name: string; scheme_name?: string }) => {
           list.push({ label: p.fund_name, sublabel: p.scheme_name || "Uploaded", source: "portfolio", sourceId: p.id });
         });
+        // Strategies — one entry per strategy using the most recent completed backtest
         (d.strategies || []).forEach((s: { id: number; fund_name: string; scheme_name?: string; iteration_name?: string; backtests?: { id: number; start_date: string; end_date: string; status: string }[] }) => {
-          (s.backtests || []).filter((b) => b.status === "completed").forEach(b => {
-            list.push({
-              label: s.fund_name,
-              sublabel: `${s.scheme_name || ""} ${s.iteration_name || ""} · ${b.start_date?.slice(0, 7)} to ${b.end_date?.slice(0, 7)}`.trim(),
-              source: "strategy",
-              sourceId: s.id,
-              backtestId: b.id,
-            });
+          const completed = (s.backtests || []).filter(b => b.status === "completed");
+          if (!completed.length) return;
+          const latest = completed[completed.length - 1];
+          list.push({
+            label: s.fund_name,
+            sublabel: `${s.scheme_name || ""} ${s.iteration_name ? "· " + s.iteration_name : ""} · ${latest.start_date?.slice(0, 7)} to ${latest.end_date?.slice(0, 7)}`.trim().replace(/^·\s*/, ""),
+            source: "strategy",
+            sourceId: s.id,
+            backtestId: latest.id,
           });
         });
         setItems(list);
@@ -215,31 +218,42 @@ function FundSelector() {
 
       {open && (
         <div className="absolute left-2 right-2 top-full z-50 mt-1 rounded-lg border border-border bg-popover shadow-xl overflow-hidden">
-          <div className="px-3 py-1.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground border-b border-border">
-            Select Portfolio / Strategy
-          </div>
-          <div className="max-h-64 overflow-y-auto">
+          <div className="max-h-72 overflow-y-auto">
             {items.length === 0 ? (
               <div className="px-3 py-3 text-[11px] text-muted-foreground">No portfolios or backtests found</div>
             ) : (
-              items.map((item, i) => {
-                const isActive = item.source === selectedSource &&
-                  item.sourceId === selectedSourceId &&
-                  (item.backtestId === selectedBacktestId || (!item.backtestId && !selectedBacktestId));
+              (() => {
+                const portfolioItems = items.filter(i => i.source === "portfolio");
+                const strategyItems  = items.filter(i => i.source === "strategy");
+                const renderItem = (item: SelectorItem, i: number) => {
+                  const isActive = item.source === selectedSource &&
+                    item.sourceId === selectedSourceId &&
+                    (item.backtestId === selectedBacktestId || (!item.backtestId && !selectedBacktestId));
+                  return (
+                    <button key={i} className={`w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors ${isActive ? "bg-emerald-500/10 text-emerald-500" : ""}`}
+                      onClick={() => { loadAnalytics(item.source, item.sourceId, item.backtestId); setOpen(false); }}>
+                      <div className="text-[11px] font-medium truncate">{item.label}</div>
+                      <div className={`text-[10px] truncate ${isActive ? "text-emerald-500/70" : "text-muted-foreground"}`}>{item.sublabel}</div>
+                    </button>
+                  );
+                };
                 return (
-                  <button
-                    key={i}
-                    className={`w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors ${isActive ? "bg-emerald-500/10 text-emerald-500" : ""}`}
-                    onClick={() => {
-                      loadAnalytics(item.source, item.sourceId, item.backtestId);
-                      setOpen(false);
-                    }}
-                  >
-                    <div className="text-[11px] font-medium truncate">{item.label}</div>
-                    <div className="text-[10px] text-muted-foreground truncate">{item.sublabel}</div>
-                  </button>
+                  <>
+                    {portfolioItems.length > 0 && (
+                      <>
+                        <div className="px-3 pt-2 pb-1 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Portfolios</div>
+                        {portfolioItems.map((item, i) => renderItem(item, i))}
+                      </>
+                    )}
+                    {strategyItems.length > 0 && (
+                      <>
+                        <div className={`px-3 pb-1 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground ${portfolioItems.length ? "pt-2 border-t border-border mt-1" : "pt-2"}`}>Strategies</div>
+                        {strategyItems.map((item, i) => renderItem(item, i + portfolioItems.length))}
+                      </>
+                    )}
+                  </>
                 );
-              })
+              })()
             )}
           </div>
           <div className="border-t border-border px-3 py-1.5">
