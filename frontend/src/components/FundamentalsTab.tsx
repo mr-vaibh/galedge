@@ -137,9 +137,20 @@ function FinancialTable({ symbol, sheet, title }: { symbol: string; sheet: strin
   nonEmpty.forEach((r) => Object.keys(r).forEach((k) => { if (!skip.has(k)) allMetricKeys.add(k); }));
   const displayMetrics = Array.from(allMetricKeys);
 
-  // Pass 2: only keep columns that have values for ≥3 of the actual display metrics
+  // Pass 2: keep only columns that have BOTH core metrics for this statement type
+  const CORE: Record<string, string[]> = {
+    financials:                  ["Total Revenue", "Net Income"],
+    balance_sheet:               ["Total Assets", "Stockholders Equity"],
+    cashflow:                    ["Operating Cash Flow", "Free Cash Flow"],
+    quarterly_income_statement:  ["Total Revenue", "Net Income"],
+    quarterly_balance_sheet:     ["Total Assets", "Stockholders Equity"],
+    quarterly_cashflow:          ["Operating Cash Flow", "Free Cash Flow"],
+  };
+  const coreRequired = CORE[sheet] ?? [];
   const validData = nonEmpty.filter((r) =>
-    displayMetrics.filter((m) => r[m] != null).length >= 3
+    coreRequired.length === 0
+      ? displayMetrics.filter((m) => r[m] != null).length >= 3
+      : coreRequired.every((m) => r[m] != null)
   );
   if (validData.length === 0) return <div className="text-zinc-500 text-sm py-4">No data available</div>;
 
