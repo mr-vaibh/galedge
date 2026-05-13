@@ -23,12 +23,13 @@ export default function SelectPortfolioPage() {
   const router = useRouter();
   const { token } = useAuth();
   const [portfolios, setPortfolios] = useState<Record<string, unknown>[]>([]);
-  const { selectPortfolio } = usePortfolio();
+  const { loadAnalytics } = usePortfolio();
   const [loading, setLoading] = useState(true);
 
   function handleViewAnalytics(p: Record<string, unknown>) {
-    selectPortfolio(Number(p.id), String(p.fund_name), String(p.scheme_name || ""));
-    router.push(`/analytics/overview/performance?portfolio_id=${p.id}`);
+    // loadAnalytics sets v2 context (what sidebar reads) AND syncs v1 state internally
+    loadAnalytics("portfolio", Number(p.id));
+    router.push("/analytics/overview/performance");
   }
 
   async function fetchPortfolios() {
