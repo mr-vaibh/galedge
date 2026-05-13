@@ -293,9 +293,28 @@ async def get_options(
     expiry: str | None = Query(None, description="Expiry date YYYY-MM-DD"),
     kind: str = Query("calls", enum=["calls", "puts"]),
 ):
-    """Get options chain for a ticker — US stocks only (NSE options not available via yfinance)."""
-    if symbol.upper().endswith(".NS") or symbol.upper().endswith(".BO"):
-        raise HTTPException(status_code=503, detail="Options data not available for NSE/BSE stocks")
+    """Get options chain — served from DB (daily snapshot from GitHub Actions)."""
+    from app.database import PricesSessionLocal as _PDB
+    from app.models.market_data import StockOptions
+    import json as _json
+    sym = symbol.upper()
+    if sym.endswith(".NS") or sym.endswith(".BO"):
+        raise HTTPException(status_code=503, detail="Options not available for NSE/BSE stocks")
+    _db = _PDB()
+    try:
+        row = _db.query(StockOptions).filter(StockOptions.symbol == sym).order_by(StockOptions.fetched_at.desc()).first()
+        if not row:
+            raise HTTPException(status_code=404, detail="No options data yet — available after next nightly update")
+        expirations = _json.loads(row.expirations or "[]")
+        selected_expiry = expiry if expiry and expiry in expirations else row.expiry
+        data = _json.loads(row.calls if kind == "calls" else row.puts)
+        return {
+            "symbol": sym, "expiry": selected_expiry, "kind": kind,
+            "expirations": expirations, "count": len(data), "data": data,
+        }
+    finally:
+        _db.close()
+
     def _fetch():
         t = _ticker(symbol)
         expirations = t.options
@@ -397,15 +416,33 @@ async def get_fundamentals(
         finally:
             db.close()
 
-    # Financial statements not available in DB — return empty
-    return {"symbol": sym, "sheet": sheet, "count": 0, "data": [], "note": "Financial statements not available"}
-
+    # Financial statements — serve from DB (populated nightly by GitHub Actions)
+    from app.models.market_data import StockFinancials
+    import json as _json
+    db2 = SessionLocal()
     try:
-        pass
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # Map frontend sheet names to DB sheet names
+        sheet_map = {
+            "financials": "income_statement",
+            "balance_sheet": "balance_sheet",
+            "cashflow": "cashflow",
+            "quarterly_financials": "quarterly_income_statement",
+            "quarterly_balance_sheet": "quarterly_balance_sheet",
+            "quarterly_cashflow": "quarterly_cashflow",
+        }
+        db_sheet = sheet_map.get(sheet, sheet)
+        row = db2.query(StockFinancials).filter(
+            StockFinancials.symbol == sym,
+            StockFinancials.sheet == db_sheet,
+        ).order_by(StockFinancials.fetched_at.desc()).first()
+        data = _json.loads(row.data) if row and row.data else []
+        return {
+            "symbol": sym, "sheet": sheet,
+            "count": len(data), "data": data,
+            "note": None if data else "Financial statements not yet fetched. Available after next nightly update.",
+        }
+    finally:
+        db2.close()
 
 
 # ── Intel ─────────────────────────────────────────────────────────────────────
@@ -423,7 +460,7 @@ async def get_intel(
     from app.models.market_data import StockNews, StockRecommendation
 
     if kind in ("insider_transactions", "institutional_holders", "mutual_fund_holders"):
-        raise HTTPException(status_code=503, detail=f"{kind} not available — requires institutional data feed")
+        return {"symbol": symbol.upper(), kind: [], "note": "Institutional/insider data not available"}
 
     sym = symbol.upper()
     db = SessionLocal()

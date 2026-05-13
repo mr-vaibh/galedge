@@ -92,6 +92,28 @@ class StockRecommendation(Base):
     strong_sell: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class StockFinancials(Base):
+    """Annual + quarterly financial statements — populated nightly via GitHub Actions."""
+    __tablename__ = "stock_financials"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(50), index=True)
+    sheet: Mapped[str] = mapped_column(String(50), index=True)  # income_statement, balance_sheet, cashflow, quarterly_*
+    fetched_at: Mapped[date] = mapped_column(Date, index=True)
+    data: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of period rows
+
+
+class StockOptions(Base):
+    """Daily options snapshot (nearest expiry) — populated nightly via GitHub Actions."""
+    __tablename__ = "stock_options"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(50), index=True)
+    fetched_at: Mapped[date] = mapped_column(Date, index=True)
+    expiry: Mapped[str] = mapped_column(String(20), default="")
+    expirations: Mapped[str] = mapped_column(Text, default="[]")  # JSON list
+    calls: Mapped[str] = mapped_column(Text, default="[]")        # JSON array
+    puts: Mapped[str] = mapped_column(Text, default="[]")         # JSON array
+
+
 class IndexConstituent(Base):
     """Index membership over time (point-in-time)."""
     __tablename__ = "index_constituents"
