@@ -124,16 +124,27 @@ function FinancialTable({ symbol, sheet, title }: { symbol: string; sheet: strin
   if (!data) return <div className="text-zinc-500 text-sm py-4">Loading {title}...</div>;
   if (data.length === 0) return <div className="text-zinc-500 text-sm py-4">No data available</div>;
 
-  // Keep only columns that have at least 3 actual metric values (excluding the period key).
-  // This robustly drops empty/stub columns without hardcoding any metric names.
-  const validData = data.filter((r) =>
-    Object.keys(r).filter((k) => k !== "period" && r[k] != null).length >= 3
+  // Pass 1: drop completely empty records (only period key)
+  const nonEmpty = data.filter((r) =>
+    Object.keys(r).filter((k) => k !== "period" && r[k] != null).length > 0
+  );
+  if (nonEmpty.length === 0) return <div className="text-zinc-500 text-sm py-4">No data available</div>;
+
+  const skip = new Set(["period", "date", "ticker", "fetched_at"]);
+
+  // Derive the full display metric list from all records (union of all keys)
+  const allMetricKeys = new Set<string>();
+  nonEmpty.forEach((r) => Object.keys(r).forEach((k) => { if (!skip.has(k)) allMetricKeys.add(k); }));
+  const displayMetrics = Array.from(allMetricKeys);
+
+  // Pass 2: only keep columns that have values for ≥3 of the actual display metrics
+  const validData = nonEmpty.filter((r) =>
+    displayMetrics.filter((m) => r[m] != null).length >= 3
   );
   if (validData.length === 0) return <div className="text-zinc-500 text-sm py-4">No data available</div>;
 
   const dates = validData.map((r) => String(r.period ?? r.date ?? "").slice(0, 10));
-  const skip = new Set(["period", "date", "ticker", "fetched_at"]);
-  const metrics = Object.keys(validData[0]).filter((k) => !skip.has(k));
+  const metrics = displayMetrics;
 
   const important = [
     "Total Revenue", "Net Income", "Operating Income", "Gross Profit", "EBITDA",
