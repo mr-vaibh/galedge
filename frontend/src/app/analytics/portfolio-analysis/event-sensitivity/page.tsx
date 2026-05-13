@@ -88,10 +88,9 @@ export default function EventSensitivityPage() {
   }
 
   const rawEvents: EventReturn[] = (analyticsData.event_returns as EventReturn[] | undefined) ?? [];
-  // Filter to events where we have data
-  const events = rawEvents.filter(
-    (e) => e.portfolio_return_pct != null || e.portfolio_return != null
-  );
+  // Show ALL events — those outside portfolio date range show "—"
+  const events = rawEvents;
+  const eventsWithData = rawEvents.filter(e => e.portfolio_return_pct != null || e.portfolio_return != null);
 
   const factorDecompTs: FactorDecompPoint[] = (analyticsData.factor_decomp_ts as FactorDecompPoint[] | undefined) ?? [];
   const equityCurve: EquityCurvePoint[] = (analyticsData.equity_curve as EquityCurvePoint[] | undefined) ?? [];
@@ -173,32 +172,26 @@ export default function EventSensitivityPage() {
                     <tr><td colSpan={7} className="px-2 py-4 text-center text-muted-foreground">No event data available</td></tr>
                   ) : (
                     events.map((e, i) => {
-                      const portRet = getPortRet(e);
-                      const bmRet = getBmRet(e);
-                      const excess = getExcess(e);
+                      const hasData = (e as Record<string,unknown>).has_data !== false && (e.portfolio_return_pct != null || e.portfolio_return != null);
+                      const portRet = hasData ? getPortRet(e) : null;
+                      const bmRet  = hasData ? getBmRet(e)  : null;
+                      const excess = hasData ? getExcess(e) : null;
+                      // Primary value shown based on toggle view
+                      const primaryRet = view === "Benchmark" ? bmRet : view === "Active" ? excess : portRet;
+                      const fmtRet = (v: number | null, signed = false) =>
+                        v == null ? "—" : `${signed && v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
                       return (
-                        <tr
-                          key={i}
-                          className={`border-b border-border/30 cursor-pointer hover:bg-muted/20 ${
-                            selectedEventIdx === i ? "bg-muted/40" : ""
-                          }`}
-                          onClick={() => setSelectedEventIdx(selectedEventIdx === i ? null : i)}
+                        <tr key={i}
+                          className={`border-b border-border/30 ${hasData ? "cursor-pointer hover:bg-muted/20" : "opacity-40"} ${selectedEventIdx === i ? "bg-muted/40" : ""}`}
+                          onClick={() => hasData && setSelectedEventIdx(selectedEventIdx === i ? null : i)}
                         >
-                          <td className="px-2 py-1.5">
-                            <input type="radio" checked={selectedEventIdx === i} readOnly className="h-3 w-3" />
-                          </td>
+                          <td className="px-2 py-1.5"><input type="radio" checked={selectedEventIdx === i} readOnly disabled={!hasData} className="h-3 w-3" /></td>
                           <td className="px-2 py-1.5 font-medium max-w-[120px] truncate">{getEventName(e)}</td>
                           <td className="px-2 py-1.5 text-muted-foreground">{getStart(e).slice(0, 10)}</td>
                           <td className="px-2 py-1.5 text-muted-foreground">{getEnd(e).slice(0, 10)}</td>
-                          <td className={`px-2 py-1.5 tabular-nums ${portRet >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                            {portRet.toFixed(1)}%
-                          </td>
-                          <td className={`px-2 py-1.5 tabular-nums ${bmRet >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                            {bmRet.toFixed(1)}%
-                          </td>
-                          <td className={`px-2 py-1.5 tabular-nums ${excess >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                            {excess >= 0 ? "+" : ""}{excess.toFixed(1)}%
-                          </td>
+                          <td className={`px-2 py-1.5 tabular-nums ${portRet == null ? "text-muted-foreground" : portRet >= 0 ? "text-emerald-500" : "text-red-400"}`}>{fmtRet(portRet)}</td>
+                          <td className={`px-2 py-1.5 tabular-nums ${bmRet  == null ? "text-muted-foreground" : bmRet  >= 0 ? "text-emerald-500" : "text-red-400"}`}>{fmtRet(bmRet)}</td>
+                          <td className={`px-2 py-1.5 tabular-nums ${excess == null ? "text-muted-foreground" : excess >= 0 ? "text-emerald-500" : "text-red-400"}`}>{fmtRet(excess, true)}</td>
                         </tr>
                       );
                     })
@@ -216,11 +209,11 @@ export default function EventSensitivityPage() {
             <CardControls />
           </CardHeader>
           <CardContent className="p-2">
-            {events.length > 0 ? (
+            {eventsWithData.length > 0 ? (
               <D3Treemap
                 height={260}
-                nodes={events.map((e, i) => {
-                  const portRet = getPortRet(e);
+                nodes={eventsWithData.map((e, i) => {
+                  const portRet = view === "Benchmark" ? getBmRet(e) : view === "Active" ? getExcess(e) : getPortRet(e);
                   return {
                     id: String(i),
                     label: getEventName(e),
@@ -228,10 +221,12 @@ export default function EventSensitivityPage() {
                     size: Math.max(Math.abs(portRet), 0.5),
                   };
                 })}
-                selectedId={selectedEventIdx != null ? String(selectedEventIdx) : null}
+                selectedId={selectedEventIdx != null ? String(eventsWithData.findIndex((_, i) => events.indexOf(eventsWithData[i]) === selectedEventIdx)) : null}
                 onSelect={(id) => {
-                  const idx = Number(id);
-                  setSelectedEventIdx(selectedEventIdx === idx ? null : idx);
+                  const withDataIdx = Number(id);
+                  const realEvent = eventsWithData[withDataIdx];
+                  const realIdx = events.indexOf(realEvent);
+                  setSelectedEventIdx(selectedEventIdx === realIdx ? null : realIdx);
                 }}
               />
             ) : (

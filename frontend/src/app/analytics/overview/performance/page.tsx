@@ -127,6 +127,14 @@ function buildPnLRows(pnl: Record<string, unknown>): TreeRow[] {
       id: "treynor", label: "Treynor Ratio",
       values: { Main: M("treynor"), Benchmark: B("benchmark_treynor"), Active: A("treynor", "benchmark_treynor") },
     },
+    {
+      id: "exec", label: "Execution Summary",
+      values: { Main: null, Benchmark: null, Active: null },
+      children: [
+        { id: "ann_to",  label: "Annualized Turnover",          values: { Main: null, Benchmark: null, Active: null } },
+        { id: "tc_bps",  label: "Total Transaction Cost (bps)", values: { Main: null, Benchmark: null, Active: null } },
+      ],
+    },
   ];
 }
 
@@ -140,9 +148,24 @@ function buildRiskRows(pnl: Record<string, unknown>): TreeRow[] {
   };
 
   return [
-    { id: "beta",     label: "Beta",            values: { Main: M("beta"),             Benchmark: 1.0, Active: A("beta", "beta") } },
-    { id: "vol",      label: "Volatility (%)",   values: { Main: M("volatility_pct"),   Benchmark: B("benchmark_volatility_pct"),   Active: A("volatility_pct", "benchmark_volatility_pct") } },
-    { id: "max_dd",   label: "Max Drawdown (%)", values: { Main: M("max_drawdown_pct"), Benchmark: B("benchmark_max_drawdown_pct"), Active: A("max_drawdown_pct", "benchmark_max_drawdown_pct") } },
+    { id: "beta",   label: "Beta",            values: { Main: M("beta"),             Benchmark: 1.0,                            Active: A("beta","beta") } },
+    {
+      id: "vol",  label: "Realized Risk (%)",values: { Main: M("volatility_pct"),   Benchmark: B("benchmark_volatility_pct"),   Active: A("volatility_pct","benchmark_volatility_pct") },
+      children: [
+        { id: "idio_risk", label: "Idiosyncratic Risk (%)", values: { Main: null, Benchmark: null, Active: null } },
+        { id: "fac_risk",  label: "Factor Risk (%)",        values: { Main: null, Benchmark: null, Active: null } },
+      ],
+    },
+    { id: "max_dd", label: "Max Drawdown (%)",values: { Main: M("max_drawdown_pct"), Benchmark: B("benchmark_max_drawdown_pct"), Active: A("max_drawdown_pct","benchmark_max_drawdown_pct") } },
+    {
+      id: "conc", label: "Portfolio Concentration",
+      values: { Main: null, Benchmark: null, Active: null },
+      children: [
+        { id: "top5h",  label: "Top 5 Holdings (%)",  values: { Main: null, Benchmark: null, Active: null } },
+        { id: "top10h", label: "Top 10 Holdings (%)", values: { Main: null, Benchmark: null, Active: null } },
+        { id: "top20h", label: "Top 20 Holdings (%)", values: { Main: null, Benchmark: null, Active: null } },
+      ],
+    },
   ];
 }
 
@@ -203,7 +226,7 @@ export default function PerformanceSummaryPage() {
   const pnl = (analyticsData.pnl_metrics ?? {}) as Record<string, unknown>;
   const hasBenchmark = pnl.benchmark_total_return_pct != null;
 
-  // Columns shown depend on view and benchmark availability
+  // Tables always show all 3 columns (toggle primarily affects charts)
   const allCols: TreeColumn[] = [
     { key: "Active",    label: "Active",    align: "right" },
     { key: "Benchmark", label: "Benchmark", align: "right" },
@@ -211,16 +234,11 @@ export default function PerformanceSummaryPage() {
   ];
   const valuationCols: TreeColumn[] = [{ key: "Main", label: "Main", align: "right" }];
 
-  // Filter columns based on view for single-col display
-  const visibleCols = view === "Active" ? allCols.filter(c => c.key === "Active")
-    : view === "Benchmark" ? allCols.filter(c => c.key === "Benchmark")
-    : allCols; // Main shows all three
-
   const pnlRows = buildPnLRows(pnl);
   const riskRows = buildRiskRows(pnl);
   const valuationRows = buildValuationRows(pnl);
 
-  const defaultExpanded = new Set(["total_return", "sharpe"]);
+  const defaultExpanded = new Set(["total_return"]);
 
   return (
     <div className="p-4 space-y-4">
@@ -233,24 +251,11 @@ export default function PerformanceSummaryPage() {
         <ViewToggle view={view} onChange={setView} hasBenchmark={hasBenchmark} />
       </div>
 
-      {/* Metric tables */}
+      {/* Metric tables — always show Active/Benchmark/Main columns */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        <AnalyticsTreeTable
-          title="Profit & Loss Summary"
-          columns={visibleCols}
-          rows={pnlRows}
-          defaultExpanded={defaultExpanded}
-        />
-        <AnalyticsTreeTable
-          title="Risk Summary"
-          columns={visibleCols}
-          rows={riskRows}
-        />
-        <AnalyticsTreeTable
-          title="Valuation Summary"
-          columns={valuationCols}
-          rows={valuationRows}
-        />
+        <AnalyticsTreeTable title="Profit & Loss Summary" columns={hasBenchmark ? allCols : valuationCols} rows={pnlRows} defaultExpanded={defaultExpanded} />
+        <AnalyticsTreeTable title="Risk Summary" columns={hasBenchmark ? allCols : valuationCols} rows={riskRows} />
+        <AnalyticsTreeTable title="Valuation Summary" columns={valuationCols} rows={valuationRows} />
       </div>
 
       {/* KPI-switchable charts */}

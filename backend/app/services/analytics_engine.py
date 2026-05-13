@@ -42,12 +42,26 @@ LARGE_CAP_THRESHOLD = 20_000 * 1e7   # market_cap > 20000 crore in raw rupees
 MID_CAP_THRESHOLD   =  5_000 * 1e7   # market_cap >  5000 crore in raw rupees
 
 EVENTS = [
-    {"name": "COVID Crash",         "start": "2020-03-06", "end": "2020-03-24"},
-    {"name": "Vaccine Rally",        "start": "2020-11-01", "end": "2021-02-28"},
-    {"name": "2019 Election",        "start": "2019-03-01", "end": "2019-05-23"},
-    {"name": "2024 Pre-election",    "start": "2023-11-03", "end": "2024-01-31"},
-    {"name": "2024 Election Whipsaw","start": "2024-06-05", "end": "2024-08-03"},
-    {"name": "2025 Trump Tariffs",   "start": "2025-04-02", "end": "2025-04-15"},
+    # Verified from MethodTech JSON response
+    {"name": "Reform push + global QE3",                  "start": "2012-08-01", "end": "2012-09-29"},
+    {"name": "Taper tantrum (INR & EM sell-off)",          "start": "2013-06-01", "end": "2013-07-31"},
+    {"name": "Modi Wave' election run-up",                 "start": "2014-03-01", "end": "2014-04-29"},
+    {"name": "China devaluation / Black Monday spillover", "start": "2015-06-01", "end": "2015-07-30"},
+    {"name": "China slowdown / 2016 global lows",         "start": "2015-12-01", "end": "2016-01-29"},
+    {"name": "Demonetisation shock",                       "start": "2016-11-08", "end": "2017-01-06"},
+    {"name": "GST passage + global risk-on",              "start": "2017-04-01", "end": "2017-05-30"},
+    {"name": "Volmageddon + LTCG overhang (smallcaps)",   "start": "2018-01-15", "end": "2018-03-15"},
+    {"name": "IL&FS / NBFC liquidity squeeze",            "start": "2018-09-01", "end": "2018-10-30"},
+    {"name": "2019 election run-up",                      "start": "2019-03-01", "end": "2019-04-29"},
+    {"name": "COVID crash",                               "start": "2020-02-01", "end": "2020-03-31"},
+    {"name": "Policy 'bazooka' rebound",                  "start": "2020-04-01", "end": "2020-05-30"},
+    {"name": "Vaccine & liquidity surge",                 "start": "2020-11-09", "end": "2020-12-30"},
+    {"name": "Earnings/liquidity melt-up",                "start": "2021-07-01", "end": "2021-08-29"},
+    {"name": "Russia-Ukraine invasion & Fed liftoff shock","start": "2022-01-17", "end": "2022-06-17"},
+    {"name": "2024 Pre-election melt-up",                 "start": "2023-11-03", "end": "2024-01-31"},
+    {"name": "2024 election whipsaw & rebound",           "start": "2024-06-05", "end": "2024-08-03"},
+    {"name": "Late-2024 to early-2025 valuation reset",   "start": "2024-09-27", "end": "2025-03-04"},
+    {"name": "2025 Trump Tariff Shock",                   "start": "2025-04-02", "end": "2025-04-07"},
     {"name": "2025 India Rally",     "start": "2025-05-01", "end": "2025-07-31"},
     {"name": "2025 Mid-year Dip",    "start": "2025-08-01", "end": "2025-09-30"},
     {"name": "2025-26 FY Period",    "start": "2025-10-01", "end": "2026-03-31"},
@@ -1436,31 +1450,35 @@ def compute_event_returns(
             ee = pd.Timestamp(event["end"])
 
             port_slice = daily_returns.loc[es:ee].dropna()
-            if port_slice.empty:
-                continue
-
-            port_r = float((1 + port_slice).prod() - 1) * 100
+            # Always include the event — show None if outside portfolio date range
+            port_r: float | None = None
+            if not port_slice.empty:
+                port_r = round(float((1 + port_slice).prod() - 1) * 100, 4)
 
             bench_r: float | None = None
             if benchmark_returns is not None and not benchmark_returns.empty:
                 bench_slice = benchmark_returns.loc[es:ee].dropna()
                 if not bench_slice.empty:
-                    bench_r = float((1 + bench_slice).prod() - 1) * 100
+                    bench_r = round(float((1 + bench_slice).prod() - 1) * 100, 4)
 
-            excess = (port_r - bench_r) if bench_r is not None else None
+            excess = round(port_r - bench_r, 4) if (port_r is not None and bench_r is not None) else None
 
-            result.append(
-                {
-                    "name":                   event["name"],
-                    "start":                  event["start"],
-                    "end":                    event["end"],
-                    "portfolio_return_pct":   round(port_r, 4),
-                    "benchmark_return_pct":   round(bench_r, 4) if bench_r is not None else None,
-                    "excess_pct":             round(excess, 4) if excess is not None else None,
-                }
-            )
+            result.append({
+                "name":                 event["name"],
+                "start":                event["start"],
+                "end":                  event["end"],
+                "portfolio_return_pct": port_r,
+                "benchmark_return_pct": bench_r,
+                "excess_pct":           excess,
+                # whether this event overlaps with portfolio data
+                "has_data":             port_r is not None,
+            })
         except Exception:
             logger.debug("Skipping event %s due to error", event["name"], exc_info=True)
+            result.append({
+                "name": event["name"], "start": event["start"], "end": event["end"],
+                "portfolio_return_pct": None, "benchmark_return_pct": None, "excess_pct": None, "has_data": False,
+            })
 
     return result
 
@@ -1743,16 +1761,18 @@ def get_full_analytics(
     except Exception:
         pass
 
-    # Compute overall factor decomposition from factor_decomp_ts (sum of daily contributions)
-    _fts = factor_decomp_ts  # already computed above
-    _market_ret_total = _style_ret_total = _industry_ret_total = _idio_ret_total = None
+    # Compute overall factor decomposition from factor_decomp_ts
+    # factor_decomp_ts uses keys: "market", "style", "industry", "idio" (decimal daily contributions)
+    _fts = factor_decomp_ts
+    _market_ret_total = _style_ret_total = _indus_ret_total = _idio_ret_total = _factor_ret_total = None
     try:
         if _fts:
-            _market_ret_total = round(sum(row.get("market_return_pct", 0) or 0 for row in _fts), 4)
-            _style_ret_total  = round(sum(row.get("style_return_pct", 0)  or 0 for row in _fts), 4)
-            _indus_ret_total  = round(sum(row.get("industry_return_pct", 0) or 0 for row in _fts), 4)
-            _idio_ret_total   = round(sum(row.get("idio_return_pct", 0)  or 0 for row in _fts), 4)
-            _factor_ret_total = round((_market_ret_total or 0) + (_style_ret_total or 0) + (_indus_ret_total or 0), 4)
+            # Sum daily decimal returns → multiply by 100 for %
+            _market_ret_total = round(sum(float(row.get("market", 0) or 0) for row in _fts) * 100, 4)
+            _style_ret_total  = round(sum(float(row.get("style",  0) or 0) for row in _fts) * 100, 4)
+            _indus_ret_total  = round(sum(float(row.get("industry", 0) or 0) for row in _fts) * 100, 4)
+            _idio_ret_total   = round(sum(float(row.get("idio",   0) or 0) for row in _fts) * 100, 4)
+            _factor_ret_total = round(_market_ret_total + _style_ret_total + _indus_ret_total, 4)
     except Exception:
         pass
 
@@ -1788,26 +1808,40 @@ def get_full_analytics(
     }
 
     # Normalize period_stats to use _pct suffix and `period` instead of `label`
+    def _flt(v) -> float | None:
+        """Safe float conversion — handles numpy types and None."""
+        if v is None: return None
+        try: return float(v)
+        except: return None
+
     def _norm_period(p: dict) -> dict:
         return {
-            "period": p.get("label", ""),
-            "label": p.get("label", ""),
-            "total_return_pct": p.get("total_return"),
-            "cagr_pct": p.get("cagr"),
-            "sharpe": p.get("sharpe"),
-            "sortino": p.get("sortino"),
-            "volatility_pct": p.get("vol"),
-            "beta": p.get("beta"),
-            "market_return_pct": p.get("market_return", 0) * 100 if p.get("market_return") else 0,
-            "style_return_pct": p.get("style_return", 0) * 100 if p.get("style_return") else 0,
-            "industry_return_pct": p.get("industry_return", 0) * 100 if p.get("industry_return") else 0,
-            "idio_return_pct": p.get("idio_return", 0) * 100 if p.get("idio_return") else 0,
-            **p,
+            "period": str(p.get("label", "")),
+            "label":  str(p.get("label", "")),
+            "total_return_pct":   _flt(p.get("total_return")),
+            "cagr_pct":           _flt(p.get("cagr")),
+            "sharpe":             _flt(p.get("sharpe")),
+            "sortino":            _flt(p.get("sortino")),
+            "volatility_pct":     _flt(p.get("vol")),
+            "beta":               _flt(p.get("beta")),
+            # market_return from period stats is already in % (multiplied in compute_period_stats)
+            "market_return_pct":  _flt(p.get("market_return_pct", p.get("market_return"))),
+            "style_return_pct":   _flt(p.get("style_return_pct",  p.get("style_return"))),
+            "industry_return_pct":_flt(p.get("industry_return_pct", p.get("industry_return"))),
+            "idio_return_pct":    _flt(p.get("idio_return_pct",  p.get("idio_return"))),
+            "factor_return_pct":  None,  # computed below
         }
 
-    period_stats_monthly_norm = [_norm_period(p) for p in period_stats_monthly]
-    period_stats_quarterly_norm = [_norm_period(p) for p in period_stats_quarterly]
-    period_stats_annual_norm = [_norm_period(p) for p in period_stats_annual]
+    def _add_factor(p: dict) -> dict:
+        m = p.get("market_return_pct") or 0
+        s = p.get("style_return_pct") or 0
+        i = p.get("industry_return_pct") or 0
+        p["factor_return_pct"] = round(m + s + i, 4) if any([m, s, i]) else None
+        return p
+
+    period_stats_monthly_norm   = [_add_factor(_norm_period(p)) for p in period_stats_monthly]
+    period_stats_quarterly_norm = [_add_factor(_norm_period(p)) for p in period_stats_quarterly]
+    period_stats_annual_norm    = [_add_factor(_norm_period(p)) for p in period_stats_annual]
 
     # Normalize holdings_detail to use _pct suffix
     def _norm_holding(h: dict) -> dict:
