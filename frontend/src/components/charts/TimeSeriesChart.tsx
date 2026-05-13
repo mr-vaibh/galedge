@@ -67,10 +67,20 @@ export function TimeSeriesChart({
             borderRadius: 8,
             fontSize: 11,
             color: "#f4f4f5",
+            padding: "8px 12px",
           }}
-          labelStyle={{ color: "#a1a1aa", marginBottom: 4 }}
-          itemStyle={{ color: "#f4f4f5" }}
-          formatter={(value) => [yFormatter(Number(value))]}
+          labelStyle={{ color: "#a1a1aa", marginBottom: 6, fontWeight: 600 }}
+          formatter={(value, name, props) => {
+            const color = props.color || "#f4f4f5";
+            return [
+              <span key="val" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", backgroundColor: color, flexShrink: 0 }} />
+                <span style={{ color: "#a1a1aa" }}>{String(name)}</span>
+                <span style={{ color: "#f4f4f5", fontWeight: 600, marginLeft: "auto", paddingLeft: 12 }}>{yFormatter(Number(value))}</span>
+              </span>,
+              "",
+            ];
+          }}
           wrapperStyle={{ zIndex: 50 }}
         />
         <Legend
