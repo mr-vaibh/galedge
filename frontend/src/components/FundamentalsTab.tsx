@@ -25,11 +25,27 @@ function InfoSection({ symbol }: { symbol: string }) {
 
   if (!data) return <div className="text-zinc-500 text-sm py-4">Loading fundamentals...</div>;
 
-  const fmt = (v: unknown) => {
+  // Fields stored as decimals that must be shown as % (multiply by 100)
+  const PCT_FIELDS = new Set([
+    "profitMargins", "operatingMargins", "grossMargins",
+    "revenueGrowth", "earningsGrowth",
+    "returnOnEquity", "returnOnAssets",
+    "dividendYield", "payoutRatio",
+  ]);
+  // Fields that are plain ratios — show as-is
+  const RATIO_FIELDS = new Set(["trailingPE", "forwardPE", "pegRatio", "priceToBook",
+    "debtToEquity", "currentRatio", "beta", "enterpriseToEbitda"]);
+
+  const fmt = (v: unknown, field?: string) => {
     if (v == null) return "—";
     if (typeof v === "number") {
       if (Math.abs(v) >= 1e6) return formatNumber(v);
-      if (Math.abs(v) < 1 && v !== 0) return `${(v * 100).toFixed(1)}%`;
+      if (field && PCT_FIELDS.has(field)) return `${(v * 100).toFixed(1)}%`;
+      if (field && RATIO_FIELDS.has(field)) return v.toFixed(2);
+      // Fallback heuristic: values between -10 and 10 that look like decimals → %
+      if (Math.abs(v) < 10 && Math.abs(v) > 0 && !Number.isInteger(v) && Math.abs(v) < 1) {
+        return `${(v * 100).toFixed(1)}%`;
+      }
       return v.toFixed(2);
     }
     return String(v);
@@ -41,10 +57,10 @@ function InfoSection({ symbol }: { symbol: string }) {
       items: [
         ["Market Cap", formatNumber(data.marketCap as number)],
         ["Enterprise Value", formatNumber(data.enterpriseValue as number)],
-        ["Trailing P/E", fmt(data.trailingPE)],
-        ["Forward P/E", fmt(data.forwardPE)],
-        ["PEG Ratio", fmt(data.pegRatio)],
-        ["Price/Book", fmt(data.priceToBook)],
+        ["Trailing P/E", fmt(data.trailingPE, "trailingPE")],
+        ["Forward P/E", fmt(data.forwardPE, "forwardPE")],
+        ["PEG Ratio", fmt(data.pegRatio, "pegRatio")],
+        ["Price/Book", fmt(data.priceToBook, "priceToBook")],
       ],
     },
     {
@@ -53,26 +69,26 @@ function InfoSection({ symbol }: { symbol: string }) {
         ["Trailing EPS", fmt(data.trailingEps)],
         ["Forward EPS", fmt(data.forwardEps)],
         ["Revenue", formatNumber(data.totalRevenue as number)],
-        ["Profit Margin", fmt(data.profitMargins)],
-        ["Operating Margin", fmt(data.operatingMargins)],
-        ["Gross Margin", fmt(data.grossMargins)],
+        ["Profit Margin", fmt(data.profitMargins, "profitMargins")],
+        ["Operating Margin", fmt(data.operatingMargins, "operatingMargins")],
+        ["Gross Margin", fmt(data.grossMargins, "grossMargins")],
       ],
     },
     {
       title: "Growth & Returns",
       items: [
-        ["Revenue Growth", fmt(data.revenueGrowth)],
-        ["Earnings Growth", fmt(data.earningsGrowth)],
-        ["Return on Equity", fmt(data.returnOnEquity)],
-        ["Debt/Equity", fmt(data.debtToEquity)],
+        ["Revenue Growth", fmt(data.revenueGrowth, "revenueGrowth")],
+        ["Earnings Growth", fmt(data.earningsGrowth, "earningsGrowth")],
+        ["Return on Equity", fmt(data.returnOnEquity, "returnOnEquity")],
+        ["Debt/Equity", fmt(data.debtToEquity, "debtToEquity")],
       ],
     },
     {
       title: "Dividends & Risk",
       items: [
-        ["Dividend Yield", fmt(data.dividendYield)],
-        ["Payout Ratio", fmt(data.payoutRatio)],
-        ["Beta", fmt(data.beta)],
+        ["Dividend Yield", fmt(data.dividendYield, "dividendYield")],
+        ["Payout Ratio", fmt(data.payoutRatio, "payoutRatio")],
+        ["Beta", fmt(data.beta, "beta")],
         ["52W High", formatPrice(data.fiftyTwoWeekHigh as number)],
         ["52W Low", formatPrice(data.fiftyTwoWeekLow as number)],
       ],
@@ -108,9 +124,13 @@ function FinancialTable({ symbol, sheet, title }: { symbol: string; sheet: strin
   if (!data) return <div className="text-zinc-500 text-sm py-4">Loading {title}...</div>;
   if (data.length === 0) return <div className="text-zinc-500 text-sm py-4">No data available</div>;
 
-  const dates = data.map((r) => String(r.date).slice(0, 10));
-  const skip = new Set(["date", "ticker", "fetched_at"]);
-  const metrics = Object.keys(data[0]).filter((k) => !skip.has(k));
+  // Filter out empty period columns (only have 'period' key, no metric values)
+  const validData = data.filter((r) => Object.keys(r).length > 1);
+  if (validData.length === 0) return <div className="text-zinc-500 text-sm py-4">No data available</div>;
+
+  const dates = validData.map((r) => String(r.period ?? r.date ?? "").slice(0, 10));
+  const skip = new Set(["period", "date", "ticker", "fetched_at"]);
+  const metrics = Object.keys(validData[0]).filter((k) => !skip.has(k));
 
   const important = [
     "Total Revenue", "Net Income", "Operating Income", "Gross Profit", "EBITDA",
@@ -121,7 +141,7 @@ function FinancialTable({ symbol, sheet, title }: { symbol: string; sheet: strin
   const sortedMetrics = [
     ...important.filter((m) => metrics.includes(m)),
     ...metrics.filter((m) => !important.includes(m)),
-  ].slice(0, 15);
+  ];
 
   return (
     <div>
@@ -142,7 +162,7 @@ function FinancialTable({ symbol, sheet, title }: { symbol: string; sheet: strin
             {sortedMetrics.map((metric) => (
               <tr key={metric} className="border-b border-zinc-900 hover:bg-zinc-900/50">
                 <td className="py-2 pr-4 text-zinc-400 text-xs">{metric}</td>
-                {data.map((row, i) => (
+                {validData.map((row, i) => (
                   <td key={i} className="text-right py-2 px-3 text-zinc-200 tabular-nums">
                     {row[metric] != null ? formatNumber(row[metric] as number) : "—"}
                   </td>
