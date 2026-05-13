@@ -40,17 +40,40 @@ for i, sym in enumerate(ALL_SYMBOLS):
     try:
         t = yf.Ticker(sym)
 
-        # ── News ────────────────────────────────────────────────────────────
+        # ── News (filtered to this stock only) ──────────────────────────────
         try:
-            for item in (t.news or [])[:5]:
+            # Tokens to match: full symbol + base without exchange suffix
+            sym_tokens = {sym.upper(), sym.replace(".NS", "").replace(".BO", "").upper()}
+            added = 0
+            for item in (t.news or []):
+                if added >= 5:
+                    break
                 c = item.get("content", {})
+                title = c.get("title", "")
+
+                # Check relatedTickers field — most reliable signal
+                related_syms = {
+                    (r.get("symbol") or "").upper()
+                    for r in c.get("relatedTickers", [])
+                }
+                is_related = bool(sym_tokens & related_syms)
+
+                # Fallback: company base name appears in title
+                if not is_related:
+                    base = sym.replace(".NS", "").replace(".BO", "").upper()
+                    is_related = base in title.upper()
+
+                if not is_related:
+                    continue  # skip generic market news
+
                 results["news"].append({
                     "symbol": sym, "fetched_at": today,
-                    "title": c.get("title", "")[:500],
+                    "title": title[:500],
                     "publisher": c.get("provider", {}).get("displayName", "")[:100],
                     "link": (c.get("canonicalUrl") or {}).get("url", "")[:1000] if isinstance(c.get("canonicalUrl"), dict) else "",
                     "published_at": c.get("pubDate", "")[:50],
                 })
+                added += 1
         except Exception:
             pass
 
