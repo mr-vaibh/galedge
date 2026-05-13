@@ -61,27 +61,25 @@ export function TimeSeriesChart({
           width={45}
         />
         <Tooltip
-          contentStyle={{
-            backgroundColor: "#18181b",
-            border: "1px solid #3f3f46",
-            borderRadius: 8,
-            fontSize: 11,
-            color: "#f4f4f5",
-            padding: "8px 12px",
-          }}
-          labelStyle={{ color: "#a1a1aa", marginBottom: 6, fontWeight: 600 }}
-          formatter={(value, name, props) => {
-            const color = props.color || "#f4f4f5";
-            return [
-              <span key="val" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", backgroundColor: color, flexShrink: 0 }} />
-                <span style={{ color: "#a1a1aa" }}>{String(name)}</span>
-                <span style={{ color: "#f4f4f5", fontWeight: 600, marginLeft: "auto", paddingLeft: 12 }}>{yFormatter(Number(value))}</span>
-              </span>,
-              "",
-            ];
-          }}
           wrapperStyle={{ zIndex: 50 }}
+          content={({ active, payload, label }) => {
+            if (!active || !payload?.length) return null;
+            return (
+              <div style={{
+                backgroundColor: "#18181b", border: "1px solid #3f3f46",
+                borderRadius: 8, fontSize: 11, padding: "8px 12px", minWidth: 160,
+              }}>
+                <p style={{ color: "#a1a1aa", marginBottom: 6, fontWeight: 600 }}>{label}</p>
+                {payload.map((entry) => (
+                  <div key={entry.dataKey as string} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: entry.color, flexShrink: 0, display: "inline-block" }} />
+                    <span style={{ color: "#a1a1aa", flex: 1 }}>{entry.name}</span>
+                    <span style={{ color: "#f4f4f5", fontWeight: 600 }}>{yFormatter(Number(entry.value))}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          }}
         />
         <Legend
           iconType="line"
