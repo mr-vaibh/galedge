@@ -118,6 +118,28 @@ export default function PeriodAnalysisPage() {
   const [view, setView] = useState<AnalyticsView>("Main");
   const [statKpi, setStatKpi] = useState("total_return_pct");
 
+  // ALL hooks MUST be before any conditional returns
+  const periods = useMemo(
+    () => analyticsData ? getPeriodData(analyticsData as Record<string, unknown>, gran) : [],
+    [analyticsData, gran]
+  );
+  const pnlRows  = useMemo(() => buildPnLRows(periods),         [periods]);
+  const riskRows = useMemo(() => buildRiskRows(periods),        [periods]);
+  const statRows = useMemo(() => buildStatRows(periods, statKpi),[periods, statKpi]);
+  const periodCols: TreeColumn[] = useMemo(() => periods.map(p => ({
+    key: String(p.period ?? p.label ?? "?"),
+    label: String(p.period ?? p.label ?? "?"),
+    align: "right" as const,
+  })), [periods]);
+  const statCols: TreeColumn[] = [{ key: "Active", label: "Active", align: "right" }];
+  const chartData = useMemo(() => periods.map(p => ({
+    period: String(p.period ?? p.label),
+    market: Number(p.market_return_pct ?? 0),
+    style:  Number(p.style_return_pct  ?? 0),
+    industry: Number(p.industry_return_pct ?? 0),
+    idio:   Number(p.idio_return_pct   ?? 0),
+  })), [periods]);
+
   if (analyticsLoading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /><span className="ml-2 text-sm text-muted-foreground">Computing analytics...</span></div>;
   if (!analyticsData || !selectedSourceId) return (
     <div className="p-6 space-y-4"><h1 className="text-xl font-bold">Period Analysis</h1>
@@ -125,29 +147,8 @@ export default function PeriodAnalysisPage() {
     </div>
   );
 
-  const periods = getPeriodData(analyticsData as Record<string, unknown>, gran);
-  const hasBenchmark = false; // benchmark period data not yet computed
+  const hasBenchmark = false;
 
-  // Period labels as columns
-  const periodCols: TreeColumn[] = periods.map(p => ({
-    key: String(p.period ?? p.label ?? "?"),
-    label: String(p.period ?? p.label ?? "?"),
-    align: "right" as const,
-  }));
-
-  const pnlRows  = useMemo(() => buildPnLRows(periods),  [periods]);
-  const riskRows = useMemo(() => buildRiskRows(periods), [periods]);
-  const statRows = useMemo(() => buildStatRows(periods, statKpi), [periods, statKpi]);
-  const statCols: TreeColumn[] = [{ key: "Active", label: "Active", align: "right" }];
-
-  // Return decomposition chart
-  const chartData = periods.map(p => ({
-    period: String(p.period ?? p.label),
-    market: Number(p.market_return_pct ?? 0),
-    style:  Number(p.style_return_pct  ?? 0),
-    industry: Number(p.industry_return_pct ?? 0),
-    idio:   Number(p.idio_return_pct   ?? 0),
-  }));
 
   return (
     <div className="p-4 space-y-4">
