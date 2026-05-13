@@ -127,4 +127,14 @@
   html {
     @apply font-sans;
   }
+
+  /* Kill focus ring on all SVG / Recharts elements */
+  svg:focus,
+  svg:focus-visible,
+  .recharts-wrapper:focus,
+  .recharts-wrapper:focus-visible,
+  .recharts-surface:focus,
+  .recharts-surface:focus-visible {
+    outline: none !important;
+  }
 }
