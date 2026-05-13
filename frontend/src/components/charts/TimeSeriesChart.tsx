@@ -117,7 +117,9 @@ export function TimeSeriesChart({
   const [dragStart, setDragStart] = useState<string | null>(null);
   const [dragEnd, setDragEnd]     = useState<string | null>(null);
   const [dragging, setDragging]   = useState(false);
-  const [pinned, setPinned]       = useState(false); // locked after mouseup
+  const [pinned, setPinned]       = useState(false);
+  const [mousePos, setMousePos]   = useState<{x: number; y: number}>({ x: 0, y: 0 });
+  const [pinnedPos, setPinnedPos] = useState<{x: number; y: number}>({ x: 0, y: 0 });
 
   const colorMap: Record<string, string> = {};
   series.forEach((s, i) => { colorMap[s.key] = s.color || COLORS[i % COLORS.length]; });
@@ -142,11 +144,12 @@ export function TimeSeriesChart({
     setDragging(false);
     if (dragStart && dragEnd && dragStart !== dragEnd) {
       setPinned(true);
+      setPinnedPos(mousePos);
     } else {
       setDragStart(null);
       setDragEnd(null);
     }
-  }, [dragging, dragStart, dragEnd]);
+  }, [dragging, dragStart, dragEnd, mousePos]);
 
   const clearRange = useCallback(() => {
     setDragStart(null);
@@ -169,7 +172,13 @@ export function TimeSeriesChart({
   }
 
   return (
-    <div style={{ userSelect: "none" }}>
+    <div
+      style={{ position: "relative", userSelect: "none" }}
+      onMouseMove={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+      }}
+    >
 
 
       <ResponsiveContainer width="100%" height={height}>
@@ -273,33 +282,50 @@ export function TimeSeriesChart({
 
       {/* Subtle hint */}
       {!hasRange && !dragging && (
-        <div style={{ textAlign: "right", fontSize: 9, color: "#3f3f46", marginTop: 2, paddingRight: 4, pointerEvents: "none" }}>
+        <div style={{
+          position: "absolute", bottom: 28, right: 12,
+          fontSize: 9, color: "#3f3f46", pointerEvents: "none",
+        }}>
           drag to measure range
         </div>
       )}
 
-      {/* Delta panel — rendered BELOW chart so it never blocks mouse events */}
-      {hasRange && (pinned || dragging) && (
-        <div style={{ position: "relative", marginTop: 6 }}>
-          <RangeDeltaPanel
-            data={data} series={series} xKey={xKey}
-            start={dragStart!} end={dragEnd!}
-            yFormatter={yFormatter} colors={colorMap}
-          />
-          {pinned && (
-            <button
-              onClick={clearRange}
-              style={{
-                position: "absolute", top: 6, right: 6,
-                background: "none", border: "none", cursor: "pointer",
-                color: "#71717a", fontSize: 14, lineHeight: 1,
-                padding: "2px 4px",
-              }}
-              title="Clear range"
-            >✕</button>
-          )}
-        </div>
-      )}
+      {/* Delta panel — follows cursor during drag, stays pinned after release */}
+      {hasRange && (pinned || dragging) && (() => {
+        const pos = pinned ? pinnedPos : mousePos;
+        // Offset panel so it doesn't sit right on cursor; flip left if near right edge
+        const panelW = 220;
+        const offsetX = pos.x + panelW + 20 > (typeof window !== "undefined" ? window.innerWidth : 800)
+          ? -panelW - 16 : 16;
+        return (
+          <div style={{
+            position: "absolute",
+            left: Math.max(0, pos.x + offsetX),
+            top: Math.max(0, pos.y - 20),
+            zIndex: 50,
+            // Never capture mouse events while dragging — passes through to chart
+            pointerEvents: pinned ? "auto" : "none",
+          }}>
+            <RangeDeltaPanel
+              data={data} series={series} xKey={xKey}
+              start={dragStart!} end={dragEnd!}
+              yFormatter={yFormatter} colors={colorMap}
+            />
+            {pinned && (
+              <button
+                onClick={clearRange}
+                style={{
+                  position: "absolute", top: 6, right: 6,
+                  background: "none", border: "none", cursor: "pointer",
+                  color: "#71717a", fontSize: 14, lineHeight: 1,
+                  padding: "2px 4px",
+                }}
+                title="Clear range"
+              >✕</button>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
