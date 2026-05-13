@@ -223,7 +223,9 @@ function FundSelector() {
               <div className="px-3 py-3 text-[11px] text-muted-foreground">No portfolios or backtests found</div>
             ) : (
               items.map((item, i) => {
-                const isActive = item.source === selectedSource && item.sourceId === selectedSourceId && item.backtestId === selectedBacktestId;
+                const isActive = item.source === selectedSource &&
+                  item.sourceId === selectedSourceId &&
+                  (item.backtestId === selectedBacktestId || (!item.backtestId && !selectedBacktestId));
                 return (
                   <button
                     key={i}
