@@ -7,6 +7,7 @@ import { Loader2, BarChart3 } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
+import { ViewToggle, type AnalyticsView } from "@/components/analytics/ViewToggle";
 
 function fmt(v: unknown, decimals = 2): string {
   if (v == null || v === "") return "—";
@@ -48,7 +49,7 @@ const COLORS = ["#f97316", "#10b981", "#3b82f6", "#a855f7", "#eab308", "#ef4444"
 
 export default function HoldingsSummaryPage() {
   const { analyticsData, analyticsLoading, selectedSourceId } = usePortfolio();
-
+  const [view, setView] = useState<AnalyticsView>("Main");
   const [selectedHoldings, setSelectedHoldings] = useState<Set<string>>(new Set());
   const [selectedFactors, setSelectedFactors] = useState<Set<string>>(new Set());
 
@@ -147,9 +148,12 @@ export default function HoldingsSummaryPage() {
 
   return (
     <div className="p-4 space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">Holdings &amp; Factor Summary</h1>
-        <p className="text-xs text-muted-foreground">{holdings.length} holdings · {factors.length} factors</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold">Holdings &amp; Factor Summary</h1>
+          <p className="text-xs text-muted-foreground">{holdings.length} holdings · {factors.length} factors</p>
+        </div>
+        <ViewToggle view={view} onChange={setView} hasBenchmark={false} />
       </div>
 
       {/* Top section: two tables side by side */}

@@ -6,6 +6,8 @@ import { Loader2, BarChart3 } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
+import { AnalyticsTreeTable, type TreeRow, type TreeColumn } from "@/components/analytics/AnalyticsTreeTable";
+import { ViewToggle, type AnalyticsView } from "@/components/analytics/ViewToggle";
 import {
   BarChart,
   Bar,
@@ -175,9 +177,48 @@ function AnalyticsChart({ analyticsData, defaultKpi }: { analyticsData: Record<s
   );
 }
 
+// Build P&L tree rows reusing same structure as performance summary
+function buildPnLTree(pnl: Record<string, unknown>): TreeRow[] {
+  const v = (k: string) => pnl[k] as number | null ?? null;
+  const B = (k: string) => pnl[k] as number | null ?? null;
+  const A = (mk: string, bk: string) => {
+    const m = v(mk), b = B(bk);
+    return (m != null && b != null) ? Math.round((Number(m) - Number(b)) * 100) / 100 : null;
+  };
+  return [
+    { id: "tr", label: "Total Return (%)", values: { Main: v("total_return_pct"), Benchmark: B("benchmark_total_return_pct"), Active: A("total_return_pct","benchmark_total_return_pct") },
+      children: [
+        { id: "idio_r", label: "Idiosyncratic Return (%)", values: { Main: v("idio_return_pct"), Benchmark: null, Active: null } },
+        { id: "fac_r",  label: "Factor Return (%)", values: { Main: v("factor_return_pct"), Benchmark: null, Active: null },
+          children: [
+            { id: "mkt_r", label: "Market Return (%)",   values: { Main: v("market_return_pct"),   Benchmark: null, Active: null } },
+            { id: "sty_r", label: "Style Return (%)",    values: { Main: v("style_return_pct"),    Benchmark: null, Active: null } },
+            { id: "ind_r", label: "Industry Return (%)", values: { Main: v("industry_return_pct"), Benchmark: null, Active: null } },
+          ]
+        },
+      ]
+    },
+    { id: "cagr",    label: "CAGR (%)",       values: { Main: v("cagr_pct"),        Benchmark: B("benchmark_cagr_pct"),  Active: A("cagr_pct","benchmark_cagr_pct") } },
+    { id: "sharpe",  label: "Sharpe Ratio",   values: { Main: v("sharpe"),           Benchmark: B("benchmark_sharpe"),    Active: A("sharpe","benchmark_sharpe") } },
+    { id: "sortino", label: "Sortino Ratio",  values: { Main: v("sortino"),          Benchmark: B("benchmark_sortino"),   Active: A("sortino","benchmark_sortino") } },
+    { id: "treynor", label: "Treynor Ratio",  values: { Main: v("treynor"),          Benchmark: B("benchmark_treynor"),   Active: A("treynor","benchmark_treynor") } },
+  ];
+}
+function buildRiskTree(pnl: Record<string, unknown>): TreeRow[] {
+  const v = (k: string) => pnl[k] as number | null ?? null;
+  const B = (k: string) => pnl[k] as number | null ?? null;
+  const A = (mk: string, bk: string) => { const m=v(mk),b=B(bk); return (m!=null&&b!=null)?Math.round((Number(m)-Number(b))*100)/100:null; };
+  return [
+    { id: "beta", label: "Beta",            values: { Main: v("beta"),             Benchmark: 1.0, Active: A("beta","beta") } },
+    { id: "vol",  label: "Volatility (%)",  values: { Main: v("volatility_pct"),   Benchmark: B("benchmark_volatility_pct"),   Active: A("volatility_pct","benchmark_volatility_pct") } },
+    { id: "dd",   label: "Max Drawdown (%)",values: { Main: v("max_drawdown_pct"), Benchmark: B("benchmark_max_drawdown_pct"), Active: A("max_drawdown_pct","benchmark_max_drawdown_pct") } },
+  ];
+}
+
 export default function ReturnsAndRiskPage() {
   const { analyticsData, analyticsLoading, selectedSourceId } = usePortfolio();
   const [contributorTab, setContributorTab] = useState<ContribTab>("overall");
+  const [view, setView] = useState<AnalyticsView>("Main");
 
   if (analyticsLoading) {
     return (
@@ -261,15 +302,34 @@ export default function ReturnsAndRiskPage() {
     : "return_contribution_pct";
   const nameKey = contributorTab === "factor" ? "factor_name" : "symbol";
 
+  const pnlTree  = buildPnLTree(pnl);
+  const riskTree = buildRiskTree(pnl);
+  const hasBenchmark = pnl.benchmark_total_return_pct != null;
+  const treeCols: TreeColumn[] = view === "Main"
+    ? [{ key:"Main", label:"Main", align:"right" as const }]
+    : view === "Benchmark"
+    ? [{ key:"Benchmark", label:"Benchmark", align:"right" as const }]
+    : [{ key:"Active", label:"Active", align:"right" as const }, { key:"Benchmark", label:"Benchmark", align:"right" as const }, { key:"Main", label:"Main", align:"right" as const }];
+  const valCols: TreeColumn[] = [{ key:"Main", label:"Main", align:"right" as const }];
+
   return (
     <div className="p-4 space-y-4">
-      <h1 className="text-xl font-bold">Returns &amp; Risk</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold">Returns &amp; Risk</h1>
+        <ViewToggle view={view} onChange={setView} hasBenchmark={hasBenchmark} />
+      </div>
 
-      {/* 4 summary tables */}
+      {/* Metric tables */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-        <MetricTable title="P&amp;L Summary" rows={pnlRows} />
-        <MetricTable title="Risk Summary" rows={riskRows} />
-        <MetricTable title="Valuation Summary" rows={valuationRows} />
+        <AnalyticsTreeTable title="P&L Summary" columns={treeCols} rows={pnlTree} defaultExpanded={new Set(["tr","sharpe"])} />
+        <AnalyticsTreeTable title="Risk Summary" columns={treeCols} rows={riskTree} />
+        <AnalyticsTreeTable title="Valuation Summary" columns={valCols}
+          rows={[
+            { id:"pe",  label:"PE Ratio",            values:{ Main: pnl.pe_ratio as number ?? (latestV.pe_ratio as number) ?? null } },
+            { id:"pb",  label:"P/B Ratio",            values:{ Main: pnl.pb_ratio as number ?? (latestV.pb_ratio as number) ?? null } },
+            { id:"roe", label:"Return on Equity (%)", values:{ Main: pnl.roe_pct  as number ?? (latestV.roe_pct  as number) ?? null } },
+          ]}
+        />
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-[11px]">Brinson by Market Cap</CardTitle>

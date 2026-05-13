@@ -7,6 +7,7 @@ import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
 import { D3Treemap } from "@/components/charts/D3Treemap";
 import { usePortfolio } from "@/lib/portfolio-context";
+import { ViewToggle, type AnalyticsView } from "@/components/analytics/ViewToggle";
 
 interface EventReturn {
   name?: string;
@@ -63,6 +64,7 @@ function getEnd(e: EventReturn): string {
 export default function EventSensitivityPage() {
   const { analyticsData, analyticsLoading, selectedSourceId } = usePortfolio();
   const [selectedEventIdx, setSelectedEventIdx] = useState<number | null>(0);
+  const [view, setView] = useState<AnalyticsView>("Main");
 
   if (analyticsLoading) {
     return (
@@ -143,7 +145,10 @@ export default function EventSensitivityPage() {
 
   return (
     <div className="p-4 space-y-4">
-      <h1 className="text-xl font-bold">Event Sensitivity</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold">Event Sensitivity</h1>
+        <ViewToggle view={view} onChange={setView} hasBenchmark={true} />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Event Summary Table */}

@@ -1,126 +1,152 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Loader2, BarChart3 } from "lucide-react";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
+import { AnalyticsTreeTable, type TreeRow, type TreeColumn } from "@/components/analytics/AnalyticsTreeTable";
+import { ViewToggle, type AnalyticsView } from "@/components/analytics/ViewToggle";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  CartesianGrid,
-  ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer,
 } from "recharts";
 
-type Granularity = "monthly" | "quarterly" | "annual";
+type Granularity = "annual" | "quarterly" | "monthly";
 
-function fmt(v: unknown, decimals = 2): string {
-  if (v == null || v === "") return "—";
-  const n = Number(v);
-  if (isNaN(n)) return String(v);
-  return n.toFixed(decimals);
+function getPeriodData(data: Record<string, unknown>, gran: Granularity) {
+  const key = gran === "annual" ? "period_stats_annual"
+    : gran === "quarterly" ? "period_stats_quarterly"
+    : "period_stats_monthly";
+  return (data[key] as Record<string, unknown>[] | undefined) ?? [];
 }
 
-function ColoredCell({ value }: { value: unknown }) {
-  const n = Number(value);
-  const s = fmt(value);
-  if (s === "—") return <span className="tabular-nums">{s}</span>;
-  return <span className={`tabular-nums ${n >= 0 ? "text-emerald-500" : "text-red-400"}`}>{s}</span>;
+function pct75(arr: number[]) {
+  if (!arr.length) return null;
+  const s = [...arr].sort((a, b) => a - b);
+  return s[Math.floor(s.length * 0.75)] ?? null;
+}
+function pct25(arr: number[]) {
+  if (!arr.length) return null;
+  const s = [...arr].sort((a, b) => a - b);
+  return s[Math.floor(s.length * 0.25)] ?? null;
+}
+function median(arr: number[]) {
+  if (!arr.length) return null;
+  const s = [...arr].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : ((s[m - 1] + s[m]) / 2);
 }
 
-interface PeriodRow {
-  period: string;
-  total_return_pct?: number;
-  cagr_pct?: number;
-  sharpe?: number;
-  sortino?: number;
-  volatility_pct?: number;
-  market_return_pct?: number;
-  style_return_pct?: number;
-  industry_return_pct?: number;
-  idio_return_pct?: number;
-  [key: string]: unknown;
+// Build the P&L tree table rows with periods as columns
+function buildPnLRows(periods: Record<string, unknown>[]): TreeRow[] {
+  const vals = (key: string) =>
+    Object.fromEntries(periods.map(p => [String(p.period ?? p.label ?? "?"), p[key] as number | null ?? null]));
+
+  return [
+    {
+      id: "tr", label: "Total Return (%)",
+      values: vals("total_return_pct"),
+      children: [
+        { id: "idio_ret",   label: "Idiosyncratic Return (%)", values: vals("idio_return_pct") },
+        { id: "factor_ret", label: "Factor Return (%)",        values: vals("factor_return_pct"),
+          children: [
+            { id: "mkt_ret", label: "Market Return (%)",   values: vals("market_return_pct") },
+            { id: "sty_ret", label: "Style Return (%)",    values: vals("style_return_pct") },
+            { id: "ind_ret", label: "Industry Return (%)", values: vals("industry_return_pct") },
+          ]
+        },
+      ],
+    },
+    { id: "cagr",    label: "CAGR (%)",       values: vals("cagr_pct") },
+    { id: "sharpe",  label: "Sharpe Ratio",   values: vals("sharpe") },
+    { id: "sortino", label: "Sortino Ratio",  values: vals("sortino") },
+  ];
 }
 
-function getPeriodData(analyticsData: Record<string, unknown>, granularity: Granularity): PeriodRow[] {
-  const key =
-    granularity === "monthly" ? "period_stats_monthly" :
-    granularity === "quarterly" ? "period_stats_quarterly" :
-    "period_stats_annual";
-  const rows = (analyticsData[key] as PeriodRow[] | undefined) ?? [];
-  return rows;
+function buildRiskRows(periods: Record<string, unknown>[]): TreeRow[] {
+  const vals = (key: string) =>
+    Object.fromEntries(periods.map(p => [String(p.period ?? p.label ?? "?"), p[key] as number | null ?? null]));
+  return [
+    { id: "vol",   label: "Volatility (%)",   values: vals("volatility_pct") },
+    { id: "beta",  label: "Beta",             values: vals("beta") },
+  ];
 }
 
-function computeStats(rows: PeriodRow[]) {
-  const returns = rows.map((r) => Number(r.total_return_pct ?? 0)).filter((n) => !isNaN(n));
-  if (returns.length === 0) return null;
+// P&L Statistics (3rd table) — computed across periods
+function buildStatRows(periods: Record<string, unknown>[], kpiKey: string): TreeRow[] {
+  const returns = periods.map(p => Number(p[kpiKey] ?? 0)).filter(v => isFinite(v));
+  if (!returns.length) return [];
+  const pos = returns.filter(v => v > 0).length;
+  const neg = returns.filter(v => v < 0).length;
+  const total = returns.length;
+  const avg = returns.reduce((s, v) => s + v, 0) / total;
+  const med = median(returns);
+  const p25 = pct25(returns);
+  const p75 = pct75(returns);
 
-  const positive = returns.filter((r) => r > 0).length;
-  const hitRate = (positive / returns.length) * 100;
-  const sorted = [...returns].sort((a, b) => a - b);
-  const p25 = sorted[Math.floor(sorted.length * 0.25)] ?? 0;
-  const p75 = sorted[Math.floor(sorted.length * 0.75)] ?? 0;
-  const median = sorted[Math.floor(sorted.length * 0.5)] ?? 0;
-  const avg = returns.reduce((a, b) => a + b, 0) / returns.length;
-
-  return {
-    hitRate: hitRate.toFixed(1),
-    max: Math.max(...returns).toFixed(2),
-    min: Math.min(...returns).toFixed(2),
-    avg: avg.toFixed(2),
-    median: median.toFixed(2),
-    p25: p25.toFixed(2),
-    p75: p75.toFixed(2),
-    count: returns.length,
-  };
+  return [
+    {
+      id: "hitrate", label: "Hit Rate (%)",
+      values: { Active: total > 0 ? Math.round((pos / total) * 10000) / 100 : null },
+      children: [
+        { id: "pos",   label: "Positive Periods Count", values: { Active: pos } },
+        { id: "neg",   label: "Negative Periods Count", values: { Active: neg } },
+        { id: "total", label: "Total Periods",           values: { Active: total } },
+      ],
+    },
+    { id: "max",    label: "Max Period Return",               values: { Active: Math.max(...returns) } },
+    { id: "min",    label: "Min Period Return",               values: { Active: Math.min(...returns) } },
+    { id: "avg",    label: "Average Return Across Periods",   values: { Active: Math.round(avg * 100) / 100 } },
+    { id: "median", label: "Median Return Across Periods",    values: { Active: med } },
+    { id: "p25",    label: "25th Percentile Return",          values: { Active: p25 } },
+    { id: "p75",    label: "75th Percentile Return",          values: { Active: p75 } },
+  ];
 }
 
-const STACKED_COLORS: Record<string, string> = {
-  market_return_pct: "#6366f1",
-  style_return_pct: "#10b981",
-  industry_return_pct: "#f97316",
-  idio_return_pct: "#eab308",
-};
+const RETURN_KPI_OPTIONS = [
+  { key: "total_return_pct",    label: "Total Return (%)" },
+  { key: "idio_return_pct",     label: "Idiosyncratic Return (%)" },
+  { key: "factor_return_pct",   label: "Factor Return (%)" },
+  { key: "market_return_pct",   label: "Market Return (%)" },
+  { key: "style_return_pct",    label: "Style Return (%)" },
+  { key: "industry_return_pct", label: "Industry Return (%)" },
+];
 
 export default function PeriodAnalysisPage() {
   const { analyticsData, analyticsLoading, selectedSourceId } = usePortfolio();
-  const [granularity, setGranularity] = useState<Granularity>("monthly");
+  const [gran, setGran] = useState<Granularity>("annual");
+  const [view, setView] = useState<AnalyticsView>("Main");
+  const [statKpi, setStatKpi] = useState("total_return_pct");
 
-  if (analyticsLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-sm text-muted-foreground">Computing analytics...</span>
-      </div>
-    );
-  }
+  if (analyticsLoading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /><span className="ml-2 text-sm text-muted-foreground">Computing analytics...</span></div>;
+  if (!analyticsData || !selectedSourceId) return (
+    <div className="p-6 space-y-4"><h1 className="text-xl font-bold">Period Analysis</h1>
+      <div className="rounded-lg border bg-card p-12 text-center"><BarChart3 className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" /><p className="text-sm text-muted-foreground">Select a portfolio or strategy from the sidebar to begin</p></div>
+    </div>
+  );
 
-  if (!analyticsData || !selectedSourceId) {
-    return (
-      <div className="p-6 space-y-4">
-        <h1 className="text-xl font-bold">Period Analysis</h1>
-        <div className="rounded-lg border bg-card p-12 text-center space-y-3">
-          <BarChart3 className="h-10 w-10 text-muted-foreground/40 mx-auto" />
-          <p className="text-sm text-muted-foreground">Select a portfolio or strategy from the sidebar to begin</p>
-        </div>
-      </div>
-    );
-  }
+  const periods = getPeriodData(analyticsData as Record<string, unknown>, gran);
+  const hasBenchmark = false; // benchmark period data not yet computed
 
-  const rows = getPeriodData(analyticsData, granularity);
-  const stats = computeStats(rows);
+  // Period labels as columns
+  const periodCols: TreeColumn[] = periods.map(p => ({
+    key: String(p.period ?? p.label ?? "?"),
+    label: String(p.period ?? p.label ?? "?"),
+    align: "right" as const,
+  }));
 
-  const decompBarData = rows.map((r) => ({
-    period: r.period,
-    market_return_pct: Number(r.market_return_pct ?? 0),
-    style_return_pct: Number(r.style_return_pct ?? 0),
-    industry_return_pct: Number(r.industry_return_pct ?? 0),
-    idio_return_pct: Number(r.idio_return_pct ?? 0),
+  const pnlRows  = useMemo(() => buildPnLRows(periods),  [periods]);
+  const riskRows = useMemo(() => buildRiskRows(periods), [periods]);
+  const statRows = useMemo(() => buildStatRows(periods, statKpi), [periods, statKpi]);
+  const statCols: TreeColumn[] = [{ key: "Active", label: "Active", align: "right" }];
+
+  // Return decomposition chart
+  const chartData = periods.map(p => ({
+    period: String(p.period ?? p.label),
+    market: Number(p.market_return_pct ?? 0),
+    style:  Number(p.style_return_pct  ?? 0),
+    industry: Number(p.industry_return_pct ?? 0),
+    idio:   Number(p.idio_return_pct   ?? 0),
   }));
 
   return (
@@ -128,110 +154,81 @@ export default function PeriodAnalysisPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">Period Analysis</h1>
-          <p className="text-xs text-muted-foreground">{rows.length} periods</p>
+          <p className="text-xs text-muted-foreground">Calendar year breakdown</p>
         </div>
-        <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
-          {(["monthly", "quarterly", "annual"] as Granularity[]).map((g) => (
-            <Button key={g} variant={granularity === g ? "secondary" : "ghost"}
-              size="sm" onClick={() => setGranularity(g)} className="h-7 text-[10px] px-3 capitalize">
-              {g}
-            </Button>
-          ))}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-0.5 bg-muted/30 rounded-lg p-0.5 border border-border/40">
+            {(["annual","quarterly","monthly"] as Granularity[]).map(g => (
+              <button key={g} onClick={() => setGran(g)}
+                className={`px-2 py-1 text-[10px] font-medium rounded-md capitalize transition-all ${gran === g ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                {g}
+              </button>
+            ))}
+          </div>
+          <ViewToggle view={view} onChange={setView} hasBenchmark={hasBenchmark} />
         </div>
       </div>
 
-      {/* P&L Table by period */}
-      <Card>
-        <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-          <CardTitle className="text-[11px]">P&amp;L by Period</CardTitle>
-          <CardControls />
-        </CardHeader>
-        <CardContent className="p-0 max-h-72 overflow-y-auto">
-          <table className="w-full text-[10px]">
-            <thead className="sticky top-0 bg-card">
-              <tr className="border-b border-border/50">
-                {["Period", "Total Return (%)", "CAGR (%)", "Sharpe", "Sortino", "Vol (%)"].map((h) => (
-                  <th key={h} className="px-2 py-1.5 text-left font-medium text-muted-foreground whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.period} className="border-b border-border/30 hover:bg-muted/20">
-                  <td className="px-2 py-1.5 font-medium">{r.period}</td>
-                  <td className="px-2 py-1.5"><ColoredCell value={fmt(r.total_return_pct)} /></td>
-                  <td className="px-2 py-1.5"><ColoredCell value={fmt(r.cagr_pct)} /></td>
-                  <td className="px-2 py-1.5"><ColoredCell value={fmt(r.sharpe)} /></td>
-                  <td className="px-2 py-1.5"><ColoredCell value={fmt(r.sortino)} /></td>
-                  <td className="px-2 py-1.5"><ColoredCell value={fmt(r.volatility_pct)} /></td>
-                </tr>
-              ))}
-              {rows.length === 0 && (
-                <tr><td colSpan={6} className="px-2 py-4 text-center text-muted-foreground">No period data available</td></tr>
-              )}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
+      {periods.length === 0 ? (
+        <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">No period data available</div>
+      ) : (
+        <>
+          {/* P&L + Risk tree tables with period columns */}
+          <div className="space-y-3">
+            <AnalyticsTreeTable
+              title="Profit & Loss Summary"
+              columns={periodCols}
+              rows={pnlRows}
+              defaultExpanded={new Set(["tr"])}
+            />
+            <AnalyticsTreeTable
+              title="Risk Summary"
+              columns={periodCols}
+              rows={riskRows}
+            />
+          </div>
 
-      {/* Statistics Panel */}
-      {stats && (
-        <Card>
-          <CardHeader className="pb-1 py-2 px-3">
-            <CardTitle className="text-[11px]">Period Statistics</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-0 divide-x divide-y divide-border/30">
-              {[
-                { label: "Hit Rate", value: `${stats.hitRate}%` },
-                { label: "Max Return", value: `${stats.max}%` },
-                { label: "Min Return", value: `${stats.min}%` },
-                { label: "Average", value: `${stats.avg}%` },
-                { label: "Median", value: `${stats.median}%` },
-                { label: "25th Pct", value: `${stats.p25}%` },
-                { label: "75th Pct", value: `${stats.p75}%` },
-                { label: "Periods", value: stats.count },
-              ].map(({ label, value }) => (
-                <div key={label} className="p-3 text-center">
-                  <div className="text-[9px] text-muted-foreground">{label}</div>
-                  <div className={`text-sm font-semibold tabular-nums mt-0.5 ${
-                    typeof value === "string" && value.startsWith("-") ? "text-red-400" : ""
-                  }`}>{value}</div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          {/* P&L Statistics table */}
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">P&L Statistics</h2>
+            <select
+              value={statKpi}
+              onChange={e => setStatKpi(e.target.value)}
+              className="text-[9px] bg-background border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none ml-auto"
+            >
+              {RETURN_KPI_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </div>
+          <AnalyticsTreeTable
+            title={`Profit & Loss Statistics — ${RETURN_KPI_OPTIONS.find(o => o.key === statKpi)?.label ?? ""}`}
+            columns={statCols}
+            rows={statRows}
+            defaultExpanded={new Set(["hitrate"])}
+          />
 
-      {/* Return Decomposition Stacked Bar */}
-      {decompBarData.length > 0 && (
-        <Card>
-          <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-            <CardTitle className="text-[11px]">Return Decomposition by Period</CardTitle>
-            <CardControls />
-          </CardHeader>
-          <CardContent className="p-2">
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={decompBarData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                <XAxis dataKey="period" tick={{ fontSize: 8, fill: "#71717a" }} tickLine={false} axisLine={{ stroke: "#27272a" }} />
-                <YAxis tick={{ fontSize: 8, fill: "#71717a" }} tickLine={false} axisLine={{ stroke: "#27272a" }}
-                  tickFormatter={(v) => `${v.toFixed(1)}%`} width={40} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 8, fontSize: 11 }}
-                  labelStyle={{ color: "#a1a1aa" }}
-                  formatter={(v) => [`${Number(v).toFixed(2)}%`]}
-                />
-                <Legend wrapperStyle={{ fontSize: 9, paddingTop: 4 }} />
-                {Object.entries(STACKED_COLORS).map(([key, color]) => (
-                  <Bar key={key} dataKey={key} stackId="a" fill={color}
-                    name={key.replace(/_pct$/, "").replace(/_/g, " ")} />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          {/* Return decomposition chart */}
+          <Card>
+            <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+              <CardTitle className="text-[11px]">Return Decomposition (%)</CardTitle>
+              <CardControls />
+            </CardHeader>
+            <CardContent className="p-2">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                  <XAxis dataKey="period" tick={{ fontSize: 9, fill: "#71717a" }} tickLine={false} />
+                  <YAxis tick={{ fontSize: 9, fill: "#71717a" }} tickLine={false} width={40} tickFormatter={v => `${v}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: "#18181b", border: "1px solid #3f3f46", borderRadius: 8, fontSize: 11 }} formatter={(v: unknown) => [`${Number(v).toFixed(2)}%`]} />
+                  <Legend iconType="square" iconSize={8} wrapperStyle={{ fontSize: 10 }} />
+                  <Bar dataKey="market"   name="Market"        fill="#3b82f6" stackId="a" />
+                  <Bar dataKey="style"    name="Style"         fill="#a855f7" stackId="a" />
+                  <Bar dataKey="industry" name="Industry"      fill="#10b981" stackId="a" />
+                  <Bar dataKey="idio"     name="Idiosyncratic" fill="#f97316" stackId="a" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   );
