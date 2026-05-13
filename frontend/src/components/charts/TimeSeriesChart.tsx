@@ -169,29 +169,8 @@ export function TimeSeriesChart({
   }
 
   return (
-    <div style={{ position: "relative", userSelect: "none" }}>
-      {/* Range delta panel */}
-      {hasRange && (pinned || dragging) && (
-        <div style={{ position: "absolute", top: 4, right: 8, zIndex: 40 }}>
-          <RangeDeltaPanel
-            data={data} series={series} xKey={xKey}
-            start={dragStart!} end={dragEnd!}
-            yFormatter={yFormatter} colors={colorMap}
-          />
-          {pinned && (
-            <button
-              onClick={clearRange}
-              style={{
-                position: "absolute", top: 6, right: 6,
-                background: "none", border: "none", cursor: "pointer",
-                color: "#71717a", fontSize: 14, lineHeight: 1,
-                padding: "2px 4px",
-              }}
-              title="Clear range"
-            >✕</button>
-          )}
-        </div>
-      )}
+    <div style={{ userSelect: "none" }}>
+
 
       <ResponsiveContainer width="100%" height={height}>
         <LineChart
@@ -292,13 +271,33 @@ export function TimeSeriesChart({
         </LineChart>
       </ResponsiveContainer>
 
-      {/* Subtle hint when no range selected */}
+      {/* Subtle hint */}
       {!hasRange && !dragging && (
-        <div style={{
-          position: "absolute", bottom: 28, right: 12,
-          fontSize: 9, color: "#52525b", pointerEvents: "none",
-        }}>
+        <div style={{ textAlign: "right", fontSize: 9, color: "#3f3f46", marginTop: 2, paddingRight: 4, pointerEvents: "none" }}>
           drag to measure range
+        </div>
+      )}
+
+      {/* Delta panel — rendered BELOW chart so it never blocks mouse events */}
+      {hasRange && (pinned || dragging) && (
+        <div style={{ position: "relative", marginTop: 6 }}>
+          <RangeDeltaPanel
+            data={data} series={series} xKey={xKey}
+            start={dragStart!} end={dragEnd!}
+            yFormatter={yFormatter} colors={colorMap}
+          />
+          {pinned && (
+            <button
+              onClick={clearRange}
+              style={{
+                position: "absolute", top: 6, right: 6,
+                background: "none", border: "none", cursor: "pointer",
+                color: "#71717a", fontSize: 14, lineHeight: 1,
+                padding: "2px 4px",
+              }}
+              title="Clear range"
+            >✕</button>
+          )}
         </div>
       )}
     </div>
