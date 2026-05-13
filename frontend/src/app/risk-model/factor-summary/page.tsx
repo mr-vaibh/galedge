@@ -277,38 +277,34 @@ export default function FactorSummaryPage() {
               ) : undefined
             } />
           </CardHeader>
-          <CardContent className="p-1">
+          <CardContent className="p-2">
             {corrFactors.length > 0 ? (
-              <table style={{ width: "100%", tableLayout: "fixed", fontSize: "6.5px", borderCollapse: "collapse" }}>
-                <colgroup>
-                  <col style={{ width: "52px" }} />
-                  {corrFactors.map((f) => <col key={f} />)}
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th />
-                    {corrFactors.map((f) => (
-                      <th key={f} style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: "52px", fontWeight: 500, color: "var(--muted-foreground)", textAlign: "center", verticalAlign: "bottom", paddingBottom: "2px" }}>
-                        {f}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {corrMatrix.map((row, i) => (
-                    <tr key={corrFactors[i]}>
-                      <td style={{ textAlign: "right", paddingRight: "4px", fontWeight: 500, color: "var(--muted-foreground)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {corrFactors[i]}
-                      </td>
-                      {row.map((val, j) => (
-                        <td key={j} style={{ textAlign: "center", backgroundColor: corrColor(val), padding: "1px 0" }}>
-                          {val.toFixed(2)}
-                        </td>
+              <div className="overflow-x-auto">
+                <table className="text-[9px]">
+                  <thead>
+                    <tr>
+                      <th className="p-1" />
+                      {corrFactors.map((f) => (
+                        <th key={f} className="p-1 text-center font-medium text-muted-foreground" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: "60px" }}>
+                          {f}
+                        </th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {corrMatrix.map((row, i) => (
+                      <tr key={corrFactors[i]}>
+                        <td className="p-1 font-medium text-muted-foreground whitespace-nowrap text-right pr-2">{corrFactors[i]}</td>
+                        {row.map((val, j) => (
+                          <td key={j} className="p-0.5 text-center tabular-nums" style={{ backgroundColor: corrColor(val), minWidth: "28px" }}>
+                            {val.toFixed(2)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <div className="py-12 text-center text-muted-foreground text-xs">
                 No correlation data available
