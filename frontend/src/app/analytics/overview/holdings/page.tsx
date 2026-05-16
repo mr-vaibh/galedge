@@ -48,11 +48,53 @@ interface FactorDetail {
 
 const COLORS = ["#f97316", "#10b981", "#3b82f6", "#a855f7", "#eab308", "#ef4444", "#06b6d4", "#ec4899"];
 
+const HOLDING_KPI_OPTIONS = [
+  { value: "holdings_pct",        label: "Holdings (%)" },
+  { value: "raw_return_pct",      label: "Raw Return (%)" },
+  { value: "total_return_pct",    label: "Total Return (%)" },
+  { value: "total_risk_contrib_pct", label: "Total Risk Contribution (%)" },
+  { value: "idio_raw_return_pct", label: "Idiosyncratic Raw Return (%)" },
+  { value: "idio_return_pct",     label: "Idiosyncratic Return (%)" },
+  { value: "idio_risk_contrib_pct", label: "Idiosyncratic Risk Contribution (%)" },
+];
+
+const FACTOR_KPI_OPTIONS = [
+  { value: "exposure_pct",        label: "Factor Exposure (%)" },
+  { value: "raw_return_pct",      label: "Factor Raw Return (%)" },
+  { value: "return_contrib_pct",  label: "Factor Return (%)" },
+  { value: "risk_contrib_pct",    label: "Factor Risk Contribution (%)" },
+];
+
+function getHoldingField(kpi: string, h: HoldingDetail): number {
+  switch (kpi) {
+    case "holdings_pct":          return Number(h.avg_weight ?? h.holdings_pct ?? 0);
+    case "raw_return_pct":        return Number(h.raw_return_pct ?? 0);
+    case "total_return_pct":      return Number(h.total_return_contribution_pct ?? 0);
+    case "total_risk_contrib_pct":return Number(h.total_risk_contribution_pct ?? 0);
+    case "idio_raw_return_pct":   return Number(h.idio_return_pct ?? 0);
+    case "idio_return_pct":       return Number(h.idio_return_pct ?? 0);
+    case "idio_risk_contrib_pct": return Number((h as Record<string, unknown>).risk_contribution_pct ?? 0);
+    default:                      return 0;
+  }
+}
+
+function getFactorField(kpi: string, f: FactorDetail): number {
+  switch (kpi) {
+    case "exposure_pct":       return Number(f.exposure_pct ?? 0);
+    case "raw_return_pct":     return Number(f.raw_return_pct ?? 0);
+    case "return_contrib_pct": return Number(f.return_contribution_pct ?? 0);
+    case "risk_contrib_pct":   return Number(f.risk_contribution_pct ?? 0);
+    default:                   return 0;
+  }
+}
+
 export default function HoldingsSummaryPage() {
   const { analyticsData, analyticsLoading, selectedSourceId } = usePortfolio();
   const [view, setView] = useState<AnalyticsView>("Main");
   const [selectedHoldings, setSelectedHoldings] = useState<Set<string>>(new Set());
   const [selectedFactors, setSelectedFactors] = useState<Set<string>>(new Set());
+  const [holdingKpi, setHoldingKpi] = useState("holdings_pct");
+  const [factorKpi, setFactorKpi] = useState("exposure_pct");
 
   // Initialize with top 5 holdings and top 5 factors by weight/exposure
   useEffect(() => {
@@ -101,12 +143,12 @@ export default function HoldingsSummaryPage() {
     });
   }
 
-  // Build holdings weight time series (flat lines from equity curve dates)
+  // Build holdings time series (flat lines from equity curve dates, driven by holdingKpi)
   const holdingChartData = equityCurve.map((pt) => {
     const row: Record<string, unknown> = { date: pt.date };
     Array.from(selectedHoldings).forEach((sym) => {
       const h = holdings.find((x) => x.symbol === sym);
-      row[sym] = h ? Number(h.avg_weight ?? h.holdings_pct ?? 0) : 0;
+      row[sym] = h ? getHoldingField(holdingKpi, h) : 0;
     });
     return row;
   });
@@ -117,18 +159,17 @@ export default function HoldingsSummaryPage() {
     color: COLORS[i % COLORS.length],
   }));
 
-  // Build factor exposure time series: flat lines from factor_detail (static exposures)
-  // Use equity curve dates as time axis, factor exposures as constant values
-  const factorExposureMap: Record<string, number> = {};
+  // Build factor time series: flat lines from factor_detail (static values), driven by factorKpi
+  const factorValueMap: Record<string, number> = {};
   factors.forEach(f => {
     const name = String(f.factor_name ?? f.factor ?? "");
-    if (name) factorExposureMap[name] = Number(f.exposure_pct ?? 0);
+    if (name) factorValueMap[name] = getFactorField(factorKpi, f);
   });
 
   const factorChartData = equityCurve.map((pt) => {
     const row: Record<string, unknown> = { date: pt.date };
     Array.from(selectedFactors).forEach((fn) => {
-      row[fn] = factorExposureMap[fn] ?? 0;
+      row[fn] = factorValueMap[fn] ?? 0;
     });
     return row;
   });
@@ -255,13 +296,26 @@ export default function HoldingsSummaryPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-            <CardTitle className="text-[11px]">Holdings Weight Over Time</CardTitle>
-            <CardControls fullscreen expandContent={
-              holdingChartData.length > 0 && holdingSeries.length > 0 ? (
-                <TimeSeriesChart data={holdingChartData} series={holdingSeries} height={600}
-                  yFormatter={(v) => `${v.toFixed(2)}%`} />
-              ) : undefined
-            } />
+            <CardTitle className="text-[11px]">
+              {HOLDING_KPI_OPTIONS.find(o => o.value === holdingKpi)?.label ?? "Holdings"} Over Time
+            </CardTitle>
+            <div className="flex items-center gap-1.5">
+              <select
+                value={holdingKpi}
+                onChange={(e) => setHoldingKpi(e.target.value)}
+                className="text-[9px] bg-background border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none"
+              >
+                {HOLDING_KPI_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <CardControls fullscreen expandContent={
+                holdingChartData.length > 0 && holdingSeries.length > 0 ? (
+                  <TimeSeriesChart data={holdingChartData} series={holdingSeries} height={600}
+                    yFormatter={(v) => `${v.toFixed(2)}%`} />
+                ) : undefined
+              } />
+            </div>
           </CardHeader>
           <CardContent className="p-2">
             {holdingChartData.length > 0 && holdingSeries.length > 0 ? (
@@ -277,13 +331,26 @@ export default function HoldingsSummaryPage() {
 
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-            <CardTitle className="text-[11px]">Factor Exposure Over Time</CardTitle>
-            <CardControls fullscreen expandContent={
-              factorChartData.length > 0 && factorSeries.length > 0 ? (
-                <TimeSeriesChart data={factorChartData} series={factorSeries} height={600}
-                  yFormatter={(v) => `${v.toFixed(2)}`} />
-              ) : undefined
-            } />
+            <CardTitle className="text-[11px]">
+              {FACTOR_KPI_OPTIONS.find(o => o.value === factorKpi)?.label ?? "Factor Exposure"} Over Time
+            </CardTitle>
+            <div className="flex items-center gap-1.5">
+              <select
+                value={factorKpi}
+                onChange={(e) => setFactorKpi(e.target.value)}
+                className="text-[9px] bg-background border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none"
+              >
+                {FACTOR_KPI_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <CardControls fullscreen expandContent={
+                factorChartData.length > 0 && factorSeries.length > 0 ? (
+                  <TimeSeriesChart data={factorChartData} series={factorSeries} height={600}
+                    yFormatter={(v) => `${v.toFixed(2)}`} />
+                ) : undefined
+              } />
+            </div>
           </CardHeader>
           <CardContent className="p-2">
             {factorChartData.length > 0 && factorSeries.length > 0 ? (

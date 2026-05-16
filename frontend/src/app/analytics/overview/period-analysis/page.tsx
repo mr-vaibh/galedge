@@ -84,6 +84,126 @@ function StackedBarChart({ data, width, height = 220 }: { data: BarDatum[]; widt
   );
 }
 
+// --- Pure SVG multi-series line chart (no recharts) ---
+
+interface LineDatum { date: string; [key: string]: number | string; }
+interface LineSeries { key: string; name: string; color: string; }
+
+function SVGLineChart({
+  data,
+  series,
+  width,
+  height = 220,
+  yLabel = "%",
+}: {
+  data: LineDatum[];
+  series: LineSeries[];
+  width: number;
+  height?: number;
+  yLabel?: string;
+}) {
+  const ML = 46, MR = 10, MT = 8, MB = 28;
+  const iW = width - ML - MR;
+  const iH = height - MT - MB;
+
+  if (!data.length || !series.length) {
+    return (
+      <svg width={width} height={height} style={{ display: "block" }}>
+        <text x={width / 2} y={height / 2} textAnchor="middle" fontSize={11} fill="#71717a">No data</text>
+      </svg>
+    );
+  }
+
+  // Compute y-axis bounds across all series
+  let maxVal = -Infinity, minVal = Infinity;
+  data.forEach(d => {
+    series.forEach(s => {
+      const v = Number(d[s.key]);
+      if (isFinite(v)) { if (v > maxVal) maxVal = v; if (v < minVal) minVal = v; }
+    });
+  });
+  if (!isFinite(maxVal)) { maxVal = 1; minVal = 0; }
+  if (maxVal === minVal) { maxVal += 1; minVal -= 0; }
+
+  const range = maxVal - minVal || 1;
+  const rawStep = range / 5;
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.max(rawStep, 1e-9))));
+  const step = Math.ceil(rawStep / mag) * mag || 1;
+  const yMin = Math.floor(minVal / step) * step;
+  const yMax = Math.ceil(maxVal / step) * step;
+  const yRange = (yMax - yMin) || 1;
+
+  const yTicks: number[] = [];
+  for (let t = yMin; t <= yMax + 1e-9; t = Math.round((t + step) * 1e9) / 1e9) yTicks.push(t);
+
+  const toY = (v: number) => MT + iH * (1 - (v - yMin) / yRange);
+  const toX = (i: number) => ML + (i / Math.max(data.length - 1, 1)) * iW;
+
+  // X-axis: show ~6 labels evenly
+  const xTickStep = Math.max(1, Math.floor(data.length / 6));
+  const xTicks = data.map((d, i) => ({ i, label: String(d.date).slice(0, 10) })).filter((_, i) => i % xTickStep === 0);
+
+  return (
+    <svg width={width} height={height} style={{ display: "block", overflow: "visible" }}>
+      {/* Grid lines */}
+      {yTicks.map((t, i) => (
+        <g key={i}>
+          <line x1={ML} x2={ML + iW} y1={toY(t)} y2={toY(t)} stroke="#27272a" strokeDasharray="3 3" />
+          <text x={ML - 4} y={toY(t)} textAnchor="end" dominantBaseline="middle" fontSize={9} fill="#71717a">
+            {`${t % 1 === 0 ? t.toFixed(0) : t.toFixed(1)}${yLabel}`}
+          </text>
+        </g>
+      ))}
+      {/* Zero line if in range */}
+      {yMin <= 0 && yMax >= 0 && (
+        <line x1={ML} x2={ML + iW} y1={toY(0)} y2={toY(0)} stroke="#52525b" strokeWidth={1.5} />
+      )}
+      {/* X labels */}
+      {xTicks.map(({ i, label }) => (
+        <text key={i} x={toX(i)} y={height - MB + 12} textAnchor="middle" fontSize={9} fill="#71717a">{label}</text>
+      ))}
+      {/* Lines */}
+      {series.map(s => {
+        const points = data.map((d, i) => {
+          const v = Number(d[s.key]);
+          return isFinite(v) ? `${toX(i)},${toY(v)}` : null;
+        });
+        // Build path segments (skip nulls)
+        const segments: string[] = [];
+        let seg = "";
+        points.forEach((pt, i) => {
+          if (pt == null) { if (seg) { segments.push(seg); seg = ""; } return; }
+          seg += (seg ? " L" : "M") + pt;
+          if (i === points.length - 1 && seg) segments.push(seg);
+        });
+        return (
+          <g key={s.key}>
+            {segments.map((d, si) => (
+              <path key={si} d={d} fill="none" stroke={s.color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+            ))}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// --- Rolling vol helper (mirrors performance page) ---
+
+type Pt = Record<string, unknown>;
+
+function rollingVolOf(ts: Pt[], key: string, window = 60): number[] {
+  const vals = ts.map(p => Number(p[key] ?? 0));
+  const result: number[] = new Array(ts.length).fill(NaN);
+  for (let i = window - 1; i < ts.length; i++) {
+    const slice = vals.slice(i - window + 1, i + 1);
+    const mean = slice.reduce((a, b) => a + b, 0) / window;
+    const variance = slice.reduce((a, b) => a + (b - mean) ** 2, 0) / (window - 1);
+    result[i] = Math.sqrt(variance * 252) * 100;
+  }
+  return result;
+}
+
 type Granularity = "annual" | "quarterly" | "monthly";
 
 function getPeriodData(data: Record<string, unknown>, gran: Granularity): Record<string, unknown>[] {
@@ -107,36 +227,102 @@ function buildCols(periods: Record<string, unknown>[]): TreeColumn[] {
   }));
 }
 
+/** Returns a per-period value map for a given backend key */
+function makeRow(periods: Record<string, unknown>[], key: string): Record<string, number | null> {
+  return Object.fromEntries(periods.map(p => [String(p.period ?? p.label ?? "?"), safeNum(p[key])]));
+}
+
+/** Returns a map where every period has null (data not available from backend) */
+function nullRow(periods: Record<string, unknown>[]): Record<string, number | null> {
+  return Object.fromEntries(periods.map(p => [String(p.period ?? p.label ?? "?"), null]));
+}
+
 function buildPnLRows(periods: Record<string, unknown>[]): TreeRow[] {
-  const row = (key: string): Record<string, number | null> =>
-    Object.fromEntries(periods.map(p => [String(p.period ?? p.label ?? "?"), safeNum(p[key])]));
+  const row = (key: string) => makeRow(periods, key);
+  const nul = () => nullRow(periods);
 
   return [
     {
       id: "tr", label: "Total Return (%)", values: row("total_return_pct"),
       children: [
-        { id: "idio",   label: "Idiosyncratic Return (%)", values: row("idio_return_pct") },
-        { id: "factor", label: "Factor Return (%)",        values: row("factor_return_pct"),
-          children: [
-            { id: "mkt", label: "Market Return (%)",   values: row("market_return_pct") },
-            { id: "sty", label: "Style Return (%)",    values: row("style_return_pct") },
-            { id: "ind", label: "Industry Return (%)", values: row("industry_return_pct") },
-          ]
-        },
+        { id: "idio_ret",   label: "Idiosyncratic Return", values: row("idio_return_pct") },
+        { id: "factor_ret", label: "Factor Return",        values: row("factor_return_pct") },
+        { id: "div_ret",    label: "Dividend Return",      values: nul() },
+        { id: "other_ret",  label: "Other Return",         values: nul() },
+        { id: "txn_ret",    label: "Transaction Cost",     values: nul() },
       ],
     },
-    { id: "cagr",    label: "CAGR (%)",      values: row("cagr_pct") },
-    { id: "sharpe",  label: "Sharpe Ratio",  values: row("sharpe") },
-    { id: "sortino", label: "Sortino Ratio", values: row("sortino") },
+    {
+      id: "cagr", label: "CAGR (%)", values: row("cagr_pct"),
+      children: [
+        { id: "idio_cagr",   label: "Idiosyncratic CAGR", values: nul() },
+        { id: "factor_cagr", label: "Factor CAGR",        values: nul() },
+        { id: "div_cagr",    label: "Dividend CAGR",      values: nul() },
+        { id: "other_cagr",  label: "Other CAGR",         values: nul() },
+        { id: "txn_cagr",    label: "Transaction Cost CAGR", values: nul() },
+      ],
+    },
+    {
+      id: "sharpe", label: "Sharpe Ratio", values: row("sharpe"),
+      children: [
+        { id: "idio_sharpe",   label: "Idiosyncratic Sharpe Ratio", values: nul() },
+        { id: "factor_sharpe", label: "Factor Sharpe Ratio",        values: nul() },
+      ],
+    },
+    {
+      id: "sortino", label: "Sortino Ratio", values: row("sortino"),
+      children: [
+        { id: "idio_sortino",   label: "Idiosyncratic Sortino Ratio", values: nul() },
+        { id: "factor_sortino", label: "Factor Sortino Ratio",        values: nul() },
+      ],
+    },
+    { id: "treynor", label: "Treynor Ratio", values: nul() },
+    {
+      id: "exec_summary", label: "Execution Summary", values: nul(),
+      children: [
+        { id: "ann_turnover", label: "Annualized Turnover",        values: nul() },
+        { id: "total_txn",    label: "Total Transaction Cost (bps)", values: nul() },
+      ],
+    },
   ];
 }
 
 function buildRiskRows(periods: Record<string, unknown>[]): TreeRow[] {
-  const row = (key: string): Record<string, number | null> =>
-    Object.fromEntries(periods.map(p => [String(p.period ?? p.label ?? "?"), safeNum(p[key])]));
+  const row = (key: string) => makeRow(periods, key);
+  const nul = () => nullRow(periods);
+
   return [
-    { id: "vol",  label: "Volatility (%)",  values: row("volatility_pct") },
-    { id: "beta", label: "Beta",            values: row("beta") },
+    { id: "beta", label: "Beta", values: row("beta") },
+    {
+      id: "realized_risk", label: "Realized Risk (%)", values: row("volatility_pct"),
+      children: [
+        { id: "idio_real_risk",   label: "Idiosyncratic Realized Risk (%)", values: nul() },
+        { id: "factor_real_risk", label: "Factor Realized Risk (%)",        values: nul() },
+      ],
+    },
+    {
+      id: "pred_risk", label: "Total Predicted Risk (%)", values: nul(),
+      children: [
+        { id: "idio_pred_risk",   label: "Idiosyncratic Predicted Risk (%)", values: nul() },
+        { id: "factor_pred_risk", label: "Factor Predicted Risk (%)",        values: nul() },
+      ],
+    },
+    {
+      id: "risk_contrib", label: "Risk Contribution (%)", values: nul(),
+      children: [
+        { id: "idio_rc",   label: "Idiosyncratic Risk Contribution (%)", values: nul() },
+        { id: "factor_rc", label: "Factor Risk Contribution (%)",        values: nul() },
+      ],
+    },
+    {
+      id: "concentration", label: "Portfolio Concentration", values: nul(),
+      children: [
+        { id: "top_holdings",    label: "Top Holdings (%)",                      values: nul() },
+        { id: "top_total_rc",    label: "Top Total Risk Contribution (%)",        values: nul() },
+        { id: "top_idio_rc",     label: "Top Idiosyncratic Risk Contribution (%)", values: nul() },
+        { id: "top_factor_rc",   label: "Top Factor Risk Contribution (%)",       values: nul() },
+      ],
+    },
   ];
 }
 
@@ -181,11 +367,27 @@ const STAT_KPI_OPTIONS = [
   { key: "industry_return_pct", label: "Industry Return (%)" },
 ];
 
+// Chart KPI options for the chart section
+const CHART_KPI_OPTIONS = [
+  { key: "return_decomp", label: "Return Decomposition (%)" },
+  { key: "risk_contrib",  label: "Risk Contribution (%)" },
+] as const;
+type ChartKpi = typeof CHART_KPI_OPTIONS[number]["key"];
+
+// Risk contribution series (rolling vol of each factor stream)
+const RISK_SERIES: LineSeries[] = [
+  { key: "market",   name: "Market",        color: "#3b82f6" },
+  { key: "style",    name: "Style",         color: "#a855f7" },
+  { key: "industry", name: "Industry",      color: "#10b981" },
+  { key: "idio",     name: "Idiosyncratic", color: "#f97316" },
+];
+
 export default function PeriodAnalysisPage() {
   const { analyticsData, analyticsLoading, analyticsError, selectedSourceId } = usePortfolio();
-  const [gran,    setGran]    = useState<Granularity>("annual");
-  const [view,    setView]    = useState<AnalyticsView>("Main");
-  const [statKpi, setStatKpi] = useState("total_return_pct");
+  const [gran,     setGran]     = useState<Granularity>("annual");
+  const [view,     setView]     = useState<AnalyticsView>("Main");
+  const [statKpi,  setStatKpi]  = useState("total_return_pct");
+  const [chartKpi, setChartKpi] = useState<ChartKpi>("return_decomp");
   const [chartWidth, setChartWidth] = useState(0);
   const containerElRef = useRef<HTMLDivElement | null>(null);
   const chartContainerRef = useCallback((el: HTMLDivElement | null) => {
@@ -206,6 +408,7 @@ export default function PeriodAnalysisPage() {
   const pnlRows    = useMemo(() => buildPnLRows(periods),           [periods]);
   const riskRows   = useMemo(() => buildRiskRows(periods),          [periods]);
   const statRows   = useMemo(() => buildStatRows(periods, statKpi), [periods, statKpi]);
+
   const chartData  = useMemo(() => periods.map(p => ({
     period:   String(p.period ?? p.label),
     market:   safeNum(p.market_return_pct)   ?? 0,
@@ -213,6 +416,24 @@ export default function PeriodAnalysisPage() {
     industry: safeNum(p.industry_return_pct) ?? 0,
     idio:     safeNum(p.idio_return_pct)     ?? 0,
   })), [periods]);
+
+  // Risk contribution line chart data — rolling vol of factor_decomp_ts streams
+  const riskLineData = useMemo((): LineDatum[] => {
+    if (!analyticsData) return [];
+    const fdt = ((analyticsData as Record<string, unknown>).factor_decomp_ts as Pt[] | undefined) ?? [];
+    if (!fdt.length) return [];
+    const mkVol  = rollingVolOf(fdt, "market");
+    const styVol = rollingVolOf(fdt, "style");
+    const indVol = rollingVolOf(fdt, "industry");
+    const idioVol = rollingVolOf(fdt, "idio");
+    return fdt.map((p, i) => ({
+      date:     String(p.date ?? ""),
+      market:   isFinite(mkVol[i])   ? Math.round(mkVol[i]   * 10000) / 10000 : NaN,
+      style:    isFinite(styVol[i])  ? Math.round(styVol[i]  * 10000) / 10000 : NaN,
+      industry: isFinite(indVol[i])  ? Math.round(indVol[i]  * 10000) / 10000 : NaN,
+      idio:     isFinite(idioVol[i]) ? Math.round(idioVol[i] * 10000) / 10000 : NaN,
+    })).filter(d => d.date);
+  }, [analyticsData]);
 
   const statCols: TreeColumn[] = [{ key: "Active", label: "Active", align: "right" }];
 
@@ -227,7 +448,8 @@ export default function PeriodAnalysisPage() {
     return <AnalyticsEmptyState title="Period Analysis" analyticsError={analyticsError} />;
   }
 
-  const statKpiLabel = STAT_KPI_OPTIONS.find(o => o.key === statKpi)?.label ?? "";
+  const statKpiLabel  = STAT_KPI_OPTIONS.find(o => o.key === statKpi)?.label ?? "";
+  const chartKpiLabel = CHART_KPI_OPTIONS.find(o => o.key === chartKpi)?.label ?? "";
 
   return (
     <div className="p-4 space-y-4">
@@ -287,12 +509,32 @@ export default function PeriodAnalysisPage() {
 
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-              <CardTitle className="text-[11px]">Return Decomposition (%)</CardTitle>
-              <CardControls />
+              <CardTitle className="text-[11px]">{chartKpiLabel}</CardTitle>
+              <div className="flex items-center gap-2">
+                <select
+                  value={chartKpi}
+                  onChange={e => setChartKpi(e.target.value as ChartKpi)}
+                  className="text-[9px] bg-background border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none"
+                >
+                  {CHART_KPI_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                </select>
+                <CardControls />
+              </div>
             </CardHeader>
             <CardContent className="p-2">
               <div ref={chartContainerRef} style={{ width: "100%" }}>
-                {chartWidth > 0 && <StackedBarChart data={chartData} width={chartWidth} height={220} />}
+                {chartWidth > 0 && chartKpi === "return_decomp" && (
+                  <StackedBarChart data={chartData} width={chartWidth} height={220} />
+                )}
+                {chartWidth > 0 && chartKpi === "risk_contrib" && (
+                  <SVGLineChart
+                    data={riskLineData}
+                    series={RISK_SERIES}
+                    width={chartWidth}
+                    height={220}
+                    yLabel="%"
+                  />
+                )}
               </div>
               <div className="flex items-center gap-4 flex-wrap justify-center mt-2">
                 {SERIES.map(s => (
