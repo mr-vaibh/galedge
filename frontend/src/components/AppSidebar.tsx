@@ -177,9 +177,13 @@ function FundSelector() {
           });
         });
         setItems(list);
-        // Auto-load if a selection exists in context but no data yet
         if (selectedSource && selectedSourceId && !analyticsData) {
+          // Previously selected portfolio — restore it
           loadAnalytics(selectedSource, selectedSourceId, selectedBacktestId ?? undefined);
+        } else if (!selectedSource && !selectedSourceId && list.length > 0) {
+          // No prior selection — auto-pick the first portfolio
+          const first = list[0];
+          loadAnalytics(first.source, first.sourceId, first.backtestId);
         }
       })
       .catch(() => {});
