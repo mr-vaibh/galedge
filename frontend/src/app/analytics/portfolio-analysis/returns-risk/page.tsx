@@ -606,30 +606,37 @@ function TopHoldingsSvgBar({
 }) {
   if (data.length === 0) return null;
 
-  const marginLeft = 32;
-  const marginRight = 8;
-  const marginTop = 8;
-  const marginBottom = 20;
-  const innerH = height - marginTop - marginBottom;
+  const W = 320;
+  const PAD_L = 72;
+  const PAD_R = 44;
+  const PAD_T = 6;
+  const PAD_B = 10;
+  const innerH = height - PAD_T - PAD_B;
+  const innerW = W - PAD_L - PAD_R;
   const maxVal = Math.max(...data.map((d) => d.value), 0.01);
-
-  const barH = (innerH / data.length) * 0.65;
-  const gap = innerH / data.length;
-
-  const toX = (v: number) => marginLeft + (v / (maxVal * 1.1)) * (100 - marginLeft - marginRight);
+  const n = data.length;
+  const gap = innerH / n;
+  const barH = gap * 0.58;
+  const toX = (v: number) => PAD_L + (v / (maxVal * 1.1)) * innerW;
 
   return (
-    <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" style={{ width: "100%", height }}>
+    <svg
+      viewBox={`0 0 ${W} ${height}`}
+      preserveAspectRatio="xMidYMid meet"
+      style={{ width: "100%", height }}
+    >
       {data.map((d, i) => {
-        const y = marginTop + i * gap + (gap - barH) / 2;
-        const w = toX(d.value) - marginLeft;
+        const cy = PAD_T + i * gap + gap / 2;
+        const barY = cy - barH / 2;
+        const bw = Math.max(toX(d.value) - PAD_L, 0.5);
+        const label = d.name.length > 10 ? d.name.slice(0, 10) : d.name;
         return (
           <g key={i}>
-            <text x={marginLeft - 1} y={y + barH / 2 + 1.5} textAnchor="end" fontSize={3.5} fill="#a1a1aa">
-              {d.name}
+            <text x={PAD_L - 4} y={cy + 4} textAnchor="end" fontSize={10} fill="#a1a1aa">
+              {label}
             </text>
-            <rect x={marginLeft} y={y} width={Math.max(w, 0.3)} height={barH} fill="#f97316" rx={0.5} />
-            <text x={marginLeft + w + 1} y={y + barH / 2 + 1.5} fontSize={3} fill="#71717a">
+            <rect x={PAD_L} y={barY} width={bw} height={barH} fill="#f97316" rx={2} />
+            <text x={PAD_L + bw + 4} y={cy + 4} fontSize={9} fill="#71717a">
               {d.value.toFixed(1)}%
             </text>
           </g>
@@ -672,39 +679,43 @@ export default function ReturnsAndRiskPage() {
 
   // Contributors & Detractors
   const sortedHoldings = [...holdings] as Array<Record<string, unknown>>;
-
-  const topOverall = [...sortedHoldings]
-    .sort((a, b) => Number(b.total_return_contribution_pct ?? 0) - Number(a.total_return_contribution_pct ?? 0))
-    .slice(0, 10);
-  const bottomOverall = [...sortedHoldings]
-    .sort((a, b) => Number(a.total_return_contribution_pct ?? 0) - Number(b.total_return_contribution_pct ?? 0))
-    .slice(0, 10);
-
-  const topIdio = [...sortedHoldings]
-    .sort((a, b) => Number(b.idio_return_pct ?? 0) - Number(a.idio_return_pct ?? 0))
-    .slice(0, 10);
-  const bottomIdio = [...sortedHoldings]
-    .sort((a, b) => Number(a.idio_return_pct ?? 0) - Number(b.idio_return_pct ?? 0))
-    .slice(0, 10);
-
   const sortedFactors = [...factors] as Array<Record<string, unknown>>;
-  const topFactor = [...sortedFactors]
-    .sort((a, b) => Number(b.return_contribution_pct ?? 0) - Number(a.return_contribution_pct ?? 0))
-    .slice(0, 10);
-  const bottomFactor = [...sortedFactors]
-    .sort((a, b) => Number(a.return_contribution_pct ?? 0) - Number(b.return_contribution_pct ?? 0))
-    .slice(0, 10);
 
-  const topList =
-    contributorTab === "overall" ? topOverall : contributorTab === "idio" ? topIdio : topFactor;
-  const bottomList =
-    contributorTab === "overall" ? bottomOverall : contributorTab === "idio" ? bottomIdio : bottomFactor;
+  // KPI options per contributor tab — controls both chart bar and table sort order
+  const CHART_KPIS_BY_TAB = {
+    overall: [
+      { label: "Top Holdings (%)", value: "weight" },
+      { label: "Top Total Risk Contribution (%)", value: "risk_contrib" },
+    ],
+    idio: [
+      { label: "Top Holdings (%)", value: "weight" },
+      { label: "Top Idiosyncratic Risk Contribution (%)", value: "idio_risk" },
+    ],
+    factor: [
+      { label: "Top Factor Risk Contribution (%)", value: "factor_risk" },
+    ],
+  } as const;
+
+  const activeChartKpis = CHART_KPIS_BY_TAB[contributorTab];
+  const effectiveChartKpi = activeChartKpis.some((k) => k.value === chartKpi)
+    ? chartKpi
+    : activeChartKpis[0].value;
+
+  // Table sort key driven by effectiveChartKpi
+  const tableSortKey =
+    contributorTab === "factor"       ? "risk_contribution_pct" :
+    effectiveChartKpi === "risk_contrib" ? "risk_contribution_pct" :
+    effectiveChartKpi === "idio_risk" ? "idio_return_pct" :
+    "avg_weight";
+
+  const baseList = contributorTab === "factor" ? sortedFactors : sortedHoldings;
+  const topList    = [...baseList].sort((a, b) => Number(b[tableSortKey] ?? 0) - Number(a[tableSortKey] ?? 0)).slice(0, 10);
+  const bottomList = [...baseList].sort((a, b) => Number(a[tableSortKey] ?? 0) - Number(b[tableSortKey] ?? 0)).slice(0, 10);
+
   const valueKey =
-    contributorTab === "overall"
-      ? "total_return_contribution_pct"
-      : contributorTab === "idio"
-      ? "idio_return_pct"
-      : "return_contribution_pct";
+    contributorTab === "overall" ? "total_return_contribution_pct" :
+    contributorTab === "idio"    ? "idio_return_pct" :
+    "return_contribution_pct";
   const nameKey = contributorTab === "factor" ? "factor_name" : "symbol";
 
   const pnlTree  = buildPnLTree(pnl);
@@ -749,24 +760,6 @@ export default function ReturnsAndRiskPage() {
       value: Number(f.risk_contribution_pct ?? 0),
     }));
 
-  const CHART_KPIS_BY_TAB = {
-    overall: [
-      { label: "Top Holdings (%)", value: "weight" },
-      { label: "Top Total Risk Contribution (%)", value: "risk_contrib" },
-    ],
-    idio: [
-      { label: "Top Holdings (%)", value: "weight" },
-      { label: "Top Idiosyncratic Risk Contribution (%)", value: "idio_risk" },
-    ],
-    factor: [
-      { label: "Top Factor Risk Contribution (%)", value: "factor_risk" },
-    ],
-  } as const;
-
-  const activeChartKpis = CHART_KPIS_BY_TAB[contributorTab];
-  const effectiveChartKpi = activeChartKpis.some((k) => k.value === chartKpi)
-    ? chartKpi
-    : activeChartKpis[0].value;
   const chartBarData =
     effectiveChartKpi === "weight" ? topHoldingsBarData :
     effectiveChartKpi === "risk_contrib" ? topRiskContribData :
@@ -848,7 +841,7 @@ export default function ReturnsAndRiskPage() {
 
       {/* Contributors & Detractors */}
       <div>
-        <div className="flex items-center gap-3 mb-3">
+        <div className="flex items-center gap-3 mb-3 flex-wrap">
           <h2 className="text-sm font-semibold">Contributors &amp; Detractors</h2>
           <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
             {(["overall", "idio", "factor"] as ContribTab[]).map((tab) => (
@@ -865,6 +858,19 @@ export default function ReturnsAndRiskPage() {
               </button>
             ))}
           </div>
+          {activeChartKpis.length > 1 ? (
+            <select
+              className="text-[9px] bg-background border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none"
+              value={effectiveChartKpi}
+              onChange={(e) => setChartKpi(e.target.value)}
+            >
+              {activeChartKpis.map((k) => (
+                <option key={k.value} value={k.value}>{k.label}</option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-[9px] text-muted-foreground">{activeChartKpis[0]?.label}</span>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -873,6 +879,9 @@ export default function ReturnsAndRiskPage() {
             <CardHeader className="pb-1 py-2 px-3">
               <CardTitle className="text-[11px]">
                 Top 10 — {contributorTab === "factor" ? "Factors" : "Holdings"}
+                <span className="ml-1 font-normal text-muted-foreground text-[9px]">
+                  ({activeChartKpis.find((k) => k.value === effectiveChartKpi)?.label ?? ""})
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -930,6 +939,9 @@ export default function ReturnsAndRiskPage() {
             <CardHeader className="pb-1 py-2 px-3">
               <CardTitle className="text-[11px]">
                 Bottom 10 — {contributorTab === "factor" ? "Factors" : "Holdings"}
+                <span className="ml-1 font-normal text-muted-foreground text-[9px]">
+                  ({activeChartKpis.find((k) => k.value === effectiveChartKpi)?.label ?? ""})
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -982,26 +994,13 @@ export default function ReturnsAndRiskPage() {
             </CardContent>
           </Card>
 
-          {/* KPI chart with dropdown */}
+          {/* KPI chart */}
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">
                 {activeChartKpis.find((k) => k.value === effectiveChartKpi)?.label ?? "Top Holdings (%)"}
               </CardTitle>
-              <div className="flex items-center gap-1">
-                {activeChartKpis.length > 1 && (
-                  <select
-                    className="text-[9px] bg-background border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none"
-                    value={effectiveChartKpi}
-                    onChange={(e) => setChartKpi(e.target.value)}
-                  >
-                    {activeChartKpis.map((k) => (
-                      <option key={k.value} value={k.value}>{k.label}</option>
-                    ))}
-                  </select>
-                )}
-                <CardControls />
-              </div>
+              <CardControls />
             </CardHeader>
             <CardContent className="p-2">
               {chartBarData.length > 0 ? (
