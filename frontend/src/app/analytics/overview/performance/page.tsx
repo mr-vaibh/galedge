@@ -137,26 +137,33 @@ function buildRiskData(data: Record<string, unknown>, kpi: RiskKpi) {
   const fdt = (data.factor_decomp_ts as Pt[] | undefined) ?? [];
   const riskColor = "#ef4444";
 
-  if (kpi === "rolling_vol") {
+  // Total portfolio realized/predicted risk — use rolling_vol (best available approximation)
+  if (kpi === "rolling_vol" || kpi === "total_predicted_risk") {
+    const label = kpi === "rolling_vol" ? "Realized Risk (%)" : "Total Risk (%)";
     return {
       data: rm.map(r => ({ date: String(r.date), portfolio: Number(r.rolling_vol ?? 0) })),
-      series: [{ key: "portfolio", name: "Realized Risk (%)", color: riskColor }],
+      series: [{ key: "portfolio", name: label, color: riskColor }],
     };
   }
 
-  // Risk contributions: rolling annualized volatility of each factor's daily return contribution
-  const riskKeyMap: Partial<Record<RiskKpi, string>> = {
-    idio_risk_contrib:    "idio",
-    factor_risk_contrib:  "factor_total",
-    market_risk_contrib:  "market",
-    style_risk_contrib:   "style",
-    industry_risk_contrib:"industry",
+  // Factor component risks + risk contributions: rolling annualized vol of each factor's daily contribution
+  const fdtKeyMap: Partial<Record<RiskKpi, string>> = {
+    idio_predicted_risk:    "idio",
+    factor_predicted_risk:  "factor_total",
+    market_predicted_risk:  "market",
+    style_predicted_risk:   "style",
+    industry_predicted_risk:"industry",
+    idio_risk_contrib:      "idio",
+    factor_risk_contrib:    "factor_total",
+    market_risk_contrib:    "market",
+    style_risk_contrib:     "style",
+    industry_risk_contrib:  "industry",
   };
-  const fdtKey = riskKeyMap[kpi];
+  const fdtKey = fdtKeyMap[kpi];
   if (fdtKey && fdt.length > 0) {
     return {
       data: rollingVolOf(fdt, fdtKey),
-      series: [{ key: "portfolio", name: "Risk Contribution (%)", color: riskColor }],
+      series: [{ key: "portfolio", name: "Risk (%)", color: riskColor }],
     };
   }
 
@@ -165,17 +172,28 @@ function buildRiskData(data: Record<string, unknown>, kpi: RiskKpi) {
 
 function buildValuationData(data: Record<string, unknown>, kpi: ValuationKpi) {
   const vts = (data.valuation_ts as Pt[] | undefined) ?? [];
+  const valColor = "#3b82f6";
 
   if (kpi === "pe") {
     return {
       data: vts.map(r => ({ date: String(r.date), portfolio: Number(r.portfolio_pe ?? r.pe_ratio ?? 0) })),
-      series: [{ key: "portfolio", name: "PE Ratio", color: "#3b82f6" }],
+      series: [{ key: "portfolio", name: "PE Ratio", color: valColor }],
     };
   }
   if (kpi === "pb") {
     return {
       data: vts.map(r => ({ date: String(r.date), portfolio: Number(r.portfolio_pb ?? r.pb_ratio ?? 0) })),
-      series: [{ key: "portfolio", name: "P/B Ratio", color: "#3b82f6" }],
+      series: [{ key: "portfolio", name: "P/B Ratio", color: valColor }],
+    };
+  }
+  if (kpi === "roe") {
+    // ROE is a scalar — show as flat reference line across valuation dates
+    const pnl = (data.pnl_metrics as Pt | undefined) ?? {};
+    const roeVal = pnl.roe_pct != null ? Number(pnl.roe_pct) : null;
+    if (roeVal == null || vts.length === 0) return { data: [], series: [] };
+    return {
+      data: vts.map(r => ({ date: String(r.date), portfolio: roeVal })),
+      series: [{ key: "portfolio", name: "Return on Equity (%)", color: valColor }],
     };
   }
 
