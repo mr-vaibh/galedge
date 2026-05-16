@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
@@ -10,58 +10,186 @@ import { AnalyticsTreeTable, type TreeRow, type TreeColumn } from "@/components/
 import { ViewToggle, type AnalyticsView } from "@/components/analytics/ViewToggle";
 import { AnalyticsEmptyState } from "@/components/analytics/AnalyticsEmptyState";
 
-// ── KPI chart selector ──────────────────────────────────────────────────────
-type KpiKey = "total_return" | "rolling_risk" | "pe_ratio";
+// ── KPI groups — each chart has its own independent set ──────────────────────
 
-const KPI_OPTIONS = [
-  { value: "total_return" as KpiKey, label: "Total Return (%)" },
-  { value: "rolling_risk" as KpiKey, label: "Rolling 1Y Realized Risk (%)" },
-  { value: "pe_ratio" as KpiKey, label: "PE Ratio" },
-];
+const RETURN_KPIS = [
+  { value: "total_return",      label: "Total Return (%)" },
+  { value: "rolling_1y_return", label: "Rolling 1Y Return (%)" },
+  { value: "rolling_3y_return", label: "Rolling 3Y Return (%)" },
+  { value: "idio_return",       label: "Idiosyncratic Return (%)" },
+  { value: "factor_return",     label: "Factor Return (%)" },
+  { value: "market_return",     label: "Market Return (%)" },
+  { value: "style_return",      label: "Style Return (%)" },
+  { value: "industry_return",   label: "Industry Return (%)" },
+  { value: "rolling_1y_sharpe", label: "Rolling 1Y Sharpe Ratio" },
+  { value: "rolling_3y_sharpe", label: "Rolling 3Y Sharpe Ratio" },
+] as const;
+type ReturnKpi = typeof RETURN_KPIS[number]["value"];
 
-function buildChartData(data: Record<string, unknown>, kpi: KpiKey) {
+const RISK_KPIS = [
+  { value: "rolling_vol",             label: "Rolling 1Y Realized Risk (%)" },
+  { value: "total_predicted_risk",    label: "Total Predicted Risk (%)" },
+  { value: "idio_predicted_risk",     label: "Idiosyncratic Predicted Risk (%)" },
+  { value: "factor_predicted_risk",   label: "Factor Predicted Risk (%)" },
+  { value: "market_predicted_risk",   label: "Market Predicted Risk (%)" },
+  { value: "style_predicted_risk",    label: "Style Predicted Risk (%)" },
+  { value: "industry_predicted_risk", label: "Industry Predicted Risk (%)" },
+  { value: "idio_risk_contrib",       label: "Idiosyncratic Risk Contribution (%)" },
+  { value: "factor_risk_contrib",     label: "Factor Risk Contribution (%)" },
+  { value: "market_risk_contrib",     label: "Market Risk Contribution (%)" },
+  { value: "style_risk_contrib",      label: "Style Risk Contribution (%)" },
+  { value: "industry_risk_contrib",   label: "Industry Risk Contribution (%)" },
+] as const;
+type RiskKpi = typeof RISK_KPIS[number]["value"];
+
+const VALUATION_KPIS = [
+  { value: "pe",  label: "PE Ratio" },
+  { value: "pb",  label: "P/B Ratio" },
+  { value: "roe", label: "Return on Equity (%)" },
+] as const;
+type ValuationKpi = typeof VALUATION_KPIS[number]["value"];
+
+// ── Data builders ─────────────────────────────────────────────────────────────
+
+type Pt = Record<string, unknown>;
+
+function cumFromDaily(ts: Pt[], key: string): { date: string; portfolio: number }[] {
+  let prod = 1.0;
+  return ts.map(p => {
+    prod *= (1 + Number(p[key] ?? 0));
+    return { date: String(p.date), portfolio: Math.round((prod - 1) * 10000) / 100 };
+  });
+}
+
+function buildReturnData(data: Record<string, unknown>, kpi: ReturnKpi) {
+  const ec    = (data.equity_curve    as Pt[] | undefined) ?? [];
+  const bec   = (data.benchmark_equity_curve as Pt[] | undefined) ?? [];
+  const rm    = (data.rolling_metrics as Pt[] | undefined) ?? [];
+  const fdt   = (data.factor_decomp_ts as Pt[] | undefined) ?? [];
+
+  const portColor   = "#f97316";
+  const benchColor  = "#6366f1";
+
   if (kpi === "total_return") {
-    const ec = (data.equity_curve as Record<string, unknown>[] | undefined) ?? [];
     if (ec.length < 2) return { data: [], series: [] };
     const base = Number(ec[0].value ?? 1);
-    const pts = ec.map((p) => ({
-      date: String(p.date),
-      portfolio: base > 0 ? ((Number(p.value) - base) / base) * 100 : 0,
-    }));
-    const bec = (data.benchmark_equity_curve as Record<string, unknown>[] | undefined) ?? [];
+    const pts = ec.map(p => ({ date: String(p.date), portfolio: base > 0 ? ((Number(p.value) - base) / base) * 100 : 0 }));
     if (bec.length > 1) {
       const bb = Number(bec[0].value ?? 1);
       return {
         data: pts.map((p, i) => ({ ...p, benchmark: bec[i] ? ((Number(bec[i].value) - bb) / bb) * 100 : undefined })),
-        series: [{ key: "portfolio", name: "Portfolio", color: "#f97316" }, { key: "benchmark", name: "Benchmark", color: "#6366f1" }],
+        series: [{ key: "portfolio", name: "Portfolio", color: portColor }, { key: "benchmark", name: "Benchmark", color: benchColor }],
       };
     }
-    return { data: pts, series: [{ key: "portfolio", name: "Portfolio", color: "#f97316" }] };
+    return { data: pts, series: [{ key: "portfolio", name: "Portfolio", color: portColor }] };
   }
-  if (kpi === "rolling_risk") {
-    const rm = (data.rolling_metrics as Record<string, unknown>[] | undefined) ?? [];
-    return { data: rm.map((r) => ({ date: String(r.date), risk: Number(r.rolling_vol ?? 0) * 100 })), series: [{ key: "risk", name: "Realized Risk (%)", color: "#ef4444" }] };
+
+  if (kpi === "rolling_1y_sharpe") {
+    return {
+      data: rm.map(r => ({ date: String(r.date), portfolio: Number(r.rolling_sharpe ?? 0) })),
+      series: [{ key: "portfolio", name: "Sharpe (1Y)", color: portColor }],
+    };
   }
-  if (kpi === "pe_ratio") {
-    const vts = (data.valuation_ts as Record<string, unknown>[] | undefined) ?? [];
-    return { data: vts.map((r) => ({ date: String(r.date), pe: Number(r.pe_ratio ?? r.pe ?? 0) })), series: [{ key: "pe", name: "PE Ratio", color: "#3b82f6" }] };
+
+  // Factor decomposition cumulative returns
+  const fdtMap: Record<ReturnKpi, string> = {
+    idio_return:     "idio",
+    factor_return:   "factor_total",
+    market_return:   "market",
+    style_return:    "style",
+    industry_return: "industry",
+    total_return: "", rolling_1y_return: "", rolling_3y_return: "",
+    rolling_1y_sharpe: "", rolling_3y_sharpe: "",
+  };
+  const fdtKey = fdtMap[kpi];
+  if (fdtKey && fdt.length > 0) {
+    return {
+      data: cumFromDaily(fdt, fdtKey),
+      series: [{ key: "portfolio", name: "Portfolio", color: portColor }],
+    };
   }
+
   return { data: [], series: [] };
 }
 
-function ChartCard({ analyticsData, kpi, onKpiChange }: { analyticsData: Record<string, unknown>; kpi: KpiKey; onKpiChange: (k: KpiKey) => void }) {
-  const { data, series } = buildChartData(analyticsData, kpi);
+function buildRiskData(data: Record<string, unknown>, kpi: RiskKpi) {
+  const rm  = (data.rolling_metrics  as Pt[] | undefined) ?? [];
+  const fdt = (data.factor_decomp_ts as Pt[] | undefined) ?? [];
+
+  if (kpi === "rolling_vol") {
+    return {
+      data: rm.map(r => ({ date: String(r.date), portfolio: Number(r.rolling_vol ?? 0) })),
+      series: [{ key: "portfolio", name: "Realized Risk (%)", color: "#ef4444" }],
+    };
+  }
+
+  // Risk contributions — map factor_decomp_ts daily values as running contribution %
+  const riskMap: Record<RiskKpi, string> = {
+    idio_risk_contrib:    "idio",
+    factor_risk_contrib:  "factor_total",
+    market_risk_contrib:  "market",
+    style_risk_contrib:   "style",
+    industry_risk_contrib:"industry",
+    rolling_vol: "", total_predicted_risk: "", idio_predicted_risk: "",
+    factor_predicted_risk: "", market_predicted_risk: "",
+    style_predicted_risk: "", industry_predicted_risk: "",
+  };
+  const fdtKey = riskMap[kpi];
+  if (fdtKey && fdt.length > 0) {
+    return {
+      data: cumFromDaily(fdt, fdtKey),
+      series: [{ key: "portfolio", name: "Portfolio", color: "#ef4444" }],
+    };
+  }
+
+  return { data: [], series: [] };
+}
+
+function buildValuationData(data: Record<string, unknown>, kpi: ValuationKpi) {
+  const vts = (data.valuation_ts as Pt[] | undefined) ?? [];
+
+  if (kpi === "pe") {
+    return {
+      data: vts.map(r => ({ date: String(r.date), portfolio: Number(r.portfolio_pe ?? r.pe_ratio ?? 0) })),
+      series: [{ key: "portfolio", name: "PE Ratio", color: "#3b82f6" }],
+    };
+  }
+  if (kpi === "pb") {
+    return {
+      data: vts.map(r => ({ date: String(r.date), portfolio: Number(r.portfolio_pb ?? r.pb_ratio ?? 0) })),
+      series: [{ key: "portfolio", name: "P/B Ratio", color: "#3b82f6" }],
+    };
+  }
+
+  return { data: [], series: [] };
+}
+
+// ── Shared chart card ─────────────────────────────────────────────────────────
+
+interface ChartCardProps<T extends string> {
+  title: string;
+  kpi: T;
+  options: readonly { value: T; label: string }[];
+  onKpiChange: (k: T) => void;
+  chartData: { data: unknown[]; series: unknown[] };
+}
+
+function ChartCard<T extends string>({ title, kpi, options, onKpiChange, chartData }: ChartCardProps<T>) {
+  const { data, series } = chartData as { data: Record<string, unknown>[]; series: { key: string; name: string; color: string }[] };
   return (
     <Card>
       <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-        <select
-          value={kpi}
-          onChange={(e) => onKpiChange(e.target.value as KpiKey)}
-          className="text-[9px] bg-background border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none"
-        >
-          {KPI_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-        <CardControls fullscreen expandContent={data.length > 0 ? <TimeSeriesChart data={data} series={series} height={600} /> : undefined} />
+        <CardTitle className="text-[11px] truncate max-w-[140px]">{title}</CardTitle>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <select
+            value={kpi}
+            onChange={e => onKpiChange(e.target.value as T)}
+            className="text-[9px] bg-background border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none max-w-[130px]"
+          >
+            {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <CardControls fullscreen expandContent={data.length > 0 ? <TimeSeriesChart data={data} series={series} height={600} /> : undefined} />
+        </div>
       </CardHeader>
       <CardContent className="p-2">
         {data.length > 0
@@ -72,70 +200,36 @@ function ChartCard({ analyticsData, kpi, onKpiChange }: { analyticsData: Record<
   );
 }
 
-// ── Build tree rows from pnl_metrics ─────────────────────────────────────────
+// ── Build tree rows ───────────────────────────────────────────────────────────
+
 function buildPnLRows(pnl: Record<string, unknown>): TreeRow[] {
   const v = (key: string) => pnl[key] as number | null | undefined;
-
-  const factorChildren: TreeRow[] = [
-    { id: "market_ret",   label: "Market Return (%)",   values: { Main: v("market_return_pct"),   Benchmark: null, Active: null } },
-    { id: "style_ret",    label: "Style Return (%)",    values: { Main: v("style_return_pct"),    Benchmark: null, Active: null } },
-    { id: "industry_ret", label: "Industry Return (%)", values: { Main: v("industry_return_pct"), Benchmark: null, Active: null } },
-  ];
-
-  const trChildren: TreeRow[] = [
-    { id: "idio_ret",    label: "Idiosyncratic Return (%)", values: { Main: v("idio_return_pct"),   Benchmark: null, Active: null } },
-    { id: "factor_ret",  label: "Factor Return (%)",        values: { Main: v("factor_return_pct"), Benchmark: null, Active: null }, children: factorChildren },
-  ];
-
-  const sharpeChildren: TreeRow[] = [
-    { id: "idio_sharpe",   label: "Idiosyncratic Sharpe", values: { Main: null, Benchmark: null, Active: null } },
-    { id: "factor_sharpe", label: "Factor Sharpe",        values: { Main: null, Benchmark: null, Active: null } },
-  ];
-  const sortinoChildren: TreeRow[] = [
-    { id: "idio_sortino",   label: "Idiosyncratic Sortino", values: { Main: null, Benchmark: null, Active: null } },
-    { id: "factor_sortino", label: "Factor Sortino",         values: { Main: null, Benchmark: null, Active: null } },
-  ];
-
-  const M = (key: string) => v(key) ?? null;
-  const B = (key: string) => v(key) ?? null;
-  const A = (mKey: string, bKey: string) => {
-    const m = v(mKey), b = v(bKey);
-    if (m != null && b != null) return Math.round((Number(m) - Number(b)) * 100) / 100;
-    return null;
+  const M = (k: string) => v(k) ?? null;
+  const B = (k: string) => v(k) ?? null;
+  const A = (mk: string, bk: string) => {
+    const m = v(mk), b = v(bk);
+    return m != null && b != null ? Math.round((Number(m) - Number(b)) * 100) / 100 : null;
   };
 
   return [
     {
       id: "total_return", label: "Total Return (%)",
       values: { Main: M("total_return_pct"), Benchmark: B("benchmark_total_return_pct"), Active: A("total_return_pct", "benchmark_total_return_pct") },
-      children: trChildren,
-    },
-    {
-      id: "cagr", label: "CAGR (%)",
-      values: { Main: M("cagr_pct"), Benchmark: B("benchmark_cagr_pct"), Active: A("cagr_pct", "benchmark_cagr_pct") },
-    },
-    {
-      id: "sharpe", label: "Sharpe Ratio",
-      values: { Main: M("sharpe"), Benchmark: B("benchmark_sharpe"), Active: A("sharpe", "benchmark_sharpe") },
-      children: sharpeChildren,
-    },
-    {
-      id: "sortino", label: "Sortino Ratio",
-      values: { Main: M("sortino"), Benchmark: B("benchmark_sortino"), Active: A("sortino", "benchmark_sortino") },
-      children: sortinoChildren,
-    },
-    {
-      id: "treynor", label: "Treynor Ratio",
-      values: { Main: M("treynor"), Benchmark: B("benchmark_treynor"), Active: A("treynor", "benchmark_treynor") },
-    },
-    {
-      id: "exec", label: "Execution Summary",
-      values: { Main: null, Benchmark: null, Active: null },
       children: [
-        { id: "ann_to",  label: "Annualized Turnover",          values: { Main: null, Benchmark: null, Active: null } },
-        { id: "tc_bps",  label: "Total Transaction Cost (bps)", values: { Main: null, Benchmark: null, Active: null } },
+        { id: "idio_ret",   label: "Idiosyncratic Return (%)", values: { Main: M("idio_return_pct"),   Benchmark: null, Active: null } },
+        { id: "factor_ret", label: "Factor Return (%)",        values: { Main: M("factor_return_pct"), Benchmark: null, Active: null },
+          children: [
+            { id: "market_ret",   label: "Market Return (%)",   values: { Main: M("market_return_pct"),   Benchmark: null, Active: null } },
+            { id: "style_ret",    label: "Style Return (%)",    values: { Main: M("style_return_pct"),    Benchmark: null, Active: null } },
+            { id: "industry_ret", label: "Industry Return (%)", values: { Main: M("industry_return_pct"), Benchmark: null, Active: null } },
+          ],
+        },
       ],
     },
+    { id: "cagr",    label: "CAGR (%)",      values: { Main: M("cagr_pct"),  Benchmark: B("benchmark_cagr_pct"),  Active: A("cagr_pct","benchmark_cagr_pct") } },
+    { id: "sharpe",  label: "Sharpe Ratio",  values: { Main: M("sharpe"),    Benchmark: B("benchmark_sharpe"),    Active: A("sharpe","benchmark_sharpe") } },
+    { id: "sortino", label: "Sortino Ratio", values: { Main: M("sortino"),   Benchmark: B("benchmark_sortino"),   Active: A("sortino","benchmark_sortino") } },
+    { id: "treynor", label: "Treynor Ratio", values: { Main: M("treynor"),   Benchmark: B("benchmark_treynor"),   Active: A("treynor","benchmark_treynor") } },
   ];
 }
 
@@ -145,46 +239,34 @@ function buildRiskRows(pnl: Record<string, unknown>): TreeRow[] {
   const B = (k: string) => v(k) ?? null;
   const A = (mk: string, bk: string) => {
     const m = v(mk), b = v(bk);
-    return (m != null && b != null) ? Math.round((Number(m) - Number(b)) * 100) / 100 : null;
+    return m != null && b != null ? Math.round((Number(m) - Number(b)) * 100) / 100 : null;
   };
 
   return [
-    { id: "beta",   label: "Beta",            values: { Main: M("beta"),             Benchmark: 1.0,                            Active: A("beta","beta") } },
-    {
-      id: "vol",  label: "Realized Risk (%)",values: { Main: M("volatility_pct"),   Benchmark: B("benchmark_volatility_pct"),   Active: A("volatility_pct","benchmark_volatility_pct") },
-      children: [
-        { id: "idio_risk", label: "Idiosyncratic Risk (%)", values: { Main: null, Benchmark: null, Active: null } },
-        { id: "fac_risk",  label: "Factor Risk (%)",        values: { Main: null, Benchmark: null, Active: null } },
-      ],
-    },
-    { id: "max_dd", label: "Max Drawdown (%)",values: { Main: M("max_drawdown_pct"), Benchmark: B("benchmark_max_drawdown_pct"), Active: A("max_drawdown_pct","benchmark_max_drawdown_pct") } },
-    {
-      id: "conc", label: "Portfolio Concentration",
-      values: { Main: null, Benchmark: null, Active: null },
-      children: [
-        { id: "top5h",  label: "Top 5 Holdings (%)",  values: { Main: null, Benchmark: null, Active: null } },
-        { id: "top10h", label: "Top 10 Holdings (%)", values: { Main: null, Benchmark: null, Active: null } },
-        { id: "top20h", label: "Top 20 Holdings (%)", values: { Main: null, Benchmark: null, Active: null } },
-      ],
-    },
+    { id: "beta",   label: "Beta",             values: { Main: M("beta"),             Benchmark: 1.0,                              Active: null } },
+    { id: "vol",    label: "Realized Risk (%)", values: { Main: M("volatility_pct"),   Benchmark: B("benchmark_volatility_pct"),   Active: A("volatility_pct","benchmark_volatility_pct") } },
+    { id: "max_dd", label: "Max Drawdown (%)",  values: { Main: M("max_drawdown_pct"), Benchmark: B("benchmark_max_drawdown_pct"), Active: A("max_drawdown_pct","benchmark_max_drawdown_pct") } },
   ];
 }
 
 function buildValuationRows(pnl: Record<string, unknown>): TreeRow[] {
   return [
-    { id: "pe",  label: "PE Ratio",             values: { Main: (pnl.pe_ratio as number) ?? null } },
-    { id: "pb",  label: "P/B Ratio",             values: { Main: (pnl.pb_ratio as number) ?? null } },
+    { id: "pe",  label: "PE Ratio",            values: { Main: (pnl.pe_ratio as number) ?? null } },
+    { id: "pb",  label: "P/B Ratio",            values: { Main: (pnl.pb_ratio as number) ?? null } },
     { id: "roe", label: "Return on Equity (%)", values: { Main: (pnl.roe_pct as number) ?? null } },
   ];
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
+
 export default function PerformanceSummaryPage() {
-  const { analyticsData, analyticsLoading, analyticsError, selectedSource, selectedSourceId, selectedBacktestId, loadAnalytics } = usePortfolio();
+  const { analyticsData, analyticsLoading, analyticsError, selectedSource, selectedSourceId } = usePortfolio();
   const [view, setView] = useState<AnalyticsView>("Main");
-  const [kpi0, setKpi0] = useState<KpiKey>("total_return");
-  const [kpi1, setKpi1] = useState<KpiKey>("rolling_risk");
-  const [kpi2, setKpi2] = useState<KpiKey>("pe_ratio");
+
+  // Each chart has its own independent KPI selection
+  const [returnKpi,    setReturnKpi]    = useState<ReturnKpi>("total_return");
+  const [riskKpi,      setRiskKpi]      = useState<RiskKpi>("rolling_vol");
+  const [valuationKpi, setValuationKpi] = useState<ValuationKpi>("pe");
 
   if (analyticsLoading) {
     return (
@@ -199,26 +281,15 @@ export default function PerformanceSummaryPage() {
     return <AnalyticsEmptyState title="Performance Summary" analyticsError={analyticsError} />;
   }
 
-  const pnl = (analyticsData.pnl_metrics ?? {}) as Record<string, unknown>;
+  const pnl          = (analyticsData.pnl_metrics ?? {}) as Record<string, unknown>;
   const hasBenchmark = pnl.benchmark_total_return_pct != null;
+  const d            = analyticsData as Record<string, unknown>;
 
-  // Tables always show all 3 columns (toggle primarily affects charts)
-  const allCols: TreeColumn[] = [
-    { key: "Active",    label: "Active",    align: "right" },
-    { key: "Benchmark", label: "Benchmark", align: "right" },
-    { key: "Main",      label: "Main",      align: "right" },
-  ];
-  const valuationCols: TreeColumn[] = [{ key: "Main", label: "Main", align: "right" }];
-
-  const pnlRows = buildPnLRows(pnl);
-  const riskRows = buildRiskRows(pnl);
-  const valuationRows = buildValuationRows(pnl);
-
-  const defaultExpanded = new Set(["total_return"]);
+  const allCols: TreeColumn[]       = [{ key: "Active", label: "Active", align: "right" }, { key: "Benchmark", label: "Benchmark", align: "right" }, { key: "Main", label: "Main", align: "right" }];
+  const singleCol: TreeColumn[]     = [{ key: "Main", label: "Main", align: "right" }];
 
   return (
     <div className="p-4 space-y-4">
-      {/* Header row with toggle */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">Performance Summary</h1>
@@ -227,18 +298,34 @@ export default function PerformanceSummaryPage() {
         <ViewToggle view={view} onChange={setView} hasBenchmark={hasBenchmark} />
       </div>
 
-      {/* Metric tables — always show Active/Benchmark/Main columns */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        <AnalyticsTreeTable title="Profit & Loss Summary" columns={hasBenchmark ? allCols : valuationCols} rows={pnlRows} defaultExpanded={defaultExpanded} />
-        <AnalyticsTreeTable title="Risk Summary" columns={hasBenchmark ? allCols : valuationCols} rows={riskRows} />
-        <AnalyticsTreeTable title="Valuation Summary" columns={valuationCols} rows={valuationRows} />
+        <AnalyticsTreeTable title="Profit & Loss Summary" columns={hasBenchmark ? allCols : singleCol} rows={buildPnLRows(pnl)} defaultExpanded={new Set(["total_return"])} />
+        <AnalyticsTreeTable title="Risk Summary"          columns={hasBenchmark ? allCols : singleCol} rows={buildRiskRows(pnl)} />
+        <AnalyticsTreeTable title="Valuation Summary"     columns={singleCol}                          rows={buildValuationRows(pnl)} />
       </div>
 
-      {/* KPI-switchable charts */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <ChartCard analyticsData={analyticsData as Record<string, unknown>} kpi={kpi0} onKpiChange={setKpi0} />
-        <ChartCard analyticsData={analyticsData as Record<string, unknown>} kpi={kpi1} onKpiChange={setKpi1} />
-        <ChartCard analyticsData={analyticsData as Record<string, unknown>} kpi={kpi2} onKpiChange={setKpi2} />
+        <ChartCard
+          title={RETURN_KPIS.find(o => o.value === returnKpi)?.label ?? "Return"}
+          kpi={returnKpi}
+          options={RETURN_KPIS}
+          onKpiChange={setReturnKpi}
+          chartData={buildReturnData(d, returnKpi)}
+        />
+        <ChartCard
+          title={RISK_KPIS.find(o => o.value === riskKpi)?.label ?? "Risk"}
+          kpi={riskKpi}
+          options={RISK_KPIS}
+          onKpiChange={setRiskKpi}
+          chartData={buildRiskData(d, riskKpi)}
+        />
+        <ChartCard
+          title={VALUATION_KPIS.find(o => o.value === valuationKpi)?.label ?? "Valuation"}
+          kpi={valuationKpi}
+          options={VALUATION_KPIS}
+          onKpiChange={setValuationKpi}
+          chartData={buildValuationData(d, valuationKpi)}
+        />
       </div>
     </div>
   );
