@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   TrendingUp, Shield, BarChart3, Activity,
   PieChart, Users, ArrowRight, LogIn, Layers,
@@ -48,6 +49,8 @@ interface Props {
 
 export function AnalyticsEmptyState({ title, analyticsError }: Props) {
   const { user, loading } = useAuth();
+  const pathname = usePathname();
+  const loginHref = `/login?next=${encodeURIComponent(pathname)}`;
 
   return (
     <div className="p-6 space-y-5">
@@ -90,7 +93,7 @@ export function AnalyticsEmptyState({ title, analyticsError }: Props) {
                 — built on the full NSE market history.
               </p>
               <div className="flex items-center gap-3 flex-wrap justify-center">
-                <Link href="/login">
+                <Link href={loginHref}>
                   <button className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg transition-colors shadow-sm shadow-emerald-500/20">
                     <LogIn className="h-4 w-4" />
                     Sign In

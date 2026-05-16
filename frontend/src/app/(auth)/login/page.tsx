@@ -2,7 +2,7 @@
 
 import { useState, useEffect, FormEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LogIn } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
@@ -19,13 +19,15 @@ import { Label } from "@/components/ui/label";
 export default function LoginPage() {
   const { login, user, token, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next") || "/home";
 
-  // Redirect to app if already logged in
+  // Redirect if already logged in
   useEffect(() => {
     if (!loading && (user || token)) {
-      router.push("/home");
+      router.push(next);
     }
-  }, [user, token, loading, router]);
+  }, [user, token, loading, router, next]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,7 +40,7 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      router.push("/home");
+      router.push(next);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
