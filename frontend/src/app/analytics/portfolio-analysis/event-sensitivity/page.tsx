@@ -297,7 +297,7 @@ export default function EventSensitivityPage() {
                         <tr key={f.factor} className="border-b border-border/30">
                           <td className="px-2 py-1.5 font-medium">{f.factor}</td>
                           <td className={`px-2 py-1.5 text-right tabular-nums ${f.cumReturn >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                            {f.cumReturn >= 0 ? "+" : ""}{f.cumReturn.toFixed(3)}%
+                            {(f.cumReturn * 100) >= 0 ? "+" : ""}{(f.cumReturn * 100).toFixed(2)}%
                           </td>
                         </tr>
                       ))

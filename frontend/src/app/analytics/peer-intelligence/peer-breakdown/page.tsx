@@ -131,7 +131,7 @@ export default function PeerBreakdownPage() {
 
   const holdingsBarData = topHoldings.map(h => ({
     name: String(h.symbol ?? "").replace(".NS", "").slice(0, 10),
-    value: parseFloat(fmt(Number(h.avg_weight ?? 0) * 100)),
+    value: parseFloat(fmt(Number(h.avg_weight ?? 0))),
   }));
 
   // Factor breakdown
@@ -343,7 +343,7 @@ export default function PeerBreakdownPage() {
                   {(rows as Record<string, unknown>[]).length > 0 ? (rows as Record<string, unknown>[]).map((h, i) => (
                     <tr key={i} className="border-b border-border/30 hover:bg-muted/20">
                       <td className="px-2 py-1 font-medium">{String(h.symbol ?? "—").replace(".NS", "")}</td>
-                      <td className="px-2 py-1 tabular-nums">{fmt(Number(h.avg_weight ?? 0) * 100)}</td>
+                      <td className="px-2 py-1 tabular-nums">{fmt(Number(h.avg_weight ?? 0))}</td>
                       <td className={`px-2 py-1 tabular-nums ${Number(h.total_return_contribution_pct ?? 0) >= 0 ? "text-emerald-400" : "text-red-400"}`}>{fmt(h.total_return_contribution_pct)}</td>
                       <td className="px-2 py-1 tabular-nums">{fmt(h.risk_contribution_pct)}</td>
                     </tr>

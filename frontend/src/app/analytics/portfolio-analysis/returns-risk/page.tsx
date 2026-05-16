@@ -217,10 +217,10 @@ function ReturnChartCard({ analyticsData }: { analyticsData: Record<string, unkn
     const cumulative: Pt[] = [];
     let mktCum = 1, styCum = 1, indCum = 1, idioCum = 1;
     for (const r of factorTs) {
-      mktCum  *= 1 + Number(r.market_return_pct   ?? r.market   ?? 0) / 100;
-      styCum  *= 1 + Number(r.style_return_pct    ?? r.style    ?? 0) / 100;
-      indCum  *= 1 + Number(r.industry_return_pct ?? r.industry ?? 0) / 100;
-      idioCum *= 1 + Number(r.idio_return_pct     ?? r.idio     ?? 0) / 100;
+      mktCum  *= 1 + Number(r.market   ?? 0);
+      styCum  *= 1 + Number(r.style    ?? 0);
+      indCum  *= 1 + Number(r.industry ?? 0);
+      idioCum *= 1 + Number(r.idio     ?? 0);
       cumulative.push({
         date:     r.date,
         market:   Math.round((mktCum  - 1) * 10000) / 100,
@@ -240,7 +240,7 @@ function ReturnChartCard({ analyticsData }: { analyticsData: Record<string, unkn
   } else if (kpi === "rolling_return") {
     data = rm
       .filter((r) => r.rolling_return_1y != null)
-      .map((r) => ({ date: r.date, portfolio: Number(r.rolling_return_1y) * 100 }));
+      .map((r) => ({ date: r.date, portfolio: Number(r.rolling_return_1y) }));
     series = [{ key: "portfolio", name: "Rolling Return 1Y (%)", color: "#6366f1" }];
   } else {
     // rolling_sharpe
@@ -290,7 +290,7 @@ function RiskChartCard({ analyticsData }: { analyticsData: Record<string, unknow
   if (kpi === "predicted_risk") {
     data = rm
       .filter((r) => r.rolling_vol != null)
-      .map((r) => ({ date: r.date, portfolio: Number(r.rolling_vol) * 100 }));
+      .map((r) => ({ date: r.date, portfolio: Number(r.rolling_vol) }));
     series = [{ key: "portfolio", name: "Predicted Risk (%)", color: "#ef4444" }];
   } else if (kpi === "risk_contrib") {
     // Factor total vol from factor_decomp_ts
@@ -301,7 +301,7 @@ function RiskChartCard({ analyticsData }: { analyticsData: Record<string, unknow
     // realized_risk
     data = rm
       .filter((r) => r.rolling_vol != null)
-      .map((r) => ({ date: r.date, portfolio: Number(r.rolling_vol) * 100 }));
+      .map((r) => ({ date: r.date, portfolio: Number(r.rolling_vol) }));
     series = [{ key: "portfolio", name: "Rolling 1Y Realized Risk (%)", color: "#ef4444" }];
   }
 

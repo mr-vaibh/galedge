@@ -60,12 +60,13 @@ function sumRange(
     market: 0, style: 0, industry: 0, idio: 0,
   };
   for (const p of filtered) {
-    result.market += Number(p.market_return_pct ?? 0);
-    result.style += Number(p.style_return_pct ?? 0);
-    result.industry += Number(p.industry_return_pct ?? 0);
-    result.idio += Number(p.idio_return_pct ?? 0);
+    result.market += Number(p.market ?? 0);
+    result.style += Number(p.style ?? 0);
+    result.industry += Number(p.industry ?? 0);
+    result.idio += Number(p.idio ?? 0);
   }
-  return result;
+  // Convert decimal daily sums to %
+  return { market: result.market * 100, style: result.style * 100, industry: result.industry * 100, idio: result.idio * 100 };
 }
 
 export default function DrawdownPage() {
