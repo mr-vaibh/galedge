@@ -1,16 +1,88 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, BarChart3 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
 import { AnalyticsTreeTable, type TreeRow, type TreeColumn } from "@/components/analytics/AnalyticsTreeTable";
 import { ViewToggle, type AnalyticsView } from "@/components/analytics/ViewToggle";
 import { AnalyticsEmptyState } from "@/components/analytics/AnalyticsEmptyState";
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid,
-} from "recharts";
+
+// --- Pure SVG stacked bar chart (no recharts — avoids Safari WebKit renderer crash) ---
+
+const SERIES = [
+  { key: "market",   name: "Market",        color: "#3b82f6" },
+  { key: "style",    name: "Style",         color: "#a855f7" },
+  { key: "industry", name: "Industry",      color: "#10b981" },
+  { key: "idio",     name: "Idiosyncratic", color: "#f97316" },
+] as const;
+
+type SeriesKey = "market" | "style" | "industry" | "idio";
+
+interface BarDatum { period: string; market: number; style: number; industry: number; idio: number; }
+
+function StackedBarChart({ data, width, height = 220 }: { data: BarDatum[]; width: number; height?: number }) {
+  const ML = 46, MR = 10, MT = 8, MB = 28;
+  const iW = width - ML - MR;
+  const iH = height - MT - MB;
+
+  let maxVal = 0, minVal = 0;
+  data.forEach(d => {
+    let pos = 0, neg = 0;
+    SERIES.forEach(s => { const v = d[s.key]; if (v > 0) pos += v; else neg += v; });
+    if (pos > maxVal) maxVal = pos;
+    if (neg < minVal) minVal = neg;
+  });
+
+  const range = (maxVal - minVal) || 1;
+  const rawStep = range / 5;
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.max(rawStep, 1e-9))));
+  const step = Math.ceil(rawStep / mag) * mag || 1;
+  const yMin = Math.floor(minVal / step) * step;
+  const yMax = Math.ceil(maxVal / step) * step;
+  const yRange = (yMax - yMin) || 1;
+
+  const yTicks: number[] = [];
+  for (let t = yMin; t <= yMax + 1e-9; t = Math.round((t + step) * 1e9) / 1e9) yTicks.push(t);
+
+  const toY = (v: number) => MT + iH * (1 - (v - yMin) / yRange);
+  const zeroY = toY(0);
+  const barStep = iW / (data.length || 1);
+  const barW = Math.max(3, barStep * 0.65);
+
+  return (
+    <svg width={width} height={height} style={{ display: "block", overflow: "visible" }}>
+      {yTicks.map((t, i) => (
+        <g key={i}>
+          <line x1={ML} x2={ML + iW} y1={toY(t)} y2={toY(t)} stroke="#27272a" strokeDasharray="3 3" />
+          <text x={ML - 4} y={toY(t)} textAnchor="end" dominantBaseline="middle" fontSize={9} fill="#71717a">
+            {`${t % 1 === 0 ? t.toFixed(0) : t.toFixed(1)}%`}
+          </text>
+        </g>
+      ))}
+      <line x1={ML} x2={ML + iW} y1={zeroY} y2={zeroY} stroke="#52525b" strokeWidth={1.5} />
+      {data.map((d, i) => {
+        const cx = ML + i * barStep + barStep / 2;
+        const x = cx - barW / 2;
+        let posOff = 0, negOff = 0;
+        return (
+          <g key={d.period}>
+            {SERIES.map(s => {
+              const v = d[s.key];
+              if (!v) return null;
+              let y: number, h: number;
+              if (v > 0) { y = toY(posOff + v); h = toY(posOff) - y; posOff += v; }
+              else        { y = toY(negOff);     h = toY(negOff + v) - y; negOff += v; }
+              return <rect key={s.key} x={x} y={y} width={barW} height={Math.max(1, h)} fill={s.color} />;
+            })}
+            <text x={cx} y={height - MB + 12} textAnchor="middle" fontSize={9} fill="#71717a">{d.period}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
 
 type Granularity = "annual" | "quarterly" | "monthly";
 
@@ -114,13 +186,20 @@ export default function PeriodAnalysisPage() {
   const [gran,    setGran]    = useState<Granularity>("annual");
   const [view,    setView]    = useState<AnalyticsView>("Main");
   const [statKpi, setStatKpi] = useState("total_return_pct");
-  const [mounted, setMounted] = useState(false);
   const [chartWidth, setChartWidth] = useState(0);
+  const containerElRef = useRef<HTMLDivElement | null>(null);
   const chartContainerRef = useCallback((el: HTMLDivElement | null) => {
+    containerElRef.current = el;
     if (el) setChartWidth(el.offsetWidth);
   }, []);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    const handleResize = () => {
+      if (containerElRef.current) setChartWidth(containerElRef.current.offsetWidth);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const periods    = useMemo(() => analyticsData ? getPeriodData(analyticsData as Record<string, unknown>, gran) : [], [analyticsData, gran]);
   const periodCols = useMemo(() => buildCols(periods),              [periods]);
@@ -212,21 +291,16 @@ export default function PeriodAnalysisPage() {
               <CardControls />
             </CardHeader>
             <CardContent className="p-2">
-              <div ref={chartContainerRef} style={{ width: "100%", height: 220 }}>
-                {mounted && chartWidth > 0 && (
-                  <BarChart width={chartWidth} height={220} data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                    <XAxis dataKey="period" tick={{ fontSize: 9, fill: "#71717a" }} tickLine={false} />
-                    <YAxis tick={{ fontSize: 9, fill: "#71717a" }} tickLine={false} width={40} tickFormatter={v => `${v}%`} />
-                    <Tooltip contentStyle={{ backgroundColor: "#18181b", border: "1px solid #3f3f46", borderRadius: 8, fontSize: 11 }}
-                      formatter={(v: unknown) => [`${Number(v).toFixed(2)}%`]} />
-                    <Legend iconType="square" iconSize={8} wrapperStyle={{ fontSize: 10 }} />
-                    <Bar dataKey="market"   name="Market"        fill="#3b82f6" stackId="a" isAnimationActive={false} />
-                    <Bar dataKey="style"    name="Style"         fill="#a855f7" stackId="a" isAnimationActive={false} />
-                    <Bar dataKey="industry" name="Industry"      fill="#10b981" stackId="a" isAnimationActive={false} />
-                    <Bar dataKey="idio"     name="Idiosyncratic" fill="#f97316" stackId="a" isAnimationActive={false} />
-                  </BarChart>
-                )}
+              <div ref={chartContainerRef} style={{ width: "100%" }}>
+                {chartWidth > 0 && <StackedBarChart data={chartData} width={chartWidth} height={220} />}
+              </div>
+              <div className="flex items-center gap-4 flex-wrap justify-center mt-2">
+                {SERIES.map(s => (
+                  <div key={s.key} className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: s.color }} />
+                    <span className="text-[10px] text-muted-foreground">{s.name}</span>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
