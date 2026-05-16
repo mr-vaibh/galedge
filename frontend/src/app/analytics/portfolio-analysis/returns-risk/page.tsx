@@ -647,6 +647,7 @@ export default function ReturnsAndRiskPage() {
   const { analyticsData, analyticsLoading, selectedSourceId } = usePortfolio();
   const [contributorTab, setContributorTab] = useState<ContribTab>("overall");
   const [view, setView] = useState<AnalyticsView>("Main");
+  const [chartKpi, setChartKpi] = useState<string>("weight");
 
   if (analyticsLoading) {
     return (
@@ -723,14 +724,54 @@ export default function ReturnsAndRiskPage() {
         ];
   const valCols: TreeColumn[] = [{ key: "Main", label: "Main", align: "right" as const }];
 
-  // Top holdings weight bar data
+  // Top holdings weight bar data (avg_weight already in % from backend)
   const topHoldingsBarData = [...holdings]
-    .sort((a, b) => Number(b.avg_weight ?? b.holdings_pct ?? 0) - Number(a.avg_weight ?? a.holdings_pct ?? 0))
+    .sort((a, b) => Number(b.avg_weight ?? 0) - Number(a.avg_weight ?? 0))
     .slice(0, 10)
     .map((h) => ({
       name: String(h.symbol ?? "").replace(".NS", ""),
-      value: Number(h.avg_weight ?? h.holdings_pct ?? 0) * 100,
+      value: Number(h.avg_weight ?? 0),
     }));
+
+  const topRiskContribData = [...holdings]
+    .sort((a, b) => Number(b.risk_contribution_pct ?? 0) - Number(a.risk_contribution_pct ?? 0))
+    .slice(0, 10)
+    .map((h) => ({
+      name: String(h.symbol ?? "").replace(".NS", ""),
+      value: Number(h.risk_contribution_pct ?? 0),
+    }));
+
+  const topFactorRiskData = [...factors]
+    .sort((a, b) => Number(b.risk_contribution_pct ?? 0) - Number(a.risk_contribution_pct ?? 0))
+    .slice(0, 10)
+    .map((f) => ({
+      name: String(f.factor_name ?? ""),
+      value: Number(f.risk_contribution_pct ?? 0),
+    }));
+
+  const CHART_KPIS_BY_TAB = {
+    overall: [
+      { label: "Top Holdings (%)", value: "weight" },
+      { label: "Top Total Risk Contribution (%)", value: "risk_contrib" },
+    ],
+    idio: [
+      { label: "Top Holdings (%)", value: "weight" },
+      { label: "Top Idiosyncratic Risk Contribution (%)", value: "idio_risk" },
+    ],
+    factor: [
+      { label: "Top Factor Risk Contribution (%)", value: "factor_risk" },
+    ],
+  } as const;
+
+  const activeChartKpis = CHART_KPIS_BY_TAB[contributorTab];
+  const effectiveChartKpi = activeChartKpis.some((k) => k.value === chartKpi)
+    ? chartKpi
+    : activeChartKpis[0].value;
+  const chartBarData =
+    effectiveChartKpi === "weight" ? topHoldingsBarData :
+    effectiveChartKpi === "risk_contrib" ? topRiskContribData :
+    effectiveChartKpi === "factor_risk" ? topFactorRiskData :
+    [];
 
   return (
     <div className="p-4 space-y-4">
@@ -813,7 +854,7 @@ export default function ReturnsAndRiskPage() {
             {(["overall", "idio", "factor"] as ContribTab[]).map((tab) => (
               <button
                 key={tab}
-                onClick={() => setContributorTab(tab)}
+                onClick={() => { setContributorTab(tab); setChartKpi("weight"); }}
                 className={`px-3 py-1 text-[10px] rounded transition-colors ${
                   contributorTab === tab
                     ? "bg-secondary text-secondary-foreground"
@@ -826,7 +867,8 @@ export default function ReturnsAndRiskPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* Top 10 */}
           <Card>
             <CardHeader className="pb-1 py-2 px-3">
               <CardTitle className="text-[11px]">
@@ -837,31 +879,53 @@ export default function ReturnsAndRiskPage() {
               <table className="w-full text-[10px]">
                 <thead>
                   <tr className="border-b border-border/50">
-                    <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Name</th>
-                    <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Return (%)</th>
+                    <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">
+                      {contributorTab === "factor" ? "Factor" : "Symbol"}
+                    </th>
+                    {contributorTab === "factor" ? (
+                      <>
+                        <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Type</th>
+                        <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Exp (%)</th>
+                      </>
+                    ) : (
+                      <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Wt (%)</th>
+                    )}
+                    <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Ret (%)</th>
+                    {contributorTab !== "factor" && (
+                      <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Risk (%)</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
-                  {topList.map((r, i) => (
+                  {topList.length === 0 ? (
+                    <tr><td colSpan={4} className="px-2 py-4 text-center text-muted-foreground">No data</td></tr>
+                  ) : topList.map((r, i) => (
                     <tr key={i} className="border-b border-border/30">
-                      <td className="px-2 py-1 font-medium">{String(r[nameKey] ?? "—")}</td>
+                      <td className="px-2 py-1 font-medium">
+                        {String(r[nameKey] ?? "—").replace(".NS", "")}
+                      </td>
+                      {contributorTab === "factor" ? (
+                        <>
+                          <td className="px-2 py-1 text-right text-muted-foreground text-[9px]">{String(r.factor_type ?? "—")}</td>
+                          <td className="px-2 py-1 text-right"><ColoredCell value={fmt(r.exposure_pct)} /></td>
+                        </>
+                      ) : (
+                        <td className="px-2 py-1 text-right tabular-nums">{fmt(r.avg_weight)}</td>
+                      )}
                       <td className="px-2 py-1 text-right">
                         <ColoredCell value={fmt(r[valueKey])} />
                       </td>
+                      {contributorTab !== "factor" && (
+                        <td className="px-2 py-1 text-right tabular-nums">{fmt(r.risk_contribution_pct)}</td>
+                      )}
                     </tr>
                   ))}
-                  {topList.length === 0 && (
-                    <tr>
-                      <td colSpan={2} className="px-2 py-4 text-center text-muted-foreground">
-                        No data
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </CardContent>
           </Card>
 
+          {/* Bottom 10 */}
           <Card>
             <CardHeader className="pb-1 py-2 px-3">
               <CardTitle className="text-[11px]">
@@ -872,45 +936,85 @@ export default function ReturnsAndRiskPage() {
               <table className="w-full text-[10px]">
                 <thead>
                   <tr className="border-b border-border/50">
-                    <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Name</th>
-                    <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Return (%)</th>
+                    <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">
+                      {contributorTab === "factor" ? "Factor" : "Symbol"}
+                    </th>
+                    {contributorTab === "factor" ? (
+                      <>
+                        <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Type</th>
+                        <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Exp (%)</th>
+                      </>
+                    ) : (
+                      <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Wt (%)</th>
+                    )}
+                    <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Ret (%)</th>
+                    {contributorTab !== "factor" && (
+                      <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Risk (%)</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
-                  {bottomList.map((r, i) => (
+                  {bottomList.length === 0 ? (
+                    <tr><td colSpan={4} className="px-2 py-4 text-center text-muted-foreground">No data</td></tr>
+                  ) : bottomList.map((r, i) => (
                     <tr key={i} className="border-b border-border/30">
-                      <td className="px-2 py-1 font-medium">{String(r[nameKey] ?? "—")}</td>
+                      <td className="px-2 py-1 font-medium">
+                        {String(r[nameKey] ?? "—").replace(".NS", "")}
+                      </td>
+                      {contributorTab === "factor" ? (
+                        <>
+                          <td className="px-2 py-1 text-right text-muted-foreground text-[9px]">{String(r.factor_type ?? "—")}</td>
+                          <td className="px-2 py-1 text-right"><ColoredCell value={fmt(r.exposure_pct)} /></td>
+                        </>
+                      ) : (
+                        <td className="px-2 py-1 text-right tabular-nums">{fmt(r.avg_weight)}</td>
+                      )}
                       <td className="px-2 py-1 text-right">
                         <ColoredCell value={fmt(r[valueKey])} />
                       </td>
+                      {contributorTab !== "factor" && (
+                        <td className="px-2 py-1 text-right tabular-nums">{fmt(r.risk_contribution_pct)}</td>
+                      )}
                     </tr>
                   ))}
-                  {bottomList.length === 0 && (
-                    <tr>
-                      <td colSpan={2} className="px-2 py-4 text-center text-muted-foreground">
-                        No data
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </CardContent>
           </Card>
+
+          {/* KPI chart with dropdown */}
+          <Card>
+            <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+              <CardTitle className="text-[11px]">
+                {activeChartKpis.find((k) => k.value === effectiveChartKpi)?.label ?? "Top Holdings (%)"}
+              </CardTitle>
+              <div className="flex items-center gap-1">
+                {activeChartKpis.length > 1 && (
+                  <select
+                    className="text-[9px] bg-background border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none"
+                    value={effectiveChartKpi}
+                    onChange={(e) => setChartKpi(e.target.value)}
+                  >
+                    {activeChartKpis.map((k) => (
+                      <option key={k.value} value={k.value}>{k.label}</option>
+                    ))}
+                  </select>
+                )}
+                <CardControls />
+              </div>
+            </CardHeader>
+            <CardContent className="p-2">
+              {chartBarData.length > 0 ? (
+                <TopHoldingsSvgBar data={chartBarData} height={220} />
+              ) : (
+                <div className="h-[220px] flex items-center justify-center text-[10px] text-muted-foreground">
+                  No data for this metric
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
-
-      {/* Top Holdings Weight — pure SVG, no recharts */}
-      {holdings.length > 0 && (
-        <Card>
-          <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-            <CardTitle className="text-[11px]">Top Holdings Weight (%)</CardTitle>
-            <CardControls />
-          </CardHeader>
-          <CardContent className="p-2">
-            <TopHoldingsSvgBar data={topHoldingsBarData} height={180} />
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
