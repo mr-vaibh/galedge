@@ -551,14 +551,39 @@ def compute_rolling_metrics(
 
     rolling_beta = rolling_beta.fillna(0.0)
 
+    # Rolling 1Y / 3Y compound return (%)
+    def _rolling_compound(s: pd.Series, w: int) -> pd.Series:
+        try:
+            return s.rolling(w).apply(lambda x: (np.prod(1 + x) - 1) * 100, raw=True)
+        except Exception:
+            return pd.Series(np.nan, index=s.index)
+
+    rolling_return_1y = _rolling_compound(r, 252)
+    rolling_return_3y = _rolling_compound(r, 756)
+
+    # Rolling 3Y Sharpe
+    rolling_mean_3y   = r.rolling(756).mean()
+    rolling_std_3y    = r.rolling(756).std()
+    rolling_sharpe_3y = (rolling_mean_3y / rolling_std_3y * np.sqrt(252))
+
+    def _safe(series: pd.Series, ts) -> float | None:
+        try:
+            v = series.loc[ts]
+            return None if (v != v or np.isinf(v)) else round(float(v), 4)
+        except Exception:
+            return None
+
     result = []
     for ts in r.index[window - 1:]:
         result.append(
             {
-                "date": ts.strftime("%Y-%m-%d"),
-                "rolling_sharpe": round(float(rolling_sharpe.loc[ts]), 4),
-                "rolling_vol": round(float(rolling_vol.loc[ts]), 4),
-                "rolling_beta": round(float(rolling_beta.loc[ts]), 4),
+                "date":             ts.strftime("%Y-%m-%d"),
+                "rolling_sharpe":   round(float(rolling_sharpe.loc[ts]), 4),
+                "rolling_vol":      round(float(rolling_vol.loc[ts]), 4),
+                "rolling_beta":     round(float(rolling_beta.loc[ts]), 4),
+                "rolling_return_1y":  _safe(rolling_return_1y, ts),
+                "rolling_return_3y":  _safe(rolling_return_3y, ts),
+                "rolling_sharpe_3y":  _safe(rolling_sharpe_3y, ts),
             }
         )
     return result

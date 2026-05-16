@@ -53,55 +53,75 @@ type ValuationKpi = typeof VALUATION_KPIS[number]["value"];
 
 type Pt = Record<string, unknown>;
 
+// Compound daily decimal returns into a cumulative % series
 function cumFromDaily(ts: Pt[], key: string): { date: string; portfolio: number }[] {
   let prod = 1.0;
-  return ts.map(p => {
-    prod *= (1 + Number(p[key] ?? 0));
-    return { date: String(p.date), portfolio: Math.round((prod - 1) * 10000) / 100 };
-  });
+  return ts
+    .filter(p => p[key] != null)
+    .map(p => {
+      prod *= (1 + Number(p[key]));
+      return { date: String(p.date), portfolio: Math.round((prod - 1) * 10000) / 100 };
+    });
+}
+
+// Rolling annualized volatility of daily decimal series (approximates factor risk contribution)
+function rollingVolOf(ts: Pt[], key: string, window = 60): { date: string; portfolio: number }[] {
+  const vals = ts.map(p => Number(p[key] ?? 0));
+  const result: { date: string; portfolio: number }[] = [];
+  for (let i = window - 1; i < ts.length; i++) {
+    const slice = vals.slice(i - window + 1, i + 1);
+    const mean = slice.reduce((a, b) => a + b, 0) / window;
+    const variance = slice.reduce((a, b) => a + (b - mean) ** 2, 0) / (window - 1);
+    const annVol = Math.sqrt(variance * 252) * 100;
+    result.push({ date: String(ts[i].date), portfolio: Math.round(annVol * 10000) / 10000 });
+  }
+  return result;
 }
 
 function buildReturnData(data: Record<string, unknown>, kpi: ReturnKpi) {
-  const ec    = (data.equity_curve    as Pt[] | undefined) ?? [];
-  const bec   = (data.benchmark_equity_curve as Pt[] | undefined) ?? [];
-  const rm    = (data.rolling_metrics as Pt[] | undefined) ?? [];
-  const fdt   = (data.factor_decomp_ts as Pt[] | undefined) ?? [];
+  const ec  = (data.equity_curve    as Pt[] | undefined) ?? [];
+  const rm  = (data.rolling_metrics as Pt[] | undefined) ?? [];
+  const fdt = (data.factor_decomp_ts as Pt[] | undefined) ?? [];
 
-  const portColor   = "#f97316";
-  const benchColor  = "#6366f1";
+  const portColor = "#f97316";
 
   if (kpi === "total_return") {
     if (ec.length < 2) return { data: [], series: [] };
     const base = Number(ec[0].value ?? 1);
-    const pts = ec.map(p => ({ date: String(p.date), portfolio: base > 0 ? ((Number(p.value) - base) / base) * 100 : 0 }));
-    if (bec.length > 1) {
-      const bb = Number(bec[0].value ?? 1);
-      return {
-        data: pts.map((p, i) => ({ ...p, benchmark: bec[i] ? ((Number(bec[i].value) - bb) / bb) * 100 : undefined })),
-        series: [{ key: "portfolio", name: "Portfolio", color: portColor }, { key: "benchmark", name: "Benchmark", color: benchColor }],
-      };
-    }
-    return { data: pts, series: [{ key: "portfolio", name: "Portfolio", color: portColor }] };
+    return {
+      data: ec.map(p => ({ date: String(p.date), portfolio: base > 0 ? ((Number(p.value) - base) / base) * 100 : 0 })),
+      series: [{ key: "portfolio", name: "Portfolio", color: portColor }],
+    };
+  }
+
+  if (kpi === "rolling_1y_return") {
+    const pts = rm.filter(r => r.rolling_return_1y != null).map(r => ({ date: String(r.date), portfolio: Number(r.rolling_return_1y) }));
+    return { data: pts, series: [{ key: "portfolio", name: "1Y Rolling Return (%)", color: portColor }] };
+  }
+
+  if (kpi === "rolling_3y_return") {
+    const pts = rm.filter(r => r.rolling_return_3y != null).map(r => ({ date: String(r.date), portfolio: Number(r.rolling_return_3y) }));
+    return { data: pts, series: [{ key: "portfolio", name: "3Y Rolling Return (%)", color: portColor }] };
   }
 
   if (kpi === "rolling_1y_sharpe") {
     return {
       data: rm.map(r => ({ date: String(r.date), portfolio: Number(r.rolling_sharpe ?? 0) })),
-      series: [{ key: "portfolio", name: "Sharpe (1Y)", color: portColor }],
+      series: [{ key: "portfolio", name: "1Y Sharpe", color: portColor }],
     };
   }
 
+  if (kpi === "rolling_3y_sharpe") {
+    const pts = rm.filter(r => r.rolling_sharpe_3y != null).map(r => ({ date: String(r.date), portfolio: Number(r.rolling_sharpe_3y) }));
+    return { data: pts, series: [{ key: "portfolio", name: "3Y Sharpe", color: portColor }] };
+  }
+
   // Factor decomposition cumulative returns
-  const fdtMap: Record<ReturnKpi, string> = {
-    idio_return:     "idio",
-    factor_return:   "factor_total",
-    market_return:   "market",
-    style_return:    "style",
-    industry_return: "industry",
-    total_return: "", rolling_1y_return: "", rolling_3y_return: "",
-    rolling_1y_sharpe: "", rolling_3y_sharpe: "",
+  const fdtKeyMap: Partial<Record<ReturnKpi, string>> = {
+    idio_return: "idio", factor_return: "factor_total",
+    market_return: "market", style_return: "style", industry_return: "industry",
   };
-  const fdtKey = fdtMap[kpi];
+  const fdtKey = fdtKeyMap[kpi];
   if (fdtKey && fdt.length > 0) {
     return {
       data: cumFromDaily(fdt, fdtKey),
@@ -115,30 +135,28 @@ function buildReturnData(data: Record<string, unknown>, kpi: ReturnKpi) {
 function buildRiskData(data: Record<string, unknown>, kpi: RiskKpi) {
   const rm  = (data.rolling_metrics  as Pt[] | undefined) ?? [];
   const fdt = (data.factor_decomp_ts as Pt[] | undefined) ?? [];
+  const riskColor = "#ef4444";
 
   if (kpi === "rolling_vol") {
     return {
       data: rm.map(r => ({ date: String(r.date), portfolio: Number(r.rolling_vol ?? 0) })),
-      series: [{ key: "portfolio", name: "Realized Risk (%)", color: "#ef4444" }],
+      series: [{ key: "portfolio", name: "Realized Risk (%)", color: riskColor }],
     };
   }
 
-  // Risk contributions — map factor_decomp_ts daily values as running contribution %
-  const riskMap: Record<RiskKpi, string> = {
+  // Risk contributions: rolling annualized volatility of each factor's daily return contribution
+  const riskKeyMap: Partial<Record<RiskKpi, string>> = {
     idio_risk_contrib:    "idio",
     factor_risk_contrib:  "factor_total",
     market_risk_contrib:  "market",
     style_risk_contrib:   "style",
     industry_risk_contrib:"industry",
-    rolling_vol: "", total_predicted_risk: "", idio_predicted_risk: "",
-    factor_predicted_risk: "", market_predicted_risk: "",
-    style_predicted_risk: "", industry_predicted_risk: "",
   };
-  const fdtKey = riskMap[kpi];
+  const fdtKey = riskKeyMap[kpi];
   if (fdtKey && fdt.length > 0) {
     return {
-      data: cumFromDaily(fdt, fdtKey),
-      series: [{ key: "portfolio", name: "Portfolio", color: "#ef4444" }],
+      data: rollingVolOf(fdt, fdtKey),
+      series: [{ key: "portfolio", name: "Risk Contribution (%)", color: riskColor }],
     };
   }
 
