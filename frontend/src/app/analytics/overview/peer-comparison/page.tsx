@@ -10,6 +10,7 @@ import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
 import { useAuth } from "@/lib/auth";
 import { useCurrency } from "@/lib/currency";
+import { AnalyticsEmptyState } from "@/components/analytics/AnalyticsEmptyState";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
@@ -220,26 +221,7 @@ export default function PeerComparisonPage() {
   }
 
   if (!selectedPortfolioId) {
-    return (
-      <div className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold">Peer Comparison</h1>
-            <p className="text-xs text-amber-400">No portfolio selected.</p>
-          </div>
-          <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
-            {overviewTabs.map((tab) => (
-              <Button key={tab.href} variant={pathname === tab.href ? "secondary" : "ghost"} size="sm" onClick={() => router.push(tab.href)} className="h-7 text-[10px]">{tab.label}</Button>
-            ))}
-          </div>
-        </div>
-        <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
-            No portfolio selected. Go to Portfolio Construction to upload and select one.
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <AnalyticsEmptyState title="Peer Comparison" />;
   }
 
   const anyLoading = loading || loadingPerf.size > 0;

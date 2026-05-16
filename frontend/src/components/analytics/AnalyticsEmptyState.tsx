@@ -87,7 +87,7 @@ export function AnalyticsEmptyState({ title, analyticsError }: Props) {
               <p className="text-sm text-muted-foreground max-w-sm mb-8 leading-relaxed">
                 Create a free account to access factor attribution, risk
                 decomposition, event sensitivity analysis, and peer comparison
-                — powered by 20+ years of NSE market data.
+                — built on the full NSE market history.
               </p>
               <div className="flex items-center gap-3 flex-wrap justify-center">
                 <Link href="/login">
