@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, BarChart3 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { AnalyticsEmptyState } from "@/components/analytics/AnalyticsEmptyState";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
@@ -230,15 +231,7 @@ export default function ReturnsAndRiskPage() {
   }
 
   if (!analyticsData || !selectedSourceId) {
-    return (
-      <div className="p-6 space-y-4">
-        <h1 className="text-xl font-bold">Returns &amp; Risk</h1>
-        <div className="rounded-lg border bg-card p-12 text-center space-y-3">
-          <BarChart3 className="h-10 w-10 text-muted-foreground/40 mx-auto" />
-          <p className="text-sm text-muted-foreground">Select a portfolio or strategy from the sidebar to begin</p>
-        </div>
-      </div>
-    );
+    return <AnalyticsEmptyState title="Returns & Risk" />;
   }
 
   const pnl = (analyticsData.pnl_metrics ?? {}) as Record<string, unknown>;

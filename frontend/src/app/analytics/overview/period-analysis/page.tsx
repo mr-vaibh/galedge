@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, BarChart3 } from "lucide-react";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
 import { AnalyticsTreeTable, type TreeRow, type TreeColumn } from "@/components/analytics/AnalyticsTreeTable";
 import { ViewToggle, type AnalyticsView } from "@/components/analytics/ViewToggle";
+import { AnalyticsEmptyState } from "@/components/analytics/AnalyticsEmptyState";
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid,
 } from "recharts";
 
 type Granularity = "annual" | "quarterly" | "monthly";
@@ -23,10 +24,9 @@ function getPeriodData(data: Record<string, unknown>, gran: Granularity): Record
 function safeNum(v: unknown): number | null {
   if (v == null) return null;
   const n = Number(v);
-  return isNaN(n) ? null : n;
+  return isNaN(n) || !isFinite(n) ? null : n;
 }
 
-// Build period columns from period labels
 function buildCols(periods: Record<string, unknown>[]): TreeColumn[] {
   return periods.map(p => ({
     key: String(p.period ?? p.label ?? "?"),
@@ -35,7 +35,6 @@ function buildCols(periods: Record<string, unknown>[]): TreeColumn[] {
   }));
 }
 
-// Build P&L summary tree rows
 function buildPnLRows(periods: Record<string, unknown>[]): TreeRow[] {
   const row = (key: string): Record<string, number | null> =>
     Object.fromEntries(periods.map(p => [String(p.period ?? p.label ?? "?"), safeNum(p[key])]));
@@ -69,7 +68,6 @@ function buildRiskRows(periods: Record<string, unknown>[]): TreeRow[] {
   ];
 }
 
-// P&L Statistics (distribution stats across periods)
 function buildStatRows(periods: Record<string, unknown>[], kpiKey: string): TreeRow[] {
   const nums = periods.map(p => safeNum(p[kpiKey])).filter((v): v is number => v != null);
   if (!nums.length) return [];
@@ -88,9 +86,9 @@ function buildStatRows(periods: Record<string, unknown>[], kpiKey: string): Tree
       id: "hitrate", label: "Hit Rate (%)",
       values: { Active: fmt2(total > 0 ? (pos / total) * 100 : null) },
       children: [
-        { id: "pos_c",  label: "Positive Periods Count", values: { Active: pos } },
-        { id: "neg_c",  label: "Negative Periods Count", values: { Active: neg } },
-        { id: "total_c",label: "Total Periods",           values: { Active: total } },
+        { id: "pos_c",   label: "Positive Periods Count", values: { Active: pos } },
+        { id: "neg_c",   label: "Negative Periods Count", values: { Active: neg } },
+        { id: "total_c", label: "Total Periods",           values: { Active: total } },
       ],
     },
     { id: "max",    label: "Max Period Return",             values: { Active: fmt2(Math.max(...nums)) } },
@@ -112,11 +110,17 @@ const STAT_KPI_OPTIONS = [
 ];
 
 export default function PeriodAnalysisPage() {
-  // All hooks at the very top — before any conditional returns
-  const { analyticsData, analyticsLoading, selectedSourceId } = usePortfolio();
+  const { analyticsData, analyticsLoading, analyticsError, selectedSourceId } = usePortfolio();
   const [gran,    setGran]    = useState<Granularity>("annual");
   const [view,    setView]    = useState<AnalyticsView>("Main");
   const [statKpi, setStatKpi] = useState("total_return_pct");
+  const [mounted, setMounted] = useState(false);
+  const [chartWidth, setChartWidth] = useState(0);
+  const chartContainerRef = useCallback((el: HTMLDivElement | null) => {
+    if (el) setChartWidth(el.offsetWidth);
+  }, []);
+
+  useEffect(() => { setMounted(true); }, []);
 
   const periods    = useMemo(() => analyticsData ? getPeriodData(analyticsData as Record<string, unknown>, gran) : [], [analyticsData, gran]);
   const periodCols = useMemo(() => buildCols(periods),              [periods]);
@@ -133,7 +137,6 @@ export default function PeriodAnalysisPage() {
 
   const statCols: TreeColumn[] = [{ key: "Active", label: "Active", align: "right" }];
 
-  // Early returns after all hooks
   if (analyticsLoading) return (
     <div className="flex items-center justify-center py-20">
       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -141,21 +144,14 @@ export default function PeriodAnalysisPage() {
     </div>
   );
 
-  if (!analyticsData || !selectedSourceId) return (
-    <div className="p-6 space-y-4">
-      <h1 className="text-xl font-bold">Period Analysis</h1>
-      <div className="rounded-lg border bg-card p-12 text-center">
-        <BarChart3 className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-        <p className="text-sm text-muted-foreground">Select a portfolio or strategy from the sidebar to begin</p>
-      </div>
-    </div>
-  );
+  if (!analyticsData || !selectedSourceId) {
+    return <AnalyticsEmptyState title="Period Analysis" analyticsError={analyticsError} />;
+  }
 
   const statKpiLabel = STAT_KPI_OPTIONS.find(o => o.key === statKpi)?.label ?? "";
 
   return (
     <div className="p-4 space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">Period Analysis</h1>
@@ -194,7 +190,6 @@ export default function PeriodAnalysisPage() {
             />
           </div>
 
-          {/* P&L Statistics */}
           <div className="flex items-center gap-2">
             <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">P&L Statistics</h2>
             <select value={statKpi} onChange={e => setStatKpi(e.target.value)}
@@ -211,27 +206,28 @@ export default function PeriodAnalysisPage() {
             />
           )}
 
-          {/* Decomposition chart */}
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-[11px]">Return Decomposition (%)</CardTitle>
               <CardControls />
             </CardHeader>
             <CardContent className="p-2">
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                  <XAxis dataKey="period" tick={{ fontSize: 9, fill: "#71717a" }} tickLine={false} />
-                  <YAxis tick={{ fontSize: 9, fill: "#71717a" }} tickLine={false} width={40} tickFormatter={v => `${v}%`} />
-                  <Tooltip contentStyle={{ backgroundColor: "#18181b", border: "1px solid #3f3f46", borderRadius: 8, fontSize: 11 }}
-                    formatter={(v: unknown) => [`${Number(v).toFixed(2)}%`]} />
-                  <Legend iconType="square" iconSize={8} wrapperStyle={{ fontSize: 10 }} />
-                  <Bar dataKey="market"   name="Market"        fill="#3b82f6" stackId="a" />
-                  <Bar dataKey="style"    name="Style"         fill="#a855f7" stackId="a" />
-                  <Bar dataKey="industry" name="Industry"      fill="#10b981" stackId="a" />
-                  <Bar dataKey="idio"     name="Idiosyncratic" fill="#f97316" stackId="a" />
-                </BarChart>
-              </ResponsiveContainer>
+              <div ref={chartContainerRef} style={{ width: "100%", height: 220 }}>
+                {mounted && chartWidth > 0 && (
+                  <BarChart width={chartWidth} height={220} data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                    <XAxis dataKey="period" tick={{ fontSize: 9, fill: "#71717a" }} tickLine={false} />
+                    <YAxis tick={{ fontSize: 9, fill: "#71717a" }} tickLine={false} width={40} tickFormatter={v => `${v}%`} />
+                    <Tooltip contentStyle={{ backgroundColor: "#18181b", border: "1px solid #3f3f46", borderRadius: 8, fontSize: 11 }}
+                      formatter={(v: unknown) => [`${Number(v).toFixed(2)}%`]} />
+                    <Legend iconType="square" iconSize={8} wrapperStyle={{ fontSize: 10 }} />
+                    <Bar dataKey="market"   name="Market"        fill="#3b82f6" stackId="a" isAnimationActive={false} />
+                    <Bar dataKey="style"    name="Style"         fill="#a855f7" stackId="a" isAnimationActive={false} />
+                    <Bar dataKey="industry" name="Industry"      fill="#10b981" stackId="a" isAnimationActive={false} />
+                    <Bar dataKey="idio"     name="Idiosyncratic" fill="#f97316" stackId="a" isAnimationActive={false} />
+                  </BarChart>
+                )}
+              </div>
             </CardContent>
           </Card>
         </>

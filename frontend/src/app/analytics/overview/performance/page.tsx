@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Loader2, BarChart3 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
 import { AnalyticsTreeTable, type TreeRow, type TreeColumn } from "@/components/analytics/AnalyticsTreeTable";
 import { ViewToggle, type AnalyticsView } from "@/components/analytics/ViewToggle";
+import { AnalyticsEmptyState } from "@/components/analytics/AnalyticsEmptyState";
 
 // ── KPI chart selector ──────────────────────────────────────────────────────
 type KpiKey = "total_return" | "rolling_risk" | "pe_ratio";
@@ -195,32 +196,7 @@ export default function PerformanceSummaryPage() {
   }
 
   if (!analyticsData || !selectedSourceId) {
-    return (
-      <div className="p-6 space-y-4">
-        <h1 className="text-xl font-bold">Performance Summary</h1>
-        {analyticsError && <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">Error: {analyticsError}</div>}
-        <div className="rounded-lg border bg-card p-12 text-center space-y-3">
-          <BarChart3 className="h-10 w-10 text-muted-foreground/40 mx-auto" />
-          {selectedSourceId ? (
-            <>
-              <p className="text-sm text-muted-foreground">Portfolio selected — click to load analytics</p>
-              <button onClick={() => selectedSource && loadAnalytics(selectedSource, selectedSourceId, selectedBacktestId ?? undefined)} className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg">Load Analytics</button>
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">Select a portfolio or strategy from the sidebar to begin</p>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  if (analyticsError) {
-    return (
-      <div className="p-6">
-        <h1 className="text-xl font-bold">Performance Summary</h1>
-        <div className="mt-4 rounded-lg border border-red-500/30 bg-card p-6 text-center text-sm text-red-400">{analyticsError}</div>
-      </div>
-    );
+    return <AnalyticsEmptyState title="Performance Summary" analyticsError={analyticsError} />;
   }
 
   const pnl = (analyticsData.pnl_metrics ?? {}) as Record<string, unknown>;

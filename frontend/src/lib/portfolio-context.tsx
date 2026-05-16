@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import { useAuth } from "@/lib/auth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 const TOKEN_KEY = "galedge_auth_token";
@@ -65,9 +66,37 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
   const ANALYTICS_KEY = "galedge_analytics_selection";
+  const { token, loading: authLoading } = useAuth();
+
+  // Clear all analytics state + sessionStorage when user logs out
+  useEffect(() => {
+    if (authLoading) return;
+    if (!token) {
+      setId(null);
+      setFund(null);
+      setScheme(null);
+      setSelectedSource(null);
+      setSelectedSourceId(null);
+      setSelectedBacktestId(null);
+      setAnalyticsData(null);
+      setAnalyticsError(null);
+      setAnalyticsLoading(false);
+      try {
+        sessionStorage.removeItem(STORAGE_KEY);
+        sessionStorage.removeItem(ANALYTICS_KEY);
+        for (const key of Object.keys(sessionStorage)) {
+          if (key.startsWith("galedge_analytics_")) sessionStorage.removeItem(key);
+        }
+      } catch {}
+    }
+  }, [token, authLoading]); // eslint-disable-line
 
   // Load legacy + analytics selection from sessionStorage on mount
   useEffect(() => {
+    // Don't restore if the user has no auth token — they're logged out
+    const hasToken = typeof window !== "undefined" && !!localStorage.getItem(TOKEN_KEY);
+    if (!hasToken) return;
+
     try {
       const saved = sessionStorage.getItem(STORAGE_KEY);
       if (saved) {

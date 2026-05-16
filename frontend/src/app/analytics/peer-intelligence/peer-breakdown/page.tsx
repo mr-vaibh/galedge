@@ -8,6 +8,7 @@ import { BarChartPanel } from "@/components/charts/BarChartPanel";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
 import { useCurrency } from "@/lib/currency";
+import { AnalyticsEmptyState } from "@/components/analytics/AnalyticsEmptyState";
 
 const peerTabs = [
   { label: "Peer Returns and Risks", href: "/analytics/peer-intelligence" },
@@ -67,26 +68,7 @@ export default function PeerBreakdownPage() {
   }
 
   if (!analyticsData) {
-    return (
-      <div className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Peer Breakdown</h1>
-          <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
-            {peerTabs.map(t => <Button key={t.href} variant={pathname === t.href ? "secondary" : "ghost"} size="sm" onClick={() => router.push(t.href)} className="h-7 text-[10px]">{t.label}</Button>)}
-          </div>
-        </div>
-        {analyticsError && <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-400">Error: {analyticsError}</div>}
-        <Card><CardContent className="p-8 text-center space-y-3">
-          <p className="text-sm text-muted-foreground">{selectedSourceId ? "Portfolio selected — click to load" : "Select a portfolio from the sidebar"}</p>
-          {selectedSourceId && (
-            <button onClick={() => selectedSource && loadAnalytics(selectedSource, selectedSourceId, selectedBacktestId ?? undefined)}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg transition-colors">
-              Load Analytics
-            </button>
-          )}
-        </CardContent></Card>
-      </div>
-    );
+    return <AnalyticsEmptyState title="Peer Breakdown" analyticsError={analyticsError} />;
   }
 
   return (
