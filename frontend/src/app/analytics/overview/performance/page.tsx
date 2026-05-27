@@ -7,7 +7,6 @@ import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
 import { AnalyticsTreeTable, type TreeRow, type TreeColumn } from "@/components/analytics/AnalyticsTreeTable";
-import { ViewToggle, type AnalyticsView } from "@/components/analytics/ViewToggle";
 import { AnalyticsEmptyState } from "@/components/analytics/AnalyticsEmptyState";
 
 // ── KPI groups — each chart has its own independent set ──────────────────────
@@ -457,8 +456,6 @@ function buildValuationRows(pnl: Record<string, unknown>): TreeRow[] {
 
 export default function PerformanceSummaryPage() {
   const { analyticsData, analyticsLoading, analyticsError, selectedSource, selectedSourceId } = usePortfolio();
-  const [view, setView] = useState<AnalyticsView>("Main");
-
   // Each chart has its own independent KPI selection
   const [returnKpi,    setReturnKpi]    = useState<ReturnKpi>("total_return");
   const [riskKpi,      setRiskKpi]      = useState<RiskKpi>("rolling_vol");
@@ -482,14 +479,13 @@ export default function PerformanceSummaryPage() {
   const d            = analyticsData as Record<string, unknown>;
 
   const singleCol: TreeColumn[] = [{ key: "Main", label: "Main", align: "right" }];
-  const treeCols: TreeColumn[] = !hasBenchmark ? singleCol :
-    view === "Main"      ? [{ key: "Main",      label: "Main",      align: "right" }] :
-    view === "Benchmark" ? [{ key: "Benchmark", label: "Benchmark", align: "right" }] :
-    [
-      { key: "Active",    label: "Active",    align: "right" },
-      { key: "Benchmark", label: "Benchmark", align: "right" },
-      { key: "Main",      label: "Main",      align: "right" },
-    ];
+  const treeCols: TreeColumn[] = hasBenchmark
+    ? [
+        { key: "Active",    label: "Active",    align: "right" },
+        { key: "Benchmark", label: "Benchmark", align: "right" },
+        { key: "Main",      label: "Main",      align: "right" },
+      ]
+    : singleCol;
 
   return (
     <div className="p-4 space-y-4">
@@ -498,7 +494,6 @@ export default function PerformanceSummaryPage() {
           <h1 className="text-xl font-bold">Performance Summary</h1>
           <p className="text-xs text-muted-foreground">{selectedSource === "portfolio" ? "Portfolio" : "Strategy Backtest"}</p>
         </div>
-        <ViewToggle view={view} onChange={setView} hasBenchmark={hasBenchmark} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
