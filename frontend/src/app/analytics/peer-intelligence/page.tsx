@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, BarChart3, X, Plus } from "lucide-react";
 import { CardControls } from "@/components/CardControls";
+import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { usePortfolio } from "@/lib/portfolio-context";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
@@ -209,6 +210,85 @@ function getPeerKpiValue(data: Record<string, unknown>, kpi: string): number | n
     case "roe": return Number(pnl.roe_pct ?? null);
     default: return null;
   }
+}
+
+// ─── Time series builders ─────────────────────────────────────────────────────
+
+type PtRec = Record<string, unknown>;
+
+function buildPeerTS(
+  peers: PeerEntry[],
+  kpi: string,
+  colors: string[]
+): { data: PtRec[]; series: { key: string; name: string; color: string }[] } {
+  const active = peers.filter(p => p.data != null);
+  const series = active.map((p, i) => ({
+    key: `p${i}`,
+    name: p.label.length > 22 ? p.label.slice(0, 22) + "…" : p.label,
+    color: colors[i % colors.length],
+  }));
+  if (!active.length) return { data: [], series };
+
+  const dateMap = new Map<string, PtRec>();
+  const merge = (date: string, key: string, val: number) => {
+    if (!dateMap.has(date)) dateMap.set(date, { date });
+    dateMap.get(date)![key] = val;
+  };
+
+  active.forEach((peer, i) => {
+    const d = peer.data!;
+    const k = `p${i}`;
+    const rm  = (d.rolling_metrics  as PtRec[] | undefined) ?? [];
+    const fdt = (d.factor_decomp_ts as PtRec[] | undefined) ?? [];
+    const vts = (d.valuation_ts     as PtRec[] | undefined) ?? [];
+    const pnl = (d.pnl_metrics      as PtRec  | undefined) ?? {};
+
+    if (kpi === "total_return") {
+      const ec = (d.equity_curve as PtRec[] | undefined) ?? [];
+      if (ec.length < 2) return;
+      const base = Number(ec[0].value ?? 1);
+      ec.forEach(pt => merge(String(pt.date ?? ""), k, base > 0 ? ((Number(pt.value) - base) / base) * 100 : 0));
+    } else if (kpi === "rolling_1y_return" || kpi === "rolling_3y_return" || kpi === "rolling_1y_sharpe" || kpi === "rolling_3y_sharpe") {
+      const rmKey = kpi === "rolling_1y_return" ? "rolling_return_1y" : kpi === "rolling_3y_return" ? "rolling_return_3y" : kpi === "rolling_1y_sharpe" ? "rolling_sharpe" : "rolling_sharpe_3y";
+      rm.filter(r => r[rmKey] != null).forEach(r => merge(String(r.date ?? ""), k, Number(r[rmKey])));
+    } else if (["idio_return","factor_return","market_return","style_return","industry_return"].includes(kpi)) {
+      const fdtKey: Record<string, string> = { idio_return: "idio", factor_return: "factor_total", market_return: "market", style_return: "style", industry_return: "industry" };
+      const fk = fdtKey[kpi];
+      let prod = 1.0;
+      fdt.filter(p => p[fk] != null).forEach(p => { prod *= 1 + Number(p[fk]); merge(String(p.date ?? ""), k, Math.round((prod - 1) * 10000) / 100); });
+    } else if (kpi === "volatility" || kpi === "total_predicted_risk") {
+      rm.filter(r => r.rolling_vol != null).forEach(r => merge(String(r.date ?? ""), k, Number(r.rolling_vol)));
+    } else if (kpi === "pe") {
+      vts.forEach(r => merge(String(r.date ?? ""), k, Number(r.portfolio_pe ?? r.pe_ratio ?? 0)));
+    } else if (kpi === "pb") {
+      vts.forEach(r => merge(String(r.date ?? ""), k, Number(r.portfolio_pb ?? r.pb_ratio ?? 0)));
+    } else if (kpi === "roe") {
+      const v = Number(pnl.roe_pct ?? null);
+      if (!isNaN(v) && vts.length > 0) { merge(String(vts[0].date ?? ""), k, v); merge(String(vts[vts.length - 1].date ?? ""), k, v); }
+    } else {
+      // factor risk KPIs — rolling vol of factor_decomp_ts
+      const fdtKeyMap: Record<string, string> = {
+        idio_predicted_risk: "idio", factor_predicted_risk: "factor_total",
+        market_predicted_risk: "market", style_predicted_risk: "style", industry_predicted_risk: "industry",
+        idio_risk_contrib: "idio", factor_risk_contrib: "factor_total",
+        market_risk_contrib: "market", style_risk_contrib: "style", industry_risk_contrib: "industry",
+      };
+      const fk = fdtKeyMap[kpi];
+      if (fk && fdt.length >= 60) {
+        const vals = fdt.map(p => Number(p[fk] ?? 0));
+        const W = 60;
+        for (let j = W - 1; j < fdt.length; j++) {
+          const sl = vals.slice(j - W + 1, j + 1);
+          const mean = sl.reduce((a, b) => a + b, 0) / W;
+          const vol = Math.sqrt(sl.reduce((a, b) => a + (b - mean) ** 2, 0) / (W - 1) * 252) * 100;
+          merge(String(fdt[j].date ?? ""), k, Math.round(vol * 10000) / 10000);
+        }
+      }
+    }
+  });
+
+  const data = Array.from(dateMap.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([, r]) => r);
+  return { data, series };
 }
 
 // ─── Pure SVG charts ──────────────────────────────────────────────────────────
@@ -646,78 +726,61 @@ export default function PeerIntelligencePage() {
           {/* ── KPI chart cards ─────────────────────────────────────────────── */}
 
           {/* chrtOne — Return KPIs */}
+          {(() => { const { data, series } = buildPeerTS(peers, returnKpi, COLORS); return (
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-[11px]">{returnKpiLabel}</CardTitle>
-                <select
-                  value={returnKpi}
-                  onChange={(e) => setReturnKpi(e.target.value as (typeof RETURN_KPIS)[number]["value"])}
-                  className="text-[10px] bg-transparent border border-border/50 rounded px-1 py-0.5 text-muted-foreground focus:outline-none"
-                >
-                  {RETURN_KPIS.map((k) => (
-                    <option key={k.value} value={k.value}>
-                      {k.label}
-                    </option>
-                  ))}
+              <CardTitle className="text-[11px] truncate max-w-[160px]">{returnKpiLabel}</CardTitle>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <select value={returnKpi} onChange={(e) => setReturnKpi(e.target.value as (typeof RETURN_KPIS)[number]["value"])}
+                  className="text-[9px] bg-background border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none max-w-[130px]">
+                  {RETURN_KPIS.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
                 </select>
+                <CardControls fullscreen expandContent={data.length > 0 ? <TimeSeriesChart data={data} series={series} height={600} /> : undefined} />
               </div>
-              <CardControls />
             </CardHeader>
             <CardContent className="p-2">
-              <PeerBarSvg peers={peers} kpi={returnKpi} colors={COLORS} />
+              {data.length > 0 ? <TimeSeriesChart data={data} series={series} height={180} /> : <div className="h-44 flex items-center justify-center text-[10px] text-muted-foreground">No data</div>}
             </CardContent>
           </Card>
+          ); })()}
 
           {/* chrtTwo — Risk KPIs */}
+          {(() => { const { data, series } = buildPeerTS(peers, riskKpi, COLORS); return (
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-[11px]">{riskKpiLabel}</CardTitle>
-                <select
-                  value={riskKpi}
-                  onChange={(e) => setRiskKpi(e.target.value as (typeof RISK_KPIS)[number]["value"])}
-                  className="text-[10px] bg-transparent border border-border/50 rounded px-1 py-0.5 text-muted-foreground focus:outline-none"
-                >
-                  {RISK_KPIS.map((k) => (
-                    <option key={k.value} value={k.value}>
-                      {k.label}
-                    </option>
-                  ))}
+              <CardTitle className="text-[11px] truncate max-w-[160px]">{riskKpiLabel}</CardTitle>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <select value={riskKpi} onChange={(e) => setRiskKpi(e.target.value as (typeof RISK_KPIS)[number]["value"])}
+                  className="text-[9px] bg-background border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none max-w-[130px]">
+                  {RISK_KPIS.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
                 </select>
+                <CardControls fullscreen expandContent={data.length > 0 ? <TimeSeriesChart data={data} series={series} height={600} /> : undefined} />
               </div>
-              <CardControls />
             </CardHeader>
             <CardContent className="p-2">
-              <PeerBarSvg peers={peers} kpi={riskKpi} colors={COLORS} />
+              {data.length > 0 ? <TimeSeriesChart data={data} series={series} height={180} /> : <div className="h-44 flex items-center justify-center text-[10px] text-muted-foreground">No data</div>}
             </CardContent>
           </Card>
+          ); })()}
 
           {/* chrtThree — Valuation KPIs */}
+          {(() => { const { data, series } = buildPeerTS(peers, valuationKpi, COLORS); return (
           <Card>
             <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-[11px]">{valuationKpiLabel}</CardTitle>
-                <select
-                  value={valuationKpi}
-                  onChange={(e) =>
-                    setValuationKpi(e.target.value as (typeof VALUATION_KPIS)[number]["value"])
-                  }
-                  className="text-[10px] bg-transparent border border-border/50 rounded px-1 py-0.5 text-muted-foreground focus:outline-none"
-                >
-                  {VALUATION_KPIS.map((k) => (
-                    <option key={k.value} value={k.value}>
-                      {k.label}
-                    </option>
-                  ))}
+              <CardTitle className="text-[11px] truncate max-w-[160px]">{valuationKpiLabel}</CardTitle>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <select value={valuationKpi} onChange={(e) => setValuationKpi(e.target.value as (typeof VALUATION_KPIS)[number]["value"])}
+                  className="text-[9px] bg-background border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none max-w-[130px]">
+                  {VALUATION_KPIS.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
                 </select>
+                <CardControls fullscreen expandContent={data.length > 0 ? <TimeSeriesChart data={data} series={series} height={600} /> : undefined} />
               </div>
-              <CardControls />
             </CardHeader>
             <CardContent className="p-2">
-              <PeerBarSvg peers={peers} kpi={valuationKpi} colors={COLORS} />
+              {data.length > 0 ? <TimeSeriesChart data={data} series={series} height={180} /> : <div className="h-44 flex items-center justify-center text-[10px] text-muted-foreground">No data</div>}
             </CardContent>
           </Card>
+          ); })()}
 
           {/* ── Performance Summary Table ────────────────────────────────────── */}
           <Card>

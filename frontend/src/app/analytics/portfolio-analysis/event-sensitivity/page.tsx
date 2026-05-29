@@ -62,6 +62,35 @@ function getEnd(e: EventReturn): string {
   return String(e.end ?? e.end_date ?? "—");
 }
 
+function FactorHBar({ data, positive }: { data: { factor: string; cumReturn: number }[]; positive: boolean }) {
+  if (data.length === 0) {
+    return <div className="h-[140px] flex items-center justify-center text-[10px] text-muted-foreground">No factor data for this event window</div>;
+  }
+  const maxAbs = Math.max(...data.map(d => Math.abs(d.cumReturn)), 0.0001);
+  const rowH = 18;
+  const svgH = rowH * data.length + 10;
+  const PAD_L = 82, BAR_ZONE = 128, PAD_R = 44;
+  const fill = positive ? "#10b981" : "#ef4444";
+  return (
+    <svg viewBox={`0 0 ${PAD_L + BAR_ZONE + PAD_R} ${svgH}`} style={{ width: "100%", height: svgH }} preserveAspectRatio="xMidYMid meet">
+      {data.map((d, i) => {
+        const y = 4 + i * rowH;
+        const bw = (Math.abs(d.cumReturn) / maxAbs) * BAR_ZONE;
+        const label = d.factor.length > 12 ? d.factor.slice(0, 12) + "…" : d.factor;
+        return (
+          <g key={i}>
+            <text x={PAD_L - 4} y={y + rowH / 2 + 3} textAnchor="end" fontSize={9} fill="#a1a1aa">{label}</text>
+            <rect x={PAD_L} y={y + 3} width={Math.max(bw, 0.5)} height={rowH - 7} fill={fill} rx={2} />
+            <text x={PAD_L + Math.max(bw, 0.5) + 4} y={y + rowH / 2 + 3} fontSize={8} fill="#71717a">
+              {(d.cumReturn * 100).toFixed(1)}%
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 export default function EventSensitivityPage() {
   const { analyticsData, analyticsLoading, selectedSourceId } = usePortfolio();
   const [selectedEventIdx, setSelectedEventIdx] = useState<number | null>(0);
@@ -130,10 +159,12 @@ export default function EventSensitivityPage() {
       });
   }
 
-  const factorContribs: FactorSum[] = Object.entries(factorSums)
-    .map(([factor, cumReturn]) => ({ factor, cumReturn }))
+  const allFactorItems = Object.entries(factorSums).map(([factor, cumReturn]) => ({ factor, cumReturn }));
+  const factorContribs: FactorSum[] = [...allFactorItems]
     .sort((a, b) => Math.abs(b.cumReturn) - Math.abs(a.cumReturn))
     .slice(0, 10);
+  const topFactorContribs = allFactorItems.filter(f => f.cumReturn > 0).sort((a, b) => b.cumReturn - a.cumReturn).slice(0, 10);
+  const bottomFactorContribs = allFactorItems.filter(f => f.cumReturn < 0).sort((a, b) => a.cumReturn - b.cumReturn).slice(0, 10);
 
   return (
     <div className="p-4 space-y-4">
@@ -340,6 +371,27 @@ export default function EventSensitivityPage() {
                     )}
                   </tbody>
                 </table>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Card>
+              <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+                <CardTitle className="text-[11px]">Top 10 Factor Return Contributors</CardTitle>
+                <CardControls />
+              </CardHeader>
+              <CardContent className="p-2">
+                <FactorHBar data={topFactorContribs} positive={true} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+                <CardTitle className="text-[11px]">Bottom 10 Factor Return Detractors</CardTitle>
+                <CardControls />
+              </CardHeader>
+              <CardContent className="p-2">
+                <FactorHBar data={bottomFactorContribs} positive={false} />
               </CardContent>
             </Card>
           </div>

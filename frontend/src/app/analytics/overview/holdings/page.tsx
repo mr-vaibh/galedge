@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { AnalyticsEmptyState } from "@/components/analytics/AnalyticsEmptyState";
-import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
 import { ViewToggle, type AnalyticsView } from "@/components/analytics/ViewToggle";
@@ -46,7 +45,32 @@ interface FactorDetail {
   [key: string]: unknown;
 }
 
-const COLORS = ["#f97316", "#10b981", "#3b82f6", "#a855f7", "#eab308", "#ef4444", "#06b6d4", "#ec4899"];
+function HBarChart({ data, height = 220 }: { data: { name: string; value: number }[]; height?: number }) {
+  if (data.length === 0) return (
+    <div className="flex items-center justify-center text-[10px] text-muted-foreground" style={{ height }}>No data</div>
+  );
+  const rowH = Math.max(16, Math.min(26, height / data.length));
+  const svgH = rowH * data.length + 12;
+  const PAD_L = 72, BAR_ZONE = 148, PAD_R = 50;
+  const maxAbs = Math.max(...data.map(d => Math.abs(d.value)), 0.001);
+  return (
+    <svg viewBox={`0 0 ${PAD_L + BAR_ZONE + PAD_R} ${svgH}`} style={{ width: "100%", height: Math.min(svgH, height) }} preserveAspectRatio="xMidYMid meet">
+      {data.map((d, i) => {
+        const y = 6 + i * rowH;
+        const bw = (Math.abs(d.value) / maxAbs) * BAR_ZONE;
+        const fill = d.value >= 0 ? "#10b981" : "#ef4444";
+        const label = d.name.length > 10 ? d.name.slice(0, 10) + "…" : d.name;
+        return (
+          <g key={i}>
+            <text x={PAD_L - 4} y={y + rowH / 2 + 3} textAnchor="end" fontSize={9} fill="#a1a1aa">{label}</text>
+            <rect x={PAD_L} y={y + 2} width={Math.max(bw, 0.5)} height={rowH - 6} fill={fill} rx={2} />
+            <text x={PAD_L + Math.max(bw, 0.5) + 4} y={y + rowH / 2 + 3} fontSize={8} fill="#71717a">{d.value.toFixed(2)}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
 
 const HOLDING_KPI_OPTIONS = [
   { value: "holdings_pct",        label: "Holdings (%)" },
@@ -122,8 +146,6 @@ export default function HoldingsSummaryPage() {
 
   const holdings: HoldingDetail[] = (analyticsData.holdings_detail as HoldingDetail[] | undefined) ?? [];
   const factors: FactorDetail[] = (analyticsData.factor_detail as FactorDetail[] | undefined) ?? [];
-  const factorDecompTs: Record<string, unknown>[] = (analyticsData.factor_decomp_ts as Record<string, unknown>[] | undefined) ?? [];
-  const equityCurve: Record<string, unknown>[] = (analyticsData.equity_curve as Record<string, unknown>[] | undefined) ?? [];
 
   function toggleHolding(sym: string) {
     setSelectedHoldings((prev) => {
@@ -143,42 +165,16 @@ export default function HoldingsSummaryPage() {
     });
   }
 
-  // Build holdings time series (flat lines from equity curve dates, driven by holdingKpi)
-  const holdingChartData = equityCurve.map((pt) => {
-    const row: Record<string, unknown> = { date: pt.date };
-    Array.from(selectedHoldings).forEach((sym) => {
-      const h = holdings.find((x) => x.symbol === sym);
-      row[sym] = h ? getHoldingField(holdingKpi, h) : 0;
-    });
-    return row;
-  });
+  // Horizontal bar data sorted by KPI value (absolute), top 20
+  const holdingBarData = [...holdings]
+    .sort((a, b) => Math.abs(getHoldingField(holdingKpi, b)) - Math.abs(getHoldingField(holdingKpi, a)))
+    .slice(0, 20)
+    .map(h => ({ name: String(h.symbol ?? "").replace(".NS", ""), value: getHoldingField(holdingKpi, h) }));
 
-  const holdingSeries = Array.from(selectedHoldings).map((sym, i) => ({
-    key: sym,
-    name: sym,
-    color: COLORS[i % COLORS.length],
-  }));
-
-  // Build factor time series: flat lines from factor_detail (static values), driven by factorKpi
-  const factorValueMap: Record<string, number> = {};
-  factors.forEach(f => {
-    const name = String(f.factor_name ?? f.factor ?? "");
-    if (name) factorValueMap[name] = getFactorField(factorKpi, f);
-  });
-
-  const factorChartData = equityCurve.map((pt) => {
-    const row: Record<string, unknown> = { date: pt.date };
-    Array.from(selectedFactors).forEach((fn) => {
-      row[fn] = factorValueMap[fn] ?? 0;
-    });
-    return row;
-  });
-
-  const factorSeries = Array.from(selectedFactors).map((fn, i) => ({
-    key: fn,
-    name: fn,
-    color: COLORS[i % COLORS.length],
-  }));
+  const factorBarData = [...factors]
+    .sort((a, b) => Math.abs(getFactorField(factorKpi, b)) - Math.abs(getFactorField(factorKpi, a)))
+    .slice(0, 20)
+    .map(f => ({ name: String(f.factor_name ?? f.factor ?? ""), value: getFactorField(factorKpi, f) }));
 
   return (
     <div className="p-4 space-y-4">
@@ -294,12 +290,12 @@ export default function HoldingsSummaryPage() {
         </Card>
       </div>
 
-      {/* Bottom: charts for selected holdings and factors */}
+      {/* Bottom: horizontal bar charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-[11px]">
-              {HOLDING_KPI_OPTIONS.find(o => o.value === holdingKpi)?.label ?? "Holdings"} Over Time
+              {HOLDING_KPI_OPTIONS.find(o => o.value === holdingKpi)?.label ?? "Holdings"}
             </CardTitle>
             <div className="flex items-center gap-1.5">
               <select
@@ -311,30 +307,18 @@ export default function HoldingsSummaryPage() {
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
-              <CardControls fullscreen expandContent={
-                holdingChartData.length > 0 && holdingSeries.length > 0 ? (
-                  <TimeSeriesChart data={holdingChartData} series={holdingSeries} height={600}
-                    yFormatter={(v) => `${v.toFixed(2)}%`} />
-                ) : undefined
-              } />
+              <CardControls />
             </div>
           </CardHeader>
           <CardContent className="p-2">
-            {holdingChartData.length > 0 && holdingSeries.length > 0 ? (
-              <TimeSeriesChart data={holdingChartData} series={holdingSeries} height={200}
-                yFormatter={(v) => `${v.toFixed(2)}%`} />
-            ) : (
-              <div className="h-[200px] flex items-center justify-center text-[10px] text-muted-foreground">
-                Select holdings above to display chart
-              </div>
-            )}
+            <HBarChart data={holdingBarData} height={220} />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-[11px]">
-              {FACTOR_KPI_OPTIONS.find(o => o.value === factorKpi)?.label ?? "Factor Exposure"} Over Time
+              {FACTOR_KPI_OPTIONS.find(o => o.value === factorKpi)?.label ?? "Factor Exposure"}
             </CardTitle>
             <div className="flex items-center gap-1.5">
               <select
@@ -346,23 +330,11 @@ export default function HoldingsSummaryPage() {
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
-              <CardControls fullscreen expandContent={
-                factorChartData.length > 0 && factorSeries.length > 0 ? (
-                  <TimeSeriesChart data={factorChartData} series={factorSeries} height={600}
-                    yFormatter={(v) => `${v.toFixed(2)}`} />
-                ) : undefined
-              } />
+              <CardControls />
             </div>
           </CardHeader>
           <CardContent className="p-2">
-            {factorChartData.length > 0 && factorSeries.length > 0 ? (
-              <TimeSeriesChart data={factorChartData} series={factorSeries} height={200}
-                yFormatter={(v) => `${v.toFixed(2)}`} />
-            ) : (
-              <div className="h-[200px] flex items-center justify-center text-[10px] text-muted-foreground">
-                Select factors above to display chart
-              </div>
-            )}
+            <HBarChart data={factorBarData} height={220} />
           </CardContent>
         </Card>
       </div>

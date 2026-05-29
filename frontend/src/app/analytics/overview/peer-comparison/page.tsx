@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Plus, X, ChevronDown, ChevronRight, Check } from "lucide-react";
-import { BarChartPanel } from "@/components/charts/BarChartPanel";
+import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
 import { useAuth } from "@/lib/auth";
@@ -435,6 +435,7 @@ export default function PeerComparisonPage() {
 
   const [availablePortfolios, setAvailablePortfolios] = useState<PortfolioSummary[]>([]);
   const [perfCache, setPerfCache] = useState<Record<number, PerfMetrics>>({});
+  const [rawCache, setRawCache] = useState<Record<number, Record<string, unknown>>>({});
   const [comparedIds, setComparedIds] = useState<Set<number>>(new Set());
   const [includeBenchmark, setIncludeBenchmark] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -538,6 +539,7 @@ export default function PeerComparisonPage() {
           },
         };
         setPerfCache((prev) => ({ ...prev, [id]: data }));
+        setRawCache((prev) => ({ ...prev, [id]: rawData as Record<string, unknown> }));
       }
     } catch { /* skip */ }
     setLoadingPerf((prev) => { const n = new Set(prev); n.delete(id); return n; });
@@ -596,6 +598,80 @@ export default function PeerComparisonPage() {
 
   const addablePortfolios = availablePortfolios.filter((p) => !comparedIds.has(p.id));
 
+  // ── Time series builder ───────────────────────────────────────────────────
+  type PtRec = Record<string, unknown>;
+
+  function buildComparisonTS(kpi: string): { data: PtRec[]; series: { key: string; name: string; color: string }[] } {
+    const ids = comparedPerf.map(p => p.portfolio_id);
+    const active = ids.filter(id => rawCache[id] != null);
+    const series = active.map((id, i) => ({
+      key: `p${id}`,
+      name: (perfCache[id]?.fund_name ?? `Portfolio ${id}`).slice(0, 18),
+      color: COLORS[i % COLORS.length],
+    }));
+    if (!active.length) return { data: [], series };
+
+    const dateMap = new Map<string, PtRec>();
+    const merge = (date: string, key: string, val: number) => {
+      if (!dateMap.has(date)) dateMap.set(date, { date });
+      dateMap.get(date)![key] = val;
+    };
+
+    active.forEach(id => {
+      const d = rawCache[id];
+      const k = `p${id}`;
+      const rm  = (d.rolling_metrics  as PtRec[] | undefined) ?? [];
+      const fdt = (d.factor_decomp_ts as PtRec[] | undefined) ?? [];
+      const vts = (d.valuation_ts     as PtRec[] | undefined) ?? [];
+      const mpnl = (d.pnl_metrics     as PtRec  | undefined) ?? {};
+
+      if (kpi === "total_return") {
+        const ec = (d.equity_curve as PtRec[] | undefined) ?? [];
+        if (ec.length < 2) return;
+        const base = Number(ec[0].value ?? 1);
+        ec.forEach(pt => merge(String(pt.date ?? ""), k, base > 0 ? ((Number(pt.value) - base) / base) * 100 : 0));
+      } else if (["rolling_1y_return","rolling_3y_return","rolling_1y_sharpe","rolling_3y_sharpe"].includes(kpi)) {
+        const rmKey = kpi === "rolling_1y_return" ? "rolling_return_1y" : kpi === "rolling_3y_return" ? "rolling_return_3y" : kpi === "rolling_1y_sharpe" ? "rolling_sharpe" : "rolling_sharpe_3y";
+        rm.filter(r => r[rmKey] != null).forEach(r => merge(String(r.date ?? ""), k, Number(r[rmKey])));
+      } else if (["idio_return","factor_return","market_return","style_return","industry_return"].includes(kpi)) {
+        const fdtKeyMap: Record<string, string> = { idio_return: "idio", factor_return: "factor_total", market_return: "market", style_return: "style", industry_return: "industry" };
+        const fk = fdtKeyMap[kpi];
+        let prod = 1.0;
+        fdt.filter(p => p[fk] != null).forEach(p => { prod *= 1 + Number(p[fk]); merge(String(p.date ?? ""), k, Math.round((prod - 1) * 10000) / 100); });
+      } else if (kpi === "volatility" || kpi === "total_predicted_risk") {
+        rm.filter(r => r.rolling_vol != null).forEach(r => merge(String(r.date ?? ""), k, Number(r.rolling_vol)));
+      } else if (kpi === "pe") {
+        vts.forEach(r => merge(String(r.date ?? ""), k, Number(r.portfolio_pe ?? r.pe_ratio ?? 0)));
+      } else if (kpi === "pb") {
+        vts.forEach(r => merge(String(r.date ?? ""), k, Number(r.portfolio_pb ?? r.pb_ratio ?? 0)));
+      } else if (kpi === "roe") {
+        const v = Number(mpnl.roe_pct ?? null);
+        if (!isNaN(v) && vts.length > 0) { merge(String(vts[0].date ?? ""), k, v); merge(String(vts[vts.length - 1].date ?? ""), k, v); }
+      } else {
+        const fdtKeyMap: Record<string, string> = {
+          idio_predicted_risk: "idio", factor_predicted_risk: "factor_total",
+          market_predicted_risk: "market", style_predicted_risk: "style", industry_predicted_risk: "industry",
+          idio_risk_contrib: "idio", factor_risk_contrib: "factor_total",
+          market_risk_contrib: "market", style_risk_contrib: "style", industry_risk_contrib: "industry",
+        };
+        const fk = fdtKeyMap[kpi];
+        if (fk && fdt.length >= 60) {
+          const vals = fdt.map(p => Number(p[fk] ?? 0));
+          const W = 60;
+          for (let j = W - 1; j < fdt.length; j++) {
+            const sl = vals.slice(j - W + 1, j + 1);
+            const mean = sl.reduce((a, b) => a + b, 0) / W;
+            const vol = Math.sqrt(sl.reduce((a, b) => a + (b - mean) ** 2, 0) / (W - 1) * 252) * 100;
+            merge(String(fdt[j].date ?? ""), k, Math.round(vol * 10000) / 10000);
+          }
+        }
+      }
+    });
+
+    const data = Array.from(dateMap.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([, r]) => r);
+    return { data, series };
+  }
+
   // ── Bar chart data builders ───────────────────────────────────────────────
   function buildBarData(kpi: string) {
     return comparedPerf.map((p) => ({
@@ -603,18 +679,6 @@ export default function PeerComparisonPage() {
       value: (p as unknown as Record<string, number | undefined>)[kpi] ?? 0,
     }));
   }
-
-  const returnBarData = buildBarData(returnKpi);
-  if (includeBenchmark && benchmarkMetrics && benchmarkName && returnKpi === "total_return" && benchmarkMetrics.total_return != null) {
-    returnBarData.push({ name: benchmarkName, value: benchmarkMetrics.total_return });
-  }
-
-  const riskBarData = buildBarData(riskKpi);
-  if (includeBenchmark && benchmarkMetrics && benchmarkName && riskKpi === "volatility" && benchmarkMetrics.volatility != null) {
-    riskBarData.push({ name: benchmarkName, value: benchmarkMetrics.volatility });
-  }
-
-  const valuationBarData = buildBarData(valuationKpi);
 
   if (!selectedPortfolioId) {
     return <AnalyticsEmptyState title="Peer Comparison" />;
@@ -939,70 +1003,46 @@ export default function PeerComparisonPage() {
           {/* ── Charts (3 independent KPI dropdowns) ──────────────── */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {/* Chart 1 — Return */}
+            {(() => { const { data, series } = buildComparisonTS(returnKpi); return (
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between gap-2">
-                <CardTitle className="text-[11px] shrink-0">Return</CardTitle>
-                <KpiSelect<ReturnKpi>
-                  value={returnKpi}
-                  onChange={setReturnKpi}
-                  options={RETURN_KPI_LABELS}
-                />
-                <CardControls
-                  filename="return_comparison"
-                  title={RETURN_KPI_LABELS[returnKpi]}
-                  info="Return KPI comparison across all selected portfolios."
-                  fullscreen
-                  expandContent={<BarChartPanel data={returnBarData} height={600} />}
-                />
+                <CardTitle className="text-[11px] shrink-0 truncate max-w-[100px]">{RETURN_KPI_LABELS[returnKpi]}</CardTitle>
+                <KpiSelect<ReturnKpi> value={returnKpi} onChange={setReturnKpi} options={RETURN_KPI_LABELS} />
+                <CardControls fullscreen expandContent={data.length > 0 ? <TimeSeriesChart data={data} series={series} height={600} /> : undefined} />
               </CardHeader>
               <CardContent className="p-2">
-                <BarChartPanel data={returnBarData} height={200} />
+                {data.length > 0 ? <TimeSeriesChart data={data} series={series} height={180} /> : <div className="h-44 flex items-center justify-center text-[10px] text-muted-foreground">No data</div>}
               </CardContent>
             </Card>
+            ); })()}
 
             {/* Chart 2 — Risk */}
+            {(() => { const { data, series } = buildComparisonTS(riskKpi); return (
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between gap-2">
-                <CardTitle className="text-[11px] shrink-0">Risk</CardTitle>
-                <KpiSelect<RiskKpi>
-                  value={riskKpi}
-                  onChange={setRiskKpi}
-                  options={RISK_KPI_LABELS}
-                />
-                <CardControls
-                  filename="risk_comparison"
-                  title={RISK_KPI_LABELS[riskKpi]}
-                  info="Risk KPI comparison across all selected portfolios."
-                  fullscreen
-                  expandContent={<BarChartPanel data={riskBarData} height={600} />}
-                />
+                <CardTitle className="text-[11px] shrink-0 truncate max-w-[100px]">{RISK_KPI_LABELS[riskKpi]}</CardTitle>
+                <KpiSelect<RiskKpi> value={riskKpi} onChange={setRiskKpi} options={RISK_KPI_LABELS} />
+                <CardControls fullscreen expandContent={data.length > 0 ? <TimeSeriesChart data={data} series={series} height={600} /> : undefined} />
               </CardHeader>
               <CardContent className="p-2">
-                <BarChartPanel data={riskBarData} height={200} />
+                {data.length > 0 ? <TimeSeriesChart data={data} series={series} height={180} /> : <div className="h-44 flex items-center justify-center text-[10px] text-muted-foreground">No data</div>}
               </CardContent>
             </Card>
+            ); })()}
 
             {/* Chart 3 — Valuation */}
+            {(() => { const { data, series } = buildComparisonTS(valuationKpi); return (
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between gap-2">
-                <CardTitle className="text-[11px] shrink-0">Valuation</CardTitle>
-                <KpiSelect<ValuationKpi>
-                  value={valuationKpi}
-                  onChange={setValuationKpi}
-                  options={VALUATION_KPI_LABELS}
-                />
-                <CardControls
-                  filename="valuation_comparison"
-                  title={VALUATION_KPI_LABELS[valuationKpi]}
-                  info="Valuation KPI comparison across all selected portfolios."
-                  fullscreen
-                  expandContent={<BarChartPanel data={valuationBarData} height={600} />}
-                />
+                <CardTitle className="text-[11px] shrink-0 truncate max-w-[100px]">{VALUATION_KPI_LABELS[valuationKpi]}</CardTitle>
+                <KpiSelect<ValuationKpi> value={valuationKpi} onChange={setValuationKpi} options={VALUATION_KPI_LABELS} />
+                <CardControls fullscreen expandContent={data.length > 0 ? <TimeSeriesChart data={data} series={series} height={600} /> : undefined} />
               </CardHeader>
               <CardContent className="p-2">
-                <BarChartPanel data={valuationBarData} height={200} />
+                {data.length > 0 ? <TimeSeriesChart data={data} series={series} height={180} /> : <div className="h-44 flex items-center justify-center text-[10px] text-muted-foreground">No data</div>}
               </CardContent>
             </Card>
+            ); })()}
           </div>
 
           {/* ── Rankings ──────────────────────────────────────────── */}
