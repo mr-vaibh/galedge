@@ -30,6 +30,7 @@ interface HoldingDetail {
   raw_return_pct?: number;
   total_return_contribution_pct?: number;
   total_risk_contribution_pct?: number;
+  idio_raw_return_pct?: number;
   idio_return_pct?: number;
   [key: string]: unknown;
 }
@@ -95,7 +96,7 @@ function getHoldingField(kpi: string, h: HoldingDetail): number {
     case "raw_return_pct":        return Number(h.raw_return_pct ?? 0);
     case "total_return_pct":      return Number(h.total_return_contribution_pct ?? 0);
     case "total_risk_contrib_pct":return Number(h.total_risk_contribution_pct ?? 0);
-    case "idio_raw_return_pct":   return Number(h.idio_return_pct ?? 0);
+    case "idio_raw_return_pct":   return Number(h.idio_raw_return_pct ?? 0);
     case "idio_return_pct":       return Number(h.idio_return_pct ?? 0);
     case "idio_risk_contrib_pct": return Number((h as Record<string, unknown>).risk_contribution_pct ?? 0);
     default:                      return 0;

@@ -9,7 +9,7 @@ import { AnalyticsTreeTable, type TreeRow, type TreeColumn } from "@/components/
 import { ViewToggle, type AnalyticsView } from "@/components/analytics/ViewToggle";
 import { AnalyticsEmptyState } from "@/components/analytics/AnalyticsEmptyState";
 
-// --- Pure SVG stacked bar chart (no recharts — avoids Safari WebKit renderer crash) ---
+// --- Pure SVG grouped bar chart (no recharts — avoids Safari WebKit renderer crash) ---
 
 const SERIES = [
   { key: "market",   name: "Market",        color: "#3b82f6" },
@@ -22,17 +22,18 @@ type SeriesKey = "market" | "style" | "industry" | "idio";
 
 interface BarDatum { period: string; market: number; style: number; industry: number; idio: number; }
 
-function StackedBarChart({ data, width, height = 220 }: { data: BarDatum[]; width: number; height?: number }) {
+function GroupedBarChart({ data, width, height = 220 }: { data: BarDatum[]; width: number; height?: number }) {
   const ML = 46, MR = 10, MT = 8, MB = 28;
   const iW = width - ML - MR;
   const iH = height - MT - MB;
 
   let maxVal = 0, minVal = 0;
   data.forEach(d => {
-    let pos = 0, neg = 0;
-    SERIES.forEach(s => { const v = d[s.key]; if (v > 0) pos += v; else neg += v; });
-    if (pos > maxVal) maxVal = pos;
-    if (neg < minVal) minVal = neg;
+    SERIES.forEach(s => {
+      const v = d[s.key];
+      if (v > maxVal) maxVal = v;
+      if (v < minVal) minVal = v;
+    });
   });
 
   const range = (maxVal - minVal) || 1;
@@ -48,8 +49,10 @@ function StackedBarChart({ data, width, height = 220 }: { data: BarDatum[]; widt
 
   const toY = (v: number) => MT + iH * (1 - (v - yMin) / yRange);
   const zeroY = toY(0);
-  const barStep = iW / (data.length || 1);
-  const barW = Math.max(3, barStep * 0.65);
+
+  const groupW = iW / (data.length || 1);
+  const groupPad = groupW * 0.12;
+  const barW = Math.max(2, (groupW - groupPad * 2) / SERIES.length - 1);
 
   return (
     <svg width={width} height={height} style={{ display: "block", overflow: "visible" }}>
@@ -63,20 +66,18 @@ function StackedBarChart({ data, width, height = 220 }: { data: BarDatum[]; widt
       ))}
       <line x1={ML} x2={ML + iW} y1={zeroY} y2={zeroY} stroke="#52525b" strokeWidth={1.5} />
       {data.map((d, i) => {
-        const cx = ML + i * barStep + barStep / 2;
-        const x = cx - barW / 2;
-        let posOff = 0, negOff = 0;
+        const groupX = ML + i * groupW + groupPad;
         return (
           <g key={d.period}>
-            {SERIES.map(s => {
+            {SERIES.map((s, si) => {
               const v = d[s.key];
               if (!v) return null;
-              let y: number, h: number;
-              if (v > 0) { y = toY(posOff + v); h = toY(posOff) - y; posOff += v; }
-              else        { y = toY(negOff);     h = toY(negOff + v) - y; negOff += v; }
-              return <rect key={s.key} x={x} y={y} width={barW} height={Math.max(1, h)} fill={s.color} />;
+              const x = groupX + si * (barW + 1);
+              const y = v >= 0 ? toY(v) : zeroY;
+              const h = Math.abs(toY(v) - zeroY);
+              return <rect key={s.key} x={x} y={y} width={Math.max(1.5, barW)} height={Math.max(1, h)} fill={s.color} />;
             })}
-            <text x={cx} y={height - MB + 12} textAnchor="middle" fontSize={9} fill="#71717a">{d.period}</text>
+            <text x={ML + i * groupW + groupW / 2} y={height - MB + 12} textAnchor="middle" fontSize={9} fill="#71717a">{d.period}</text>
           </g>
         );
       })}
@@ -635,7 +636,7 @@ export default function PeriodAnalysisPage() {
             <CardContent className="p-2">
               <div ref={chartContainerRef} style={{ width: "100%" }}>
                 {chartWidth > 0 && chartKpi === "return_decomp" && (
-                  <StackedBarChart data={chartData} width={chartWidth} height={220} />
+                  <GroupedBarChart data={chartData} width={chartWidth} height={220} />
                 )}
                 {chartWidth > 0 && chartKpi === "risk_contrib" && (
                   <SVGLineChart
