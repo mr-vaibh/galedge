@@ -8,7 +8,6 @@ import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { CardControls } from "@/components/CardControls";
 import { usePortfolio } from "@/lib/portfolio-context";
 import { AnalyticsTreeTable, type TreeRow, type TreeColumn } from "@/components/analytics/AnalyticsTreeTable";
-import { ViewToggle, type AnalyticsView } from "@/components/analytics/ViewToggle";
 
 // ---------------------------------------------------------------------------
 // KPI group definitions
@@ -442,152 +441,224 @@ function DimensionChartCard({ analyticsData }: { analyticsData: Record<string, u
 // ---------------------------------------------------------------------------
 
 function buildPnLTree(pnl: Record<string, unknown>): TreeRow[] {
-  const v = (k: string): number | null => (pnl[k] as number | null) ?? null;
-  const B = (k: string): number | null => (pnl[k] as number | null) ?? null;
-  const A = (mk: string, bk: string): number | null => {
-    const m = v(mk), b = B(bk);
+  const n = (k: string): number | null => (pnl[k] as number | null | undefined) ?? null;
+  const diff = (mk: string, bk: string): number | null => {
+    const m = n(mk), b = n(bk);
     return m != null && b != null ? Math.round((Number(m) - Number(b)) * 100) / 100 : null;
   };
+  const V = (mk: string, bk: string) => ({ Main: n(mk), Benchmark: n(bk), Active: diff(mk, bk) });
+  const N = () => ({ Main: null as number | null, Benchmark: null as number | null, Active: null as number | null });
+
   return [
     {
-      id: "tr",
-      label: "Total Return (%)",
-      values: {
-        Main: v("total_return_pct"),
-        Benchmark: B("benchmark_total_return_pct"),
-        Active: A("total_return_pct", "benchmark_total_return_pct"),
-      },
+      id: "tr", label: "Total Return (%)", values: V("total_return_pct", "benchmark_total_return_pct"),
       children: [
+        { id: "idio_r", label: "Idiosyncratic Return (%)", values: { Main: n("idio_return_pct"), Benchmark: null, Active: null } },
         {
-          id: "idio_r",
-          label: "Idiosyncratic Return (%)",
-          values: { Main: v("idio_return_pct"), Benchmark: null, Active: null },
-        },
-        {
-          id: "fac_r",
-          label: "Factor Return (%)",
-          values: { Main: v("factor_return_pct"), Benchmark: null, Active: null },
+          id: "fac_r", label: "Factor Return (%)", values: { Main: n("factor_return_pct"), Benchmark: null, Active: null },
           children: [
-            { id: "mkt_r", label: "Market Return (%)",   values: { Main: v("market_return_pct"),   Benchmark: null, Active: null } },
-            { id: "sty_r", label: "Style Return (%)",    values: { Main: v("style_return_pct"),    Benchmark: null, Active: null } },
-            { id: "ind_r", label: "Industry Return (%)", values: { Main: v("industry_return_pct"), Benchmark: null, Active: null } },
+            { id: "mkt_r", label: "Market Return (%)",   values: { Main: n("market_return_pct"),   Benchmark: null, Active: null } },
+            { id: "sty_r", label: "Style Return (%)",    values: { Main: n("style_return_pct"),    Benchmark: null, Active: null } },
+            { id: "ind_r", label: "Industry Return (%)", values: { Main: n("industry_return_pct"), Benchmark: null, Active: null } },
+          ],
+        },
+        { id: "div_r", label: "Dividend Return (%)", values: N() },
+        { id: "oth_r", label: "Other Return (%)",    values: N() },
+        {
+          id: "tc_r", label: "Transaction Cost (%)", values: N(),
+          children: [
+            { id: "mi_r", label: "Market Impact (%)",       values: N() },
+            { id: "sp_r", label: "Spread (%)",               values: N() },
+            { id: "bf_r", label: "Brokerage and Fees (%)",  values: N() },
           ],
         },
       ],
     },
     {
-      id: "cagr",
-      label: "CAGR (%)",
-      values: { Main: v("cagr_pct"), Benchmark: B("benchmark_cagr_pct"), Active: A("cagr_pct", "benchmark_cagr_pct") },
+      id: "cagr", label: "CAGR (%)", values: V("cagr_pct", "benchmark_cagr_pct"),
       children: [
-        { id: "idio_cagr", label: "Idiosyncratic CAGR (%)", values: { Main: null, Benchmark: null, Active: null } },
-        { id: "fac_cagr",  label: "Factor CAGR (%)",        values: { Main: null, Benchmark: null, Active: null } },
+        { id: "idio_cagr", label: "Idiosyncratic CAGR (%)", values: N() },
+        {
+          id: "fac_cagr", label: "Factor CAGR (%)", values: N(),
+          children: [
+            { id: "mkt_cagr", label: "Market CAGR (%)",   values: N() },
+            { id: "sty_cagr", label: "Style CAGR (%)",    values: N() },
+            { id: "ind_cagr", label: "Industry CAGR (%)", values: N() },
+          ],
+        },
+        { id: "div_cagr", label: "Dividend CAGR (%)",          values: N() },
+        { id: "oth_cagr", label: "Other CAGR (%)",             values: N() },
+        {
+          id: "tc_cagr", label: "Transaction Cost CAGR (%)", values: N(),
+          children: [
+            { id: "mi_cagr",  label: "Market Impact CAGR (%)",       values: N() },
+            { id: "sp_cagr",  label: "Spread CAGR (%)",               values: N() },
+            { id: "bf_cagr",  label: "Brokerage and Fees CAGR (%)",  values: N() },
+          ],
+        },
       ],
     },
     {
-      id: "sharpe",
-      label: "Sharpe Ratio",
-      values: { Main: v("sharpe"), Benchmark: B("benchmark_sharpe"), Active: A("sharpe", "benchmark_sharpe") },
+      id: "sharpe", label: "Sharpe Ratio", values: V("sharpe", "benchmark_sharpe"),
       children: [
-        { id: "idio_sharpe", label: "Idiosyncratic Sharpe", values: { Main: null, Benchmark: null, Active: null } },
-        { id: "fac_sharpe",  label: "Factor Sharpe",        values: { Main: null, Benchmark: null, Active: null } },
+        { id: "idio_sharpe", label: "Idiosyncratic Sharpe Ratio", values: N() },
+        {
+          id: "fac_sharpe", label: "Factor Sharpe Ratio", values: N(),
+          children: [
+            { id: "mkt_sharpe", label: "Market Sharpe Ratio",   values: N() },
+            { id: "sty_sharpe", label: "Style Sharpe Ratio",    values: N() },
+            { id: "ind_sharpe", label: "Industry Sharpe Ratio", values: N() },
+          ],
+        },
       ],
     },
     {
-      id: "sortino",
-      label: "Sortino Ratio",
-      values: { Main: v("sortino"), Benchmark: B("benchmark_sortino"), Active: A("sortino", "benchmark_sortino") },
+      id: "sortino", label: "Sortino Ratio", values: V("sortino", "benchmark_sortino"),
       children: [
-        { id: "idio_sortino", label: "Idiosyncratic Sortino", values: { Main: null, Benchmark: null, Active: null } },
-        { id: "fac_sortino",  label: "Factor Sortino",        values: { Main: null, Benchmark: null, Active: null } },
+        { id: "idio_sortino", label: "Idiosyncratic Sortino Ratio", values: N() },
+        {
+          id: "fac_sortino", label: "Factor Sortino Ratio", values: N(),
+          children: [
+            { id: "mkt_sortino", label: "Market Sortino Ratio",   values: N() },
+            { id: "sty_sortino", label: "Style Sortino Ratio",    values: N() },
+            { id: "ind_sortino", label: "Industry Sortino Ratio", values: N() },
+          ],
+        },
       ],
     },
+    { id: "treynor", label: "Treynor Ratio", values: V("treynor", "benchmark_treynor") },
     {
-      id: "treynor",
-      label: "Treynor Ratio",
-      values: { Main: v("treynor"), Benchmark: B("benchmark_treynor"), Active: A("treynor", "benchmark_treynor") },
+      id: "exec_summary", label: "Execution Summary", values: N(),
+      children: [
+        { id: "ann_turnover", label: "Annualized Turnover",            values: N() },
+        {
+          id: "tc_bps", label: "Total Transaction Cost (bps)", values: N(),
+          children: [
+            { id: "mi_bps",  label: "Market Impact Cost (bps)", values: N() },
+            { id: "sp_bps",  label: "Spread Cost (bps)",         values: N() },
+            {
+              id: "bf_bps", label: "Brokerage and Fees (bps)", values: N(),
+              children: [
+                { id: "brok_bps",  label: "Brokerage (bps)",                   values: N() },
+                { id: "etc_bps",   label: "Exchange Transaction Charges (bps)", values: N() },
+                { id: "sebi_bps",  label: "SEBI Charges (bps)",                values: N() },
+                { id: "stamp_bps", label: "Stamp Charges (bps)",               values: N() },
+                { id: "stt_bps",   label: "STT Fees (bps)",                    values: N() },
+                { id: "gst_bps",   label: "GST (bps)",                         values: N() },
+              ],
+            },
+          ],
+        },
+      ],
     },
   ];
 }
 
 function buildRiskTree(pnl: Record<string, unknown>): TreeRow[] {
-  const v = (k: string): number | null => (pnl[k] as number | null) ?? null;
-  const B = (k: string): number | null => (pnl[k] as number | null) ?? null;
-  const A = (mk: string, bk: string): number | null => {
-    const m = v(mk), b = B(bk);
+  const n = (k: string): number | null => (pnl[k] as number | null | undefined) ?? null;
+  const diff = (mk: string, bk: string): number | null => {
+    const m = n(mk), b = n(bk);
     return m != null && b != null ? Math.round((Number(m) - Number(b)) * 100) / 100 : null;
   };
+  const V = (mk: string, bk: string) => ({ Main: n(mk), Benchmark: n(bk), Active: diff(mk, bk) });
+  const N = () => ({ Main: null as number | null, Benchmark: null as number | null, Active: null as number | null });
+
+  const beta = n("beta");
   return [
     {
-      id: "beta",
-      label: "Beta",
-      values: { Main: v("beta"), Benchmark: 1.0, Active: A("beta", "beta") },
+      id: "beta", label: "Beta",
+      values: { Main: beta, Benchmark: 1.0, Active: beta != null ? Math.round((beta - 1.0) * 10000) / 10000 : null },
     },
     {
-      id: "realized_risk",
-      label: "Realized Risk (%)",
-      values: {
-        Main: v("volatility_pct"),
-        Benchmark: B("benchmark_volatility_pct"),
-        Active: A("volatility_pct", "benchmark_volatility_pct"),
-      },
+      id: "realized_risk", label: "Realized Risk (%)", values: V("volatility_pct", "benchmark_volatility_pct"),
       children: [
-        { id: "idio_rr",   label: "Idiosyncratic Realized Risk (%)", values: { Main: null, Benchmark: null, Active: null } },
-        { id: "fac_rr",    label: "Factor Realized Risk (%)",        values: { Main: null, Benchmark: null, Active: null } },
+        { id: "idio_rr", label: "Idiosyncratic Realized Risk (%)", values: N() },
+        {
+          id: "fac_rr", label: "Factor Realized Risk (%)", values: N(),
+          children: [
+            { id: "mkt_rr", label: "Market Realized Risk (%)",   values: N() },
+            { id: "sty_rr", label: "Style Realized Risk (%)",    values: N() },
+            { id: "ind_rr", label: "Industry Realized Risk (%)", values: N() },
+          ],
+        },
       ],
     },
     {
-      id: "predicted_risk",
-      label: "Total Predicted Risk (%)",
-      values: { Main: v("volatility_pct"), Benchmark: null, Active: null },
+      id: "predicted_risk", label: "Total Predicted Risk (%)", values: N(),
       children: [
-        { id: "idio_pr", label: "Idiosyncratic Predicted Risk (%)", values: { Main: null, Benchmark: null, Active: null } },
-        { id: "fac_pr",  label: "Factor Predicted Risk (%)",        values: { Main: null, Benchmark: null, Active: null } },
+        { id: "idio_pr", label: "Idiosyncratic Predicted Risk (%)", values: N() },
+        {
+          id: "fac_pr", label: "Factor Predicted Risk (%)", values: N(),
+          children: [
+            { id: "mkt_pr", label: "Market Predicted Risk (%)",   values: N() },
+            { id: "sty_pr", label: "Style Predicted Risk (%)",    values: N() },
+            { id: "ind_pr", label: "Industry Predicted Risk (%)", values: N() },
+          ],
+        },
       ],
     },
     {
-      id: "risk_contrib",
-      label: "Risk Contribution (%)",
-      values: { Main: null, Benchmark: null, Active: null },
+      id: "risk_contrib", label: "Risk Contribution (%)", values: N(),
       children: [
-        { id: "idio_rc", label: "Idiosyncratic Risk Contribution (%)", values: { Main: null, Benchmark: null, Active: null } },
-        { id: "fac_rc",  label: "Factor Risk Contribution (%)",        values: { Main: null, Benchmark: null, Active: null } },
+        { id: "idio_rc", label: "Idiosyncratic Risk Contribution (%)", values: N() },
+        {
+          id: "fac_rc", label: "Factor Risk Contribution (%)", values: N(),
+          children: [
+            { id: "mkt_rc", label: "Market Risk Contribution (%)",   values: N() },
+            { id: "sty_rc", label: "Style Risk Contribution (%)",    values: N() },
+            { id: "ind_rc", label: "Industry Risk Contribution (%)", values: N() },
+          ],
+        },
       ],
     },
     {
-      id: "dd",
-      label: "Max Drawdown (%)",
-      values: { Main: v("max_drawdown_pct"), Benchmark: B("benchmark_max_drawdown_pct"), Active: A("max_drawdown_pct", "benchmark_max_drawdown_pct") },
-    },
-    {
-      id: "concentration",
-      label: "Portfolio Concentration",
-      values: { Main: null, Benchmark: null, Active: null },
+      id: "concentration", label: "Portfolio Concentration", values: N(),
       children: [
-        { id: "top_w",    label: "Top Holdings (%)",                      values: { Main: null, Benchmark: null, Active: null } },
-        { id: "top_tr",   label: "Top Total Risk Contribution (%)",        values: { Main: null, Benchmark: null, Active: null } },
-        { id: "top_ir",   label: "Top Idiosyncratic Risk Contribution (%)", values: { Main: null, Benchmark: null, Active: null } },
-        { id: "top_fr",   label: "Top Factor Risk Contribution (%)",       values: { Main: null, Benchmark: null, Active: null } },
+        {
+          id: "top_h", label: "Top Holdings (%)", values: N(),
+          children: [
+            { id: "top5_h",  label: "Top 5 Holdings (%)",  values: N() },
+            { id: "top10_h", label: "Top 10 Holdings (%)", values: N() },
+            { id: "top20_h", label: "Top 20 Holdings (%)", values: N() },
+          ],
+        },
+        {
+          id: "top_tr", label: "Top Total Risk Contribution (%)", values: N(),
+          children: [
+            { id: "top5_tr",  label: "Top 5 Total Risk Contribution (%)",  values: N() },
+            { id: "top10_tr", label: "Top 10 Total Risk Contribution (%)", values: N() },
+            { id: "top20_tr", label: "Top 20 Total Risk Contribution (%)", values: N() },
+          ],
+        },
+        {
+          id: "top_ir", label: "Top Idiosyncratic Risk Contribution (%)", values: N(),
+          children: [
+            { id: "top5_ir",  label: "Top 5 Idiosyncratic Risk Contribution (%)",  values: N() },
+            { id: "top10_ir", label: "Top 10 Idiosyncratic Risk Contribution (%)", values: N() },
+            { id: "top20_ir", label: "Top 20 Idiosyncratic Risk Contribution (%)", values: N() },
+          ],
+        },
+        {
+          id: "top_fr", label: "Top Factor Risk Contribution (%)", values: N(),
+          children: [
+            { id: "top5_fr",  label: "Top 5 Factor Risk Contribution (%)",  values: N() },
+            { id: "top10_fr", label: "Top 10 Factor Risk Contribution (%)", values: N() },
+            { id: "top20_fr", label: "Top 20 Factor Risk Contribution (%)", values: N() },
+          ],
+        },
       ],
     },
+    { id: "aum_gross",     label: "Gross AUM (INR cr)",     values: N() },
+    { id: "aum_unlevered", label: "Unlevered AUM (INR cr)", values: N() },
   ];
 }
 
-function buildValuationTree(
-  pnl: Record<string, unknown>,
-  latestV: Record<string, unknown>,
-): TreeRow[] {
-  const g = (keys: string[]): number | null => {
-    for (const k of keys) {
-      const val = pnl[k] ?? latestV[k];
-      if (val != null) return val as number;
-    }
-    return null;
-  };
+function buildValuationTree(pnl: Record<string, unknown>): TreeRow[] {
+  const n = (k: string): number | null => (pnl[k] as number | null | undefined) ?? null;
   return [
-    { id: "pe",  label: "PE Ratio",            values: { Main: g(["pe_ratio",  "pe"])  } },
-    { id: "pb",  label: "P/B Ratio",           values: { Main: g(["pb_ratio",  "pb"])  } },
-    { id: "roe", label: "Return on Equity (%)", values: { Main: g(["roe_pct",   "roe"]) } },
+    { id: "pe",  label: "PE Ratio",             values: { Main: n("pe_ratio"), Benchmark: null, Active: null } },
+    { id: "pb",  label: "P/B Ratio",            values: { Main: n("pb_ratio"), Benchmark: null, Active: null } },
+    { id: "roe", label: "Return on Equity (%)", values: { Main: n("roe_pct"),  Benchmark: null, Active: null } },
   ];
 }
 
@@ -653,7 +724,6 @@ function TopHoldingsSvgBar({
 export default function ReturnsAndRiskPage() {
   const { analyticsData, analyticsLoading, selectedSourceId } = usePortfolio();
   const [contributorTab, setContributorTab] = useState<ContribTab>("overall");
-  const [view, setView] = useState<AnalyticsView>("Main");
   const [chartKpi, setChartKpi] = useState<string>("weight");
 
   if (analyticsLoading) {
@@ -670,12 +740,11 @@ export default function ReturnsAndRiskPage() {
   }
 
   const pnl = (analyticsData.pnl_metrics ?? {}) as Record<string, unknown>;
-  const vts = (analyticsData.valuation_ts as Pt[] | undefined) ?? [];
-  const latestV = vts.length > 0 ? (vts[vts.length - 1] as Record<string, unknown>) : {};
   const holdings = (analyticsData.holdings_detail as Pt[] | undefined) ?? [];
   const factors = (analyticsData.factor_detail as Pt[] | undefined) ?? [];
-  const brinson = (analyticsData.brinson as Record<string, unknown> | undefined) ?? {};
-  const mcapBrinson = (brinson.by_mcap as Pt[] | undefined) ?? [];
+  const brinsonObj = (analyticsData.brinson as Record<string, unknown> | undefined) ?? {};
+  const brinsonByMcap   = (brinsonObj.by_mcap   as Pt[] | undefined) ?? [];
+  const brinsonBySector = (brinsonObj.by_sector  as Pt[] | undefined) ?? [];
 
   // Contributors & Detractors
   const sortedHoldings = [...holdings] as Array<Record<string, unknown>>;
@@ -720,20 +789,33 @@ export default function ReturnsAndRiskPage() {
 
   const pnlTree  = buildPnLTree(pnl);
   const riskTree = buildRiskTree(pnl);
-  const valTree  = buildValuationTree(pnl, latestV);
-  const hasBenchmark = pnl.benchmark_total_return_pct != null;
+  const valTree  = buildValuationTree(pnl);
 
-  const treeCols: TreeColumn[] =
-    view === "Main"
-      ? [{ key: "Main",      label: "Main",      align: "right" as const }]
-      : view === "Benchmark"
-      ? [{ key: "Benchmark", label: "Benchmark", align: "right" as const }]
-      : [
-          { key: "Active",    label: "Active",    align: "right" as const },
-          { key: "Benchmark", label: "Benchmark", align: "right" as const },
-          { key: "Main",      label: "Main",      align: "right" as const },
-        ];
-  const valCols: TreeColumn[] = [{ key: "Main", label: "Main", align: "right" as const }];
+  const treeCols: TreeColumn[] = [
+    { key: "Active",    label: "Active",    align: "right" as const },
+    { key: "Benchmark", label: "Benchmark", align: "right" as const },
+    { key: "Main",      label: "Main",      align: "right" as const },
+  ];
+
+  const sumEffects = (arr: Pt[]) => ({
+    alloc:    arr.reduce((s, r) => s + Number(r.allocation_effect ?? 0), 0),
+    select:   arr.reduce((s, r) => s + Number(r.selection_effect  ?? 0), 0),
+    interact: arr.reduce((s, r) => s + Number(r.interaction_effect ?? 0), 0),
+  });
+  const mcapTotals   = sumEffects(brinsonByMcap);
+  const sectorTotals = sumEffects(brinsonBySector);
+  const brinsonRows = [
+    { category: "Market Cap",         ...mcapTotals },
+    { category: "Liquidity",          alloc: null, select: null, interact: null },
+    { category: "Total Risk",         alloc: null, select: null, interact: null },
+    { category: "Idiosyncratic Risk", alloc: null, select: null, interact: null },
+    { category: "Sector",             ...sectorTotals },
+    { category: "Industry",           alloc: null, select: null, interact: null },
+    { category: "Earnings Window",    alloc: null, select: null, interact: null },
+    { category: "IPO",                alloc: null, select: null, interact: null },
+    { category: "Financial Type",     alloc: null, select: null, interact: null },
+    { category: "Position Age",       alloc: null, select: null, interact: null },
+  ];
 
   // Top holdings weight bar data (avg_weight already in % from backend)
   const topHoldingsBarData = [...holdings]
@@ -770,31 +852,30 @@ export default function ReturnsAndRiskPage() {
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Returns &amp; Risk</h1>
-        <ViewToggle view={view} onChange={setView} hasBenchmark={hasBenchmark} />
       </div>
 
       {/* Metric tables */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         <AnalyticsTreeTable
-          title="P&L Summary"
+          title="Profit and Loss Summary"
           columns={treeCols}
           rows={pnlTree}
           defaultExpanded={new Set(["tr", "sharpe"])}
         />
-        <AnalyticsTreeTable title="Risk Summary" columns={treeCols} rows={riskTree} />
-        <AnalyticsTreeTable title="Valuation Summary" columns={valCols} rows={valTree} />
+        <AnalyticsTreeTable title="Risk Summary"      columns={treeCols} rows={riskTree} />
+        <AnalyticsTreeTable title="Valuation Summary" columns={treeCols} rows={valTree} />
 
-        {/* Brinson by Market Cap table */}
+        {/* Brinson Decomposition Summary */}
         <Card>
           <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-            <CardTitle className="text-[11px]">Brinson by Market Cap</CardTitle>
+            <CardTitle className="text-[11px]">Brinson Decomposition Summary</CardTitle>
             <CardControls />
           </CardHeader>
           <CardContent className="p-0">
             <table className="w-full text-[10px]">
               <thead>
                 <tr className="border-b border-border/50">
-                  {["Bucket", "Alloc (%)", "Select (%)", "Interact (%)"].map((h) => (
+                  {["Category", "Allocation Effect (%)", "Selection Effect (%)", "Interaction Effect (%)"].map((h) => (
                     <th key={h} className="px-2 py-1.5 text-left font-medium text-muted-foreground whitespace-nowrap">
                       {h}
                     </th>
@@ -802,29 +883,20 @@ export default function ReturnsAndRiskPage() {
                 </tr>
               </thead>
               <tbody>
-                {mcapBrinson.map((row, i) => (
+                {brinsonRows.map((row, i) => (
                   <tr key={i} className="border-b border-border/30">
-                    <td className="px-2 py-1.5 font-medium">
-                      {String(row.group ?? row.bucket ?? row.name ?? "—")}
+                    <td className="px-2 py-1.5 font-medium">{row.category}</td>
+                    <td className="px-2 py-1.5">
+                      {row.alloc != null ? <ColoredCell value={fmt(row.alloc)} /> : <span className="text-muted-foreground">—</span>}
                     </td>
                     <td className="px-2 py-1.5">
-                      <ColoredCell value={fmt(row.allocation_effect ?? row.allocation_pct ?? row.allocation)} />
+                      {row.select != null ? <ColoredCell value={fmt(row.select)} /> : <span className="text-muted-foreground">—</span>}
                     </td>
                     <td className="px-2 py-1.5">
-                      <ColoredCell value={fmt(row.selection_effect ?? row.selection_pct ?? row.selection)} />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <ColoredCell value={fmt(row.interaction_effect ?? row.interaction_pct ?? row.interaction)} />
+                      {row.interact != null ? <ColoredCell value={fmt(row.interact)} /> : <span className="text-muted-foreground">—</span>}
                     </td>
                   </tr>
                 ))}
-                {mcapBrinson.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="px-2 py-4 text-center text-muted-foreground">
-                      No Brinson data
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </CardContent>

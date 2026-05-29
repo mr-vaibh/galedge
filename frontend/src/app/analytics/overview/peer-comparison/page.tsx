@@ -184,7 +184,7 @@ interface TableRow {
   key: string;
   label: string;
   format: (v: number | undefined | null) => string;
-  children?: { key: string; label: string; format: (v: number | undefined | null) => string }[];
+  children?: TableRow[];
 }
 
 interface TableSection {
@@ -195,40 +195,82 @@ interface TableSection {
 function getTableSections(): TableSection[] {
   return [
     {
-      title: "P&L Summary",
+      title: "Profit and Loss Summary",
       rows: [
         {
           key: "total_return", label: "Total Return (%)", format: pct,
           children: [
             { key: "idio_return", label: "Idiosyncratic Return (%)", format: pct },
-            { key: "factor_return", label: "Factor Return (%)", format: pct },
-            { key: "_div_return", label: "Dividend Return (%)", format: pct },
-            { key: "_other_return", label: "Other Return (%)", format: pct },
-            { key: "_tc_pct", label: "Transaction Cost (%)", format: pct },
+            {
+              key: "factor_return", label: "Factor Return (%)", format: pct,
+              children: [
+                { key: "market_return",   label: "Market Return (%)",   format: pct },
+                { key: "style_return",    label: "Style Return (%)",    format: pct },
+                { key: "industry_return", label: "Industry Return (%)", format: pct },
+              ],
+            },
+            { key: "_div_return",   label: "Dividend Return (%)", format: pct },
+            { key: "_other_return", label: "Other Return (%)",    format: pct },
+            {
+              key: "_tc_pct", label: "Transaction Cost (%)", format: pct,
+              children: [
+                { key: "_mi_pct", label: "Market Impact (%)",      format: pct },
+                { key: "_sp_pct", label: "Spread (%)",              format: pct },
+                { key: "_bf_pct", label: "Brokerage and Fees (%)", format: pct },
+              ],
+            },
           ],
         },
         {
           key: "annualised_return", label: "CAGR (%)", format: pct,
           children: [
-            { key: "_idio_cagr", label: "Idio CAGR (%)", format: pct },
-            { key: "_factor_cagr", label: "Factor CAGR (%)", format: pct },
-            { key: "_div_cagr", label: "Dividend CAGR (%)", format: pct },
-            { key: "_other_cagr", label: "Other CAGR (%)", format: pct },
-            { key: "_tc_cagr", label: "TC CAGR (%)", format: pct },
+            { key: "_idio_cagr", label: "Idiosyncratic CAGR (%)", format: pct },
+            {
+              key: "_factor_cagr", label: "Factor CAGR (%)", format: pct,
+              children: [
+                { key: "_market_cagr",   label: "Market CAGR (%)",   format: pct },
+                { key: "_style_cagr",    label: "Style CAGR (%)",    format: pct },
+                { key: "_industry_cagr", label: "Industry CAGR (%)", format: pct },
+              ],
+            },
+            { key: "_div_cagr",   label: "Dividend CAGR (%)",          format: pct },
+            { key: "_other_cagr", label: "Other CAGR (%)",             format: pct },
+            {
+              key: "_tc_cagr", label: "Transaction Cost CAGR (%)", format: pct,
+              children: [
+                { key: "_mi_cagr", label: "Market Impact CAGR (%)",       format: pct },
+                { key: "_sp_cagr", label: "Spread CAGR (%)",               format: pct },
+                { key: "_bf_cagr", label: "Brokerage and Fees CAGR (%)",  format: pct },
+              ],
+            },
           ],
         },
         {
           key: "sharpe_ratio", label: "Sharpe Ratio", format: raw,
           children: [
-            { key: "_idio_sharpe", label: "Idio Sharpe", format: raw },
-            { key: "_factor_sharpe", label: "Factor Sharpe", format: raw },
+            { key: "_idio_sharpe", label: "Idiosyncratic Sharpe Ratio", format: raw },
+            {
+              key: "_factor_sharpe", label: "Factor Sharpe Ratio", format: raw,
+              children: [
+                { key: "_market_sharpe",   label: "Market Sharpe Ratio",   format: raw },
+                { key: "_style_sharpe",    label: "Style Sharpe Ratio",    format: raw },
+                { key: "_industry_sharpe", label: "Industry Sharpe Ratio", format: raw },
+              ],
+            },
           ],
         },
         {
           key: "sortino", label: "Sortino Ratio", format: raw,
           children: [
-            { key: "_idio_sortino", label: "Idio Sortino", format: raw },
-            { key: "_factor_sortino", label: "Factor Sortino", format: raw },
+            { key: "_idio_sortino", label: "Idiosyncratic Sortino Ratio", format: raw },
+            {
+              key: "_factor_sortino", label: "Factor Sortino Ratio", format: raw,
+              children: [
+                { key: "_market_sortino",   label: "Market Sortino Ratio",   format: raw },
+                { key: "_style_sortino",    label: "Style Sortino Ratio",    format: raw },
+                { key: "_industry_sortino", label: "Industry Sortino Ratio", format: raw },
+              ],
+            },
           ],
         },
         { key: "treynor", label: "Treynor Ratio", format: raw },
@@ -236,7 +278,24 @@ function getTableSections(): TableSection[] {
           key: "_exec_summary", label: "Execution Summary", format: raw,
           children: [
             { key: "_ann_turnover", label: "Annualized Turnover", format: raw },
-            { key: "_tc_bps", label: "Total Transaction Cost (bps)", format: raw },
+            {
+              key: "_tc_bps", label: "Total Transaction Cost (bps)", format: raw,
+              children: [
+                { key: "_mi_bps",  label: "Market Impact Cost (bps)", format: raw },
+                { key: "_sp_bps",  label: "Spread Cost (bps)",         format: raw },
+                {
+                  key: "_bf_bps", label: "Brokerage and Fees (bps)", format: raw,
+                  children: [
+                    { key: "_brok_bps",  label: "Brokerage (bps)",                   format: raw },
+                    { key: "_etc_bps",   label: "Exchange Transaction Charges (bps)", format: raw },
+                    { key: "_sebi_bps",  label: "SEBI Charges (bps)",                format: raw },
+                    { key: "_stamp_bps", label: "Stamp Charges (bps)",               format: raw },
+                    { key: "_stt_bps",   label: "STT Fees (bps)",                    format: raw },
+                    { key: "_gst_bps",   label: "GST (bps)",                         format: raw },
+                  ],
+                },
+              ],
+            },
           ],
         },
       ],
@@ -248,41 +307,91 @@ function getTableSections(): TableSection[] {
         {
           key: "volatility", label: "Realized Risk (%)", format: pct,
           children: [
-            { key: "_idio_realized_risk", label: "Idio Realized Risk (%)", format: pct },
-            { key: "_factor_realized_risk", label: "Factor Realized Risk (%)", format: pct },
+            { key: "_idio_rr",   label: "Idiosyncratic Realized Risk (%)", format: pct },
+            {
+              key: "_factor_rr", label: "Factor Realized Risk (%)", format: pct,
+              children: [
+                { key: "_market_rr",   label: "Market Realized Risk (%)",   format: pct },
+                { key: "_style_rr",    label: "Style Realized Risk (%)",    format: pct },
+                { key: "_industry_rr", label: "Industry Realized Risk (%)", format: pct },
+              ],
+            },
           ],
         },
         {
           key: "total_predicted_risk", label: "Total Predicted Risk (%)", format: pct,
           children: [
-            { key: "idio_predicted_risk", label: "Idio Predicted Risk (%)", format: pct },
-            { key: "factor_predicted_risk", label: "Factor Predicted Risk (%)", format: pct },
+            { key: "idio_predicted_risk", label: "Idiosyncratic Predicted Risk (%)", format: pct },
+            {
+              key: "factor_predicted_risk", label: "Factor Predicted Risk (%)", format: pct,
+              children: [
+                { key: "market_predicted_risk",   label: "Market Predicted Risk (%)",   format: pct },
+                { key: "style_predicted_risk",    label: "Style Predicted Risk (%)",    format: pct },
+                { key: "industry_predicted_risk", label: "Industry Predicted Risk (%)", format: pct },
+              ],
+            },
           ],
         },
         {
           key: "_risk_contrib", label: "Risk Contribution (%)", format: pct,
           children: [
-            { key: "idio_risk_contrib", label: "Idio Risk Contribution (%)", format: pct },
-            { key: "factor_risk_contrib", label: "Factor Risk Contribution (%)", format: pct },
+            { key: "idio_risk_contrib", label: "Idiosyncratic Risk Contribution (%)", format: pct },
+            {
+              key: "factor_risk_contrib", label: "Factor Risk Contribution (%)", format: pct,
+              children: [
+                { key: "market_risk_contrib",   label: "Market Risk Contribution (%)",   format: pct },
+                { key: "style_risk_contrib",    label: "Style Risk Contribution (%)",    format: pct },
+                { key: "industry_risk_contrib", label: "Industry Risk Contribution (%)", format: pct },
+              ],
+            },
           ],
         },
         {
           key: "_port_conc", label: "Portfolio Concentration", format: raw,
           children: [
-            { key: "_top_holdings", label: "Top Holdings (%)", format: pct },
-            { key: "_top_total_rc", label: "Top Total RC (%)", format: pct },
-            { key: "_top_idio_rc", label: "Top Idio RC (%)", format: pct },
-            { key: "_top_factor_rc", label: "Top Factor RC (%)", format: pct },
+            {
+              key: "_top_holdings",  label: "Top Holdings (%)", format: pct,
+              children: [
+                { key: "_top5_h",  label: "Top 5 Holdings (%)",  format: pct },
+                { key: "_top10_h", label: "Top 10 Holdings (%)", format: pct },
+                { key: "_top20_h", label: "Top 20 Holdings (%)", format: pct },
+              ],
+            },
+            {
+              key: "_top_total_rc",  label: "Top Total Risk Contribution (%)", format: pct,
+              children: [
+                { key: "_top5_trc",  label: "Top 5 Total Risk Contribution (%)",  format: pct },
+                { key: "_top10_trc", label: "Top 10 Total Risk Contribution (%)", format: pct },
+                { key: "_top20_trc", label: "Top 20 Total Risk Contribution (%)", format: pct },
+              ],
+            },
+            {
+              key: "_top_idio_rc",   label: "Top Idiosyncratic Risk Contribution (%)", format: pct,
+              children: [
+                { key: "_top5_irc",  label: "Top 5 Idiosyncratic Risk Contribution (%)",  format: pct },
+                { key: "_top10_irc", label: "Top 10 Idiosyncratic Risk Contribution (%)", format: pct },
+                { key: "_top20_irc", label: "Top 20 Idiosyncratic Risk Contribution (%)", format: pct },
+              ],
+            },
+            {
+              key: "_top_factor_rc", label: "Top Factor Risk Contribution (%)", format: pct,
+              children: [
+                { key: "_top5_frc",  label: "Top 5 Factor Risk Contribution (%)",  format: pct },
+                { key: "_top10_frc", label: "Top 10 Factor Risk Contribution (%)", format: pct },
+                { key: "_top20_frc", label: "Top 20 Factor Risk Contribution (%)", format: pct },
+              ],
+            },
           ],
         },
-        { key: "total_aum_cr", label: "Gross AUM (INR cr)", format: raw },
+        { key: "total_aum_cr",    label: "Gross AUM (INR cr)",     format: raw },
+        { key: "_unlevered_aum",  label: "Unlevered AUM (INR cr)", format: raw },
       ],
     },
     {
       title: "Valuation Summary",
       rows: [
-        { key: "pe", label: "PE Ratio", format: raw },
-        { key: "pb", label: "P/B Ratio", format: raw },
+        { key: "pe",  label: "PE Ratio",             format: raw },
+        { key: "pb",  label: "P/B Ratio",            format: raw },
         { key: "roe", label: "Return on Equity (%)", format: pct },
       ],
     },
@@ -514,10 +623,69 @@ export default function PeerComparisonPage() {
   const anyLoading = loading || loadingPerf.size > 0;
 
   // ── Table rendering helper ────────────────────────────────────────────────
+  function renderRowTree(rows: TableRow[], showBenchmark: boolean, depth = 0): React.ReactNode[] {
+    const paddingLeft = depth === 0 ? "px-3" : depth === 1 ? "pl-9 pr-3" : `pl-${9 + (depth - 1) * 4} pr-3`;
+    const prefix = depth === 0 ? "" : "└ ";
+    const textSize = depth === 0 ? "" : "text-[9px]";
+    const opacity = depth === 0 ? "text-muted-foreground" : "text-muted-foreground/70";
+    const pySize = depth === 0 ? "py-1.5" : "py-1";
+
+    return rows.flatMap((row) => {
+      const hasChildren = row.children && row.children.length > 0;
+      const isExpanded = expandedRows.has(row.key);
+      const vals = comparedPerf
+        .map((p) => (p as unknown as Record<string, number | undefined>)[row.key])
+        .filter((v): v is number => v != null);
+      const isHigherBetter = row.key !== "volatility" && row.key !== "max_drawdown";
+      const bestVal = vals.length > 0 && comparedPerf.length > 1 ? (isHigherBetter ? Math.max(...vals) : Math.min(...vals)) : null;
+
+      const rowEl = (
+        <tr key={row.key} className={`border-b ${depth === 0 ? "border-border/30 hover:bg-muted/10" : "border-border/20 hover:bg-muted/5"}`}>
+          <td className={`${paddingLeft} ${pySize} ${opacity} ${textSize} sticky left-0 bg-card z-10`}>
+            <span className="flex items-center gap-1">
+              {hasChildren && depth === 0 && (
+                <button onClick={() => toggleRow(row.key)} className="opacity-60 hover:opacity-100">
+                  {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                </button>
+              )}
+              {(!hasChildren || depth > 0) && <span className="w-3" />}
+              {prefix}{row.label}
+            </span>
+          </td>
+          {comparedPerf.map((p) => {
+            const val = (p as unknown as Record<string, number | undefined>)[row.key];
+            const formatted = row.format(val ?? null);
+            const isNeg = typeof formatted === "string" && formatted.startsWith("-");
+            const isBest = val != null && bestVal != null && val === bestVal;
+            return (
+              <td
+                key={p.portfolio_id}
+                className={`px-3 ${pySize} text-right tabular-nums ${textSize} ${depth === 0 ? "font-medium" : ""} ${isNeg ? "text-red-400" : depth > 0 ? "text-muted-foreground/70" : ""} ${isBest ? "bg-emerald-500/10" : ""}`}
+              >
+                {formatted}
+                {isBest && depth === 0 && <span className="text-[7px] text-emerald-400 ml-1">best</span>}
+              </td>
+            );
+          })}
+          {showBenchmark && benchmarkMetrics && (
+            <td className={`px-3 ${pySize} text-right tabular-nums text-blue-400/${depth === 0 ? "80" : "60"} ${textSize}`}>
+              {row.key.startsWith("_") ? "—" : row.format((benchmarkMetrics as unknown as Record<string, number>)[row.key] ?? null)}
+            </td>
+          )}
+        </tr>
+      );
+
+      const childEls = hasChildren && (depth === 0 ? isExpanded : true)
+        ? renderRowTree(row.children!, showBenchmark, depth + 1)
+        : [];
+
+      return [rowEl, ...childEls];
+    });
+  }
+
   function renderTableRows(showBenchmark: boolean) {
     return TABLE_SECTIONS.map((section) => (
       <React.Fragment key={section.title}>
-        {/* Section header */}
         <tr className="bg-muted/30">
           <td
             className="px-3 py-1.5 font-bold text-foreground sticky left-0 bg-muted/30 z-10"
@@ -526,89 +694,7 @@ export default function PeerComparisonPage() {
             {section.title}
           </td>
         </tr>
-        {/* Rows */}
-        {section.rows.map((row) => {
-          const hasChildren = row.children && row.children.length > 0;
-          const isExpanded = expandedRows.has(row.key);
-          const vals = comparedPerf
-            .map((p) => (p as unknown as Record<string, number | undefined>)[row.key])
-            .filter((v): v is number => v != null);
-          const isHigherBetter = row.key !== "volatility" && row.key !== "max_drawdown";
-          const bestVal = vals.length > 0 && comparedPerf.length > 1 ? (isHigherBetter ? Math.max(...vals) : Math.min(...vals)) : null;
-
-          return (
-            <React.Fragment key={row.key}>
-              <tr className="border-b border-border/30 hover:bg-muted/10">
-                <td className="px-3 py-1.5 text-muted-foreground sticky left-0 bg-card z-10">
-                  <span className="flex items-center gap-1">
-                    {hasChildren && (
-                      <button onClick={() => toggleRow(row.key)} className="opacity-60 hover:opacity-100">
-                        {isExpanded
-                          ? <ChevronDown className="h-3 w-3" />
-                          : <ChevronRight className="h-3 w-3" />}
-                      </button>
-                    )}
-                    {!hasChildren && <span className="w-3" />}
-                    {row.label}
-                  </span>
-                </td>
-                {comparedPerf.map((p) => {
-                  const val = (p as unknown as Record<string, number | undefined>)[row.key];
-                  const formatted = row.format(val ?? null);
-                  const isNeg = typeof formatted === "string" && formatted.startsWith("-");
-                  const isBest = val != null && bestVal != null && val === bestVal;
-                  return (
-                    <td
-                      key={p.portfolio_id}
-                      className={`px-3 py-1.5 text-right tabular-nums font-medium ${isNeg ? "text-red-400" : ""} ${isBest ? "bg-emerald-500/10" : ""}`}
-                    >
-                      {formatted}
-                      {isBest && <span className="text-[7px] text-emerald-400 ml-1">best</span>}
-                    </td>
-                  );
-                })}
-                {showBenchmark && benchmarkMetrics && (
-                  <td className="px-3 py-1.5 text-right tabular-nums text-blue-400/80">
-                    {(["num_holdings", "total_aum_cr", "trading_days", "_exec_summary", "_port_conc"].includes(row.key))
-                      ? "—"
-                      : row.format((benchmarkMetrics as unknown as Record<string, number>)[row.key] ?? null)}
-                  </td>
-                )}
-              </tr>
-              {/* Children rows */}
-              {hasChildren && isExpanded && row.children!.map((child) => {
-                const childVals = comparedPerf
-                  .map((p) => (p as unknown as Record<string, number | undefined>)[child.key])
-                  .filter((v): v is number => v != null);
-                const childBest = childVals.length > 0 && comparedPerf.length > 1 ? Math.max(...childVals) : null;
-                return (
-                  <tr key={child.key} className="border-b border-border/20 hover:bg-muted/5">
-                    <td className="pl-9 pr-3 py-1 text-muted-foreground/70 sticky left-0 bg-card z-10 text-[9px]">
-                      └ {child.label}
-                    </td>
-                    {comparedPerf.map((p) => {
-                      const val = (p as unknown as Record<string, number | undefined>)[child.key];
-                      const formatted = child.format(val ?? null);
-                      const isNeg = typeof formatted === "string" && formatted.startsWith("-");
-                      const isBest = val != null && childBest != null && val === childBest;
-                      return (
-                        <td
-                          key={p.portfolio_id}
-                          className={`px-3 py-1 text-right tabular-nums text-[9px] ${isNeg ? "text-red-400" : "text-muted-foreground/70"} ${isBest ? "bg-emerald-500/10" : ""}`}
-                        >
-                          {formatted}
-                        </td>
-                      );
-                    })}
-                    {showBenchmark && benchmarkMetrics && (
-                      <td className="px-3 py-1 text-right tabular-nums text-blue-400/60 text-[9px]">—</td>
-                    )}
-                  </tr>
-                );
-              })}
-            </React.Fragment>
-          );
-        })}
+        {renderRowTree(section.rows, showBenchmark)}
       </React.Fragment>
     ));
   }

@@ -245,43 +245,102 @@ function buildPnLRows(periods: Record<string, unknown>[]): TreeRow[] {
     {
       id: "tr", label: "Total Return (%)", values: row("total_return_pct"),
       children: [
-        { id: "idio_ret",   label: "Idiosyncratic Return", values: row("idio_return_pct") },
-        { id: "factor_ret", label: "Factor Return",        values: row("factor_return_pct") },
-        { id: "div_ret",    label: "Dividend Return",      values: nul() },
-        { id: "other_ret",  label: "Other Return",         values: nul() },
-        { id: "txn_ret",    label: "Transaction Cost",     values: nul() },
+        { id: "idio_ret",   label: "Idiosyncratic Return (%)", values: row("idio_return_pct") },
+        {
+          id: "factor_ret", label: "Factor Return (%)", values: row("factor_return_pct"),
+          children: [
+            { id: "market_ret",   label: "Market Return (%)",   values: row("market_return_pct") },
+            { id: "style_ret",    label: "Style Return (%)",    values: row("style_return_pct") },
+            { id: "industry_ret", label: "Industry Return (%)", values: row("industry_return_pct") },
+          ],
+        },
+        { id: "div_ret",   label: "Dividend Return (%)", values: nul() },
+        { id: "other_ret", label: "Other Return (%)",    values: nul() },
+        {
+          id: "txn_ret", label: "Transaction Cost (%)", values: nul(),
+          children: [
+            { id: "mi_ret",  label: "Market Impact (%)",       values: nul() },
+            { id: "sp_ret",  label: "Spread (%)",               values: nul() },
+            { id: "bf_ret",  label: "Brokerage and Fees (%)",  values: nul() },
+          ],
+        },
       ],
     },
     {
       id: "cagr", label: "CAGR (%)", values: row("cagr_pct"),
       children: [
-        { id: "idio_cagr",   label: "Idiosyncratic CAGR", values: nul() },
-        { id: "factor_cagr", label: "Factor CAGR",        values: nul() },
-        { id: "div_cagr",    label: "Dividend CAGR",      values: nul() },
-        { id: "other_cagr",  label: "Other CAGR",         values: nul() },
-        { id: "txn_cagr",    label: "Transaction Cost CAGR", values: nul() },
+        { id: "idio_cagr",   label: "Idiosyncratic CAGR (%)", values: nul() },
+        {
+          id: "factor_cagr", label: "Factor CAGR (%)", values: nul(),
+          children: [
+            { id: "market_cagr",   label: "Market CAGR (%)",   values: nul() },
+            { id: "style_cagr",    label: "Style CAGR (%)",    values: nul() },
+            { id: "industry_cagr", label: "Industry CAGR (%)", values: nul() },
+          ],
+        },
+        { id: "div_cagr",  label: "Dividend CAGR (%)",          values: nul() },
+        { id: "other_cagr", label: "Other CAGR (%)",            values: nul() },
+        {
+          id: "txn_cagr",  label: "Transaction Cost CAGR (%)", values: nul(),
+          children: [
+            { id: "mi_cagr",  label: "Market Impact CAGR (%)",       values: nul() },
+            { id: "sp_cagr",  label: "Spread CAGR (%)",               values: nul() },
+            { id: "bf_cagr",  label: "Brokerage and Fees CAGR (%)",  values: nul() },
+          ],
+        },
       ],
     },
     {
       id: "sharpe", label: "Sharpe Ratio", values: row("sharpe"),
       children: [
         { id: "idio_sharpe",   label: "Idiosyncratic Sharpe Ratio", values: nul() },
-        { id: "factor_sharpe", label: "Factor Sharpe Ratio",        values: nul() },
+        {
+          id: "factor_sharpe", label: "Factor Sharpe Ratio", values: nul(),
+          children: [
+            { id: "market_sharpe",   label: "Market Sharpe Ratio",   values: nul() },
+            { id: "style_sharpe",    label: "Style Sharpe Ratio",    values: nul() },
+            { id: "industry_sharpe", label: "Industry Sharpe Ratio", values: nul() },
+          ],
+        },
       ],
     },
     {
       id: "sortino", label: "Sortino Ratio", values: row("sortino"),
       children: [
         { id: "idio_sortino",   label: "Idiosyncratic Sortino Ratio", values: nul() },
-        { id: "factor_sortino", label: "Factor Sortino Ratio",        values: nul() },
+        {
+          id: "factor_sortino", label: "Factor Sortino Ratio", values: nul(),
+          children: [
+            { id: "market_sortino",   label: "Market Sortino Ratio",   values: nul() },
+            { id: "style_sortino",    label: "Style Sortino Ratio",    values: nul() },
+            { id: "industry_sortino", label: "Industry Sortino Ratio", values: nul() },
+          ],
+        },
       ],
     },
     { id: "treynor", label: "Treynor Ratio", values: nul() },
     {
       id: "exec_summary", label: "Execution Summary", values: nul(),
       children: [
-        { id: "ann_turnover", label: "Annualized Turnover",        values: nul() },
-        { id: "total_txn",    label: "Total Transaction Cost (bps)", values: nul() },
+        { id: "ann_turnover", label: "Annualized Turnover",            values: nul() },
+        {
+          id: "total_txn",    label: "Total Transaction Cost (bps)", values: nul(),
+          children: [
+            { id: "mi_bps",  label: "Market Impact Cost (bps)", values: nul() },
+            { id: "sp_bps",  label: "Spread Cost (bps)",         values: nul() },
+            {
+              id: "bf_bps",  label: "Brokerage and Fees (bps)", values: nul(),
+              children: [
+                { id: "brok_bps",  label: "Brokerage (bps)",                   values: nul() },
+                { id: "etc_bps",   label: "Exchange Transaction Charges (bps)", values: nul() },
+                { id: "sebi_bps",  label: "SEBI Charges (bps)",                values: nul() },
+                { id: "stamp_bps", label: "Stamp Charges (bps)",               values: nul() },
+                { id: "stt_bps",   label: "STT Fees (bps)",                    values: nul() },
+                { id: "gst_bps",   label: "GST (bps)",                         values: nul() },
+              ],
+            },
+          ],
+        },
       ],
     },
   ];
@@ -296,33 +355,84 @@ function buildRiskRows(periods: Record<string, unknown>[]): TreeRow[] {
     {
       id: "realized_risk", label: "Realized Risk (%)", values: row("volatility_pct"),
       children: [
-        { id: "idio_real_risk",   label: "Idiosyncratic Realized Risk (%)", values: nul() },
-        { id: "factor_real_risk", label: "Factor Realized Risk (%)",        values: nul() },
+        { id: "idio_rr",   label: "Idiosyncratic Realized Risk (%)", values: nul() },
+        {
+          id: "factor_rr", label: "Factor Realized Risk (%)", values: nul(),
+          children: [
+            { id: "market_rr",   label: "Market Realized Risk (%)",   values: nul() },
+            { id: "style_rr",    label: "Style Realized Risk (%)",    values: nul() },
+            { id: "industry_rr", label: "Industry Realized Risk (%)", values: nul() },
+          ],
+        },
       ],
     },
     {
       id: "pred_risk", label: "Total Predicted Risk (%)", values: nul(),
       children: [
-        { id: "idio_pred_risk",   label: "Idiosyncratic Predicted Risk (%)", values: nul() },
-        { id: "factor_pred_risk", label: "Factor Predicted Risk (%)",        values: nul() },
+        { id: "idio_pr",   label: "Idiosyncratic Predicted Risk (%)", values: nul() },
+        {
+          id: "factor_pr", label: "Factor Predicted Risk (%)", values: nul(),
+          children: [
+            { id: "market_pr",   label: "Market Predicted Risk (%)",   values: nul() },
+            { id: "style_pr",    label: "Style Predicted Risk (%)",    values: nul() },
+            { id: "industry_pr", label: "Industry Predicted Risk (%)", values: nul() },
+          ],
+        },
       ],
     },
     {
       id: "risk_contrib", label: "Risk Contribution (%)", values: nul(),
       children: [
         { id: "idio_rc",   label: "Idiosyncratic Risk Contribution (%)", values: nul() },
-        { id: "factor_rc", label: "Factor Risk Contribution (%)",        values: nul() },
+        {
+          id: "factor_rc", label: "Factor Risk Contribution (%)", values: nul(),
+          children: [
+            { id: "market_rc",   label: "Market Risk Contribution (%)",   values: nul() },
+            { id: "style_rc",    label: "Style Risk Contribution (%)",    values: nul() },
+            { id: "industry_rc", label: "Industry Risk Contribution (%)", values: nul() },
+          ],
+        },
       ],
     },
     {
       id: "concentration", label: "Portfolio Concentration", values: nul(),
       children: [
-        { id: "top_holdings",    label: "Top Holdings (%)",                      values: nul() },
-        { id: "top_total_rc",    label: "Top Total Risk Contribution (%)",        values: nul() },
-        { id: "top_idio_rc",     label: "Top Idiosyncratic Risk Contribution (%)", values: nul() },
-        { id: "top_factor_rc",   label: "Top Factor Risk Contribution (%)",       values: nul() },
+        {
+          id: "top_holdings",  label: "Top Holdings (%)", values: nul(),
+          children: [
+            { id: "top5_h",  label: "Top 5 Holdings (%)",  values: nul() },
+            { id: "top10_h", label: "Top 10 Holdings (%)", values: nul() },
+            { id: "top20_h", label: "Top 20 Holdings (%)", values: nul() },
+          ],
+        },
+        {
+          id: "top_total_rc",  label: "Top Total Risk Contribution (%)", values: nul(),
+          children: [
+            { id: "top5_trc",  label: "Top 5 Total Risk Contribution (%)",  values: nul() },
+            { id: "top10_trc", label: "Top 10 Total Risk Contribution (%)", values: nul() },
+            { id: "top20_trc", label: "Top 20 Total Risk Contribution (%)", values: nul() },
+          ],
+        },
+        {
+          id: "top_idio_rc",   label: "Top Idiosyncratic Risk Contribution (%)", values: nul(),
+          children: [
+            { id: "top5_irc",  label: "Top 5 Idiosyncratic Risk Contribution (%)",  values: nul() },
+            { id: "top10_irc", label: "Top 10 Idiosyncratic Risk Contribution (%)", values: nul() },
+            { id: "top20_irc", label: "Top 20 Idiosyncratic Risk Contribution (%)", values: nul() },
+          ],
+        },
+        {
+          id: "top_factor_rc", label: "Top Factor Risk Contribution (%)", values: nul(),
+          children: [
+            { id: "top5_frc",  label: "Top 5 Factor Risk Contribution (%)",  values: nul() },
+            { id: "top10_frc", label: "Top 10 Factor Risk Contribution (%)", values: nul() },
+            { id: "top20_frc", label: "Top 20 Factor Risk Contribution (%)", values: nul() },
+          ],
+        },
       ],
     },
+    { id: "gross_aum",     label: "Gross AUM (INR cr)",     values: nul() },
+    { id: "unlevered_aum", label: "Unlevered AUM (INR cr)", values: nul() },
   ];
 }
 
@@ -365,6 +475,7 @@ const STAT_KPI_OPTIONS = [
   { key: "market_return_pct",   label: "Market Return (%)" },
   { key: "style_return_pct",    label: "Style Return (%)" },
   { key: "industry_return_pct", label: "Industry Return (%)" },
+  { key: "txn_cost_pct",        label: "Transaction Cost (%)" },
 ];
 
 // Chart KPI options for the chart section

@@ -155,24 +155,22 @@ export default function EventSensitivityPage() {
                 <thead className="sticky top-0 bg-card">
                   <tr className="border-b border-border/50">
                     <th className="px-2 py-1.5 w-6" />
-                    {["Event", "Start", "End", "Portfolio %", "Benchmark %", "Excess %"].map((h) => (
+                    {["Event Name", "Start Date", "End Date", "Event Return (%)"].map((h) => (
                       <th key={h} className="px-2 py-1.5 text-left font-medium text-muted-foreground whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {events.length === 0 ? (
-                    <tr><td colSpan={7} className="px-2 py-4 text-center text-muted-foreground">No event data available</td></tr>
+                    <tr><td colSpan={5} className="px-2 py-4 text-center text-muted-foreground">No event data available</td></tr>
                   ) : (
                     events.map((e, i) => {
                       const hasData = (e as Record<string,unknown>).has_data !== false && (e.portfolio_return_pct != null || e.portfolio_return != null);
                       const portRet = hasData ? getPortRet(e) : null;
                       const bmRet  = hasData ? getBmRet(e)  : null;
                       const excess = hasData ? getExcess(e) : null;
-                      // Primary value shown based on toggle view
-                      const primaryRet = view === "Benchmark" ? bmRet : view === "Active" ? excess : portRet;
-                      const fmtRet = (v: number | null, signed = false) =>
-                        v == null ? "—" : `${signed && v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
+                      const eventRet = view === "Benchmark" ? bmRet : view === "Active" ? excess : portRet;
+                      const fmtRet = (v: number | null) => v == null ? "—" : `${v.toFixed(2)}%`;
                       return (
                         <tr key={i}
                           className={`border-b border-border/30 ${hasData ? "cursor-pointer hover:bg-muted/20" : "opacity-40"} ${selectedEventIdx === i ? "bg-muted/40" : ""}`}
@@ -182,9 +180,9 @@ export default function EventSensitivityPage() {
                           <td className="px-2 py-1.5 font-medium max-w-[120px] truncate">{getEventName(e)}</td>
                           <td className="px-2 py-1.5 text-muted-foreground">{getStart(e).slice(0, 10)}</td>
                           <td className="px-2 py-1.5 text-muted-foreground">{getEnd(e).slice(0, 10)}</td>
-                          <td className={`px-2 py-1.5 tabular-nums ${portRet == null ? "text-muted-foreground" : portRet >= 0 ? "text-emerald-500" : "text-red-400"}`}>{fmtRet(portRet)}</td>
-                          <td className={`px-2 py-1.5 tabular-nums ${bmRet  == null ? "text-muted-foreground" : bmRet  >= 0 ? "text-emerald-500" : "text-red-400"}`}>{fmtRet(bmRet)}</td>
-                          <td className={`px-2 py-1.5 tabular-nums ${excess == null ? "text-muted-foreground" : excess >= 0 ? "text-emerald-500" : "text-red-400"}`}>{fmtRet(excess, true)}</td>
+                          <td className={`px-2 py-1.5 tabular-nums ${eventRet == null ? "text-muted-foreground" : eventRet >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                            {fmtRet(eventRet)}
+                          </td>
                         </tr>
                       );
                     })
@@ -232,24 +230,51 @@ export default function EventSensitivityPage() {
       {/* Selected event detail */}
       {selectedEvent && (
         <>
-          <div className="flex items-center gap-4 p-3 rounded-lg border bg-card">
-            <div className="text-xs font-medium">{getEventName(selectedEvent)}</div>
-            <div className={`text-xs ${getPortRet(selectedEvent) >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-              Portfolio: {getPortRet(selectedEvent).toFixed(2)}%
-            </div>
-            <div className={`text-xs ${getBmRet(selectedEvent) >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-              Benchmark: {getBmRet(selectedEvent).toFixed(2)}%
-            </div>
-            <div className={`text-xs font-medium ${getExcess(selectedEvent) >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-              Excess: {getExcess(selectedEvent) >= 0 ? "+" : ""}{getExcess(selectedEvent).toFixed(2)}%
-            </div>
+          <div className="flex items-center gap-2 p-2.5 rounded-lg border bg-card">
+            <span className="text-xs font-medium">{getEventName(selectedEvent)}</span>
+            <span className="text-[10px] text-muted-foreground">{getStart(selectedEvent).slice(0, 10)} — {getEnd(selectedEvent).slice(0, 10)}</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* Portfolio & Common Index Returns */}
+            <Card>
+              <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+                <CardTitle className="text-[11px]">Portfolio &amp; Common Index Returns</CardTitle>
+                <CardControls />
+              </CardHeader>
+              <CardContent className="p-0">
+                <table className="w-full text-[10px]">
+                  <thead>
+                    <tr className="border-b border-border/50">
+                      <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Portfolio / Index Name</th>
+                      <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Event Return (%)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { name: "Portfolio Return (%)", value: getPortRet(selectedEvent) },
+                      { name: "NIFTY BANK",           value: null as number | null },
+                      { name: "NIFTY 500",            value: getBmRet(selectedEvent) },
+                      { name: "NIFTY MIDCAP 100",     value: null as number | null },
+                      { name: "NIFTY SMALLCAP 100",   value: null as number | null },
+                      { name: "NIFTY 50",             value: null as number | null },
+                    ].map((row) => (
+                      <tr key={row.name} className="border-b border-border/30">
+                        <td className="px-2 py-1.5 font-medium">{row.name}</td>
+                        <td className={`px-2 py-1.5 text-right tabular-nums ${row.value == null ? "text-muted-foreground" : row.value >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                          {row.value == null ? "—" : `${row.value.toFixed(2)}%`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+
             {/* Event equity curve */}
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-                <CardTitle className="text-[11px]">Portfolio Return During Event</CardTitle>
+                <CardTitle className="text-[11px]">Event Returns Time Series</CardTitle>
                 <CardControls fullscreen expandContent={
                   eventCurveData.length > 0 ? (
                     <TimeSeriesChart
@@ -277,33 +302,40 @@ export default function EventSensitivityPage() {
               </CardContent>
             </Card>
 
-            {/* Factor contributors during event */}
+            {/* Contributors and Detractors — Factor Return */}
             <Card>
               <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-                <CardTitle className="text-[11px]">Factor Contributors During Event</CardTitle>
+                <CardTitle className="text-[11px]">Contributors &amp; Detractors</CardTitle>
                 <CardControls />
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full text-[10px]">
                   <thead>
                     <tr className="border-b border-border/50">
-                      <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Factor</th>
-                      <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Cumulative Return (%)</th>
+                      {["Factor Type", "Factor Name", "Factor Raw Return (%)", "Factor Exposure (%)", "Factor Risk Contribution (%)", "Factor Return (%)"].map((h) => (
+                        <th key={h} className="px-2 py-1.5 text-left font-medium text-muted-foreground whitespace-nowrap">{h}</th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
                     {factorContribs.length > 0 ? (
                       factorContribs.map((f) => (
                         <tr key={f.factor} className="border-b border-border/30">
+                          <td className="px-2 py-1.5 text-muted-foreground">—</td>
                           <td className="px-2 py-1.5 font-medium">{f.factor}</td>
                           <td className={`px-2 py-1.5 text-right tabular-nums ${f.cumReturn >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                            {(f.cumReturn * 100) >= 0 ? "+" : ""}{(f.cumReturn * 100).toFixed(2)}%
+                            {(f.cumReturn * 100).toFixed(2)}%
+                          </td>
+                          <td className="px-2 py-1.5 text-right text-muted-foreground">—</td>
+                          <td className="px-2 py-1.5 text-right text-muted-foreground">—</td>
+                          <td className={`px-2 py-1.5 text-right tabular-nums ${f.cumReturn >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                            {(f.cumReturn * 100).toFixed(2)}%
                           </td>
                         </tr>
                       ))
                     ) : (
-                      <tr><td colSpan={2} className="px-2 py-4 text-center text-muted-foreground">
-                        No factor decomposition data for this event window
+                      <tr><td colSpan={6} className="px-2 py-4 text-center text-muted-foreground">
+                        No factor data for this event window
                       </td></tr>
                     )}
                   </tbody>

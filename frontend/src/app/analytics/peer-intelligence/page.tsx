@@ -79,22 +79,63 @@ const VALUATION_KPIS = [
 // ─── Performance table rows ──────────────────────────────────────────────────
 
 const TABLE_ROWS = [
-  { label: "P&L Summary", isSection: true },
-  { label: "Total Return (%)", path: ["pnl_metrics", "total_return_pct"], indent: 0 },
-  { label: "└ Idiosyncratic Return (%)", path: ["pnl_metrics", "idio_return_pct"], indent: 1 },
-  { label: "└ Factor Return (%)", path: ["pnl_metrics", "factor_return_pct"], indent: 1 },
-  { label: "CAGR (%)", path: ["pnl_metrics", "cagr_pct"], indent: 0 },
-  { label: "Sharpe Ratio", path: ["pnl_metrics", "sharpe"], indent: 0 },
-  { label: "Sortino Ratio", path: ["pnl_metrics", "sortino"], indent: 0 },
-  { label: "Treynor Ratio", path: ["pnl_metrics", "treynor_ratio"], indent: 0 },
+  { label: "Profit and Loss Summary", isSection: true },
+  { label: "Total Return (%)",              path: ["pnl_metrics", "total_return_pct"],    indent: 0 },
+  { label: "Idiosyncratic Return (%)",      path: ["pnl_metrics", "idio_return_pct"],     indent: 1 },
+  { label: "Factor Return (%)",             path: ["pnl_metrics", "factor_return_pct"],   indent: 1 },
+  { label: "Market Return (%)",             path: ["pnl_metrics", "market_return_pct"],   indent: 2 },
+  { label: "Style Return (%)",              path: ["pnl_metrics", "style_return_pct"],    indent: 2 },
+  { label: "Industry Return (%)",           path: ["pnl_metrics", "industry_return_pct"], indent: 2 },
+  { label: "Dividend Return (%)",           path: ["pnl_metrics", "_div_return_pct"],     indent: 1 },
+  { label: "Other Return (%)",              path: ["pnl_metrics", "_other_return_pct"],   indent: 1 },
+  { label: "Transaction Cost (%)",          path: ["pnl_metrics", "_tc_pct"],             indent: 1 },
+  { label: "CAGR (%)",                      path: ["pnl_metrics", "cagr_pct"],            indent: 0 },
+  { label: "Idiosyncratic CAGR (%)",        path: ["pnl_metrics", "_idio_cagr"],          indent: 1 },
+  { label: "Factor CAGR (%)",               path: ["pnl_metrics", "_factor_cagr"],        indent: 1 },
+  { label: "Dividend CAGR (%)",             path: ["pnl_metrics", "_div_cagr"],           indent: 1 },
+  { label: "Other CAGR (%)",               path: ["pnl_metrics", "_other_cagr"],          indent: 1 },
+  { label: "Transaction Cost CAGR (%)",     path: ["pnl_metrics", "_tc_cagr"],            indent: 1 },
+  { label: "Sharpe Ratio",                  path: ["pnl_metrics", "sharpe"],              indent: 0 },
+  { label: "Idiosyncratic Sharpe Ratio",    path: ["pnl_metrics", "_idio_sharpe"],        indent: 1 },
+  { label: "Factor Sharpe Ratio",           path: ["pnl_metrics", "_factor_sharpe"],      indent: 1 },
+  { label: "Sortino Ratio",                 path: ["pnl_metrics", "sortino"],             indent: 0 },
+  { label: "Idiosyncratic Sortino Ratio",   path: ["pnl_metrics", "_idio_sortino"],       indent: 1 },
+  { label: "Factor Sortino Ratio",          path: ["pnl_metrics", "_factor_sortino"],     indent: 1 },
+  { label: "Treynor Ratio",                 path: ["pnl_metrics", "treynor"],             indent: 0 },
+  { label: "Execution Summary",             path: ["pnl_metrics", "_exec"],               indent: 0 },
+  { label: "Annualized Turnover",           path: ["pnl_metrics", "_ann_turnover"],       indent: 1 },
+  { label: "Total Transaction Cost (bps)",  path: ["pnl_metrics", "_tc_bps"],             indent: 1 },
   { label: "Risk Summary", isSection: true },
-  { label: "Beta", path: ["pnl_metrics", "beta"], indent: 0 },
-  { label: "Realized Risk (%)", path: ["pnl_metrics", "volatility_pct"], indent: 0 },
-  { label: "Max Drawdown (%)", path: ["pnl_metrics", "max_drawdown_pct"], indent: 0 },
-  { label: "Valuation", isSection: true },
-  { label: "PE Ratio", path: ["valuation_ts", "__last__", "pe"], indent: 0 },
-  { label: "P/B Ratio", path: ["valuation_ts", "__last__", "pb"], indent: 0 },
-  { label: "Return on Equity (%)", path: ["pnl_metrics", "roe_pct"], indent: 0 },
+  { label: "Beta",                          path: ["pnl_metrics", "beta"],                indent: 0 },
+  { label: "Realized Risk (%)",             path: ["pnl_metrics", "volatility_pct"],      indent: 0 },
+  { label: "Idiosyncratic Realized Risk (%)", path: ["pnl_metrics", "_idio_rr"],          indent: 1 },
+  { label: "Factor Realized Risk (%)",      path: ["pnl_metrics", "_factor_rr"],          indent: 1 },
+  { label: "Market Realized Risk (%)",      path: ["pnl_metrics", "_market_rr"],          indent: 2 },
+  { label: "Style Realized Risk (%)",       path: ["pnl_metrics", "_style_rr"],           indent: 2 },
+  { label: "Industry Realized Risk (%)",    path: ["pnl_metrics", "_industry_rr"],        indent: 2 },
+  { label: "Total Predicted Risk (%)",      path: ["pnl_metrics", "_pred_risk"],          indent: 0 },
+  { label: "Idiosyncratic Predicted Risk (%)", path: ["pnl_metrics", "_idio_pr"],         indent: 1 },
+  { label: "Factor Predicted Risk (%)",     path: ["pnl_metrics", "_factor_pr"],          indent: 1 },
+  { label: "Market Predicted Risk (%)",     path: ["pnl_metrics", "_market_pr"],          indent: 2 },
+  { label: "Style Predicted Risk (%)",      path: ["pnl_metrics", "_style_pr"],           indent: 2 },
+  { label: "Industry Predicted Risk (%)",   path: ["pnl_metrics", "_industry_pr"],        indent: 2 },
+  { label: "Risk Contribution (%)",         path: ["pnl_metrics", "_rc"],                 indent: 0 },
+  { label: "Idiosyncratic Risk Contribution (%)", path: ["pnl_metrics", "_idio_rc"],      indent: 1 },
+  { label: "Factor Risk Contribution (%)", path: ["pnl_metrics", "_factor_rc"],           indent: 1 },
+  { label: "Market Risk Contribution (%)", path: ["pnl_metrics", "_market_rc"],           indent: 2 },
+  { label: "Style Risk Contribution (%)",  path: ["pnl_metrics", "_style_rc"],            indent: 2 },
+  { label: "Industry Risk Contribution (%)", path: ["pnl_metrics", "_industry_rc"],       indent: 2 },
+  { label: "Portfolio Concentration",       path: ["pnl_metrics", "_conc"],               indent: 0 },
+  { label: "Top Holdings (%)",              path: ["pnl_metrics", "_top_h"],              indent: 1 },
+  { label: "Top Total Risk Contribution (%)", path: ["pnl_metrics", "_top_trc"],          indent: 1 },
+  { label: "Top Idiosyncratic Risk Contribution (%)", path: ["pnl_metrics", "_top_irc"],  indent: 1 },
+  { label: "Top Factor Risk Contribution (%)", path: ["pnl_metrics", "_top_frc"],         indent: 1 },
+  { label: "Gross AUM (INR cr)",            path: ["pnl_metrics", "_aum_gross"],          indent: 0 },
+  { label: "Unlevered AUM (INR cr)",        path: ["pnl_metrics", "_aum_unlevered"],      indent: 0 },
+  { label: "Valuation Summary", isSection: true },
+  { label: "PE Ratio",             path: ["valuation_ts", "__last__", "pe"],  indent: 0 },
+  { label: "P/B Ratio",            path: ["valuation_ts", "__last__", "pb"],  indent: 0 },
+  { label: "Return on Equity (%)", path: ["pnl_metrics", "roe_pct"],          indent: 0 },
 ] as const;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -724,7 +765,9 @@ export default function PeerIntelligencePage() {
                       <tr key={ri} className="border-b border-border/30">
                         <td
                           className={`px-2 py-1.5 ${
-                            indent === 1 ? "pl-4 text-muted-foreground" : "text-muted-foreground"
+                            indent === 2 ? "pl-8 text-muted-foreground/60 text-[9px]" :
+                            indent === 1 ? "pl-4 text-muted-foreground" :
+                            "text-muted-foreground"
                           }`}
                         >
                           {label}
@@ -745,6 +788,62 @@ export default function PeerIntelligencePage() {
                       </tr>
                     );
                   })}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+
+          {/* ── Brinson Decomposition Summary ────────────────────────────────── */}
+          <Card>
+            <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+              <CardTitle className="text-[11px]">Brinson Decomposition Summary</CardTitle>
+              <CardControls />
+            </CardHeader>
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full text-[10px]">
+                <thead>
+                  <tr className="border-b border-border/50">
+                    <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Category</th>
+                    {peers.map((p, i) => (
+                      <th key={i} colSpan={3} className="px-2 py-1.5 text-center font-medium whitespace-nowrap border-l border-border/30" style={{ color: COLORS[i % COLORS.length] }}>
+                        {p.label}
+                      </th>
+                    ))}
+                  </tr>
+                  <tr className="border-b border-border/30 text-muted-foreground/60">
+                    <th className="px-2 py-1 text-left text-[9px]" />
+                    {peers.map((_, i) => (
+                      <>
+                        <th key={`${i}-a`} className="px-2 py-1 text-right text-[9px] border-l border-border/20">Alloc (%)</th>
+                        <th key={`${i}-s`} className="px-2 py-1 text-right text-[9px]">Select (%)</th>
+                        <th key={`${i}-i`} className="px-2 py-1 text-right text-[9px]">Interact (%)</th>
+                      </>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {["Market Cap", "Liquidity", "Total Risk", "Idiosyncratic Risk", "Sector", "Industry", "Earnings Window", "IPO", "Financial Type", "Position Age"].map((cat) => (
+                    <tr key={cat} className="border-b border-border/30">
+                      <td className="px-2 py-1.5 font-medium">{cat}</td>
+                      {peers.map((p, i) => {
+                        const brinson = (p.data?.brinson as Record<string, unknown> | undefined) ?? {};
+                        const arr = (cat === "Market Cap" ? brinson.by_mcap : cat === "Sector" ? brinson.by_sector : []) as Array<Record<string, unknown>>;
+                        const sum = Array.isArray(arr) ? {
+                          alloc:    arr.reduce((s, r) => s + Number(r.allocation_effect  ?? 0), 0),
+                          select:   arr.reduce((s, r) => s + Number(r.selection_effect   ?? 0), 0),
+                          interact: arr.reduce((s, r) => s + Number(r.interaction_effect ?? 0), 0),
+                        } : null;
+                        const fmtVal = (v: number) => <span className={v >= 0 ? "text-emerald-500" : "text-red-400"}>{v.toFixed(2)}</span>;
+                        return (
+                          <>
+                            <td key={`${i}-a`} className="px-2 py-1.5 text-right tabular-nums border-l border-border/20">{sum ? fmtVal(sum.alloc)    : <span className="text-muted-foreground">—</span>}</td>
+                            <td key={`${i}-s`} className="px-2 py-1.5 text-right tabular-nums">{sum ? fmtVal(sum.select)   : <span className="text-muted-foreground">—</span>}</td>
+                            <td key={`${i}-i`} className="px-2 py-1.5 text-right tabular-nums">{sum ? fmtVal(sum.interact) : <span className="text-muted-foreground">—</span>}</td>
+                          </>
+                        );
+                      })}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </CardContent>

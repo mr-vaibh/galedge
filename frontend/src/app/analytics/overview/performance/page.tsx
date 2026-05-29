@@ -445,10 +445,18 @@ function buildRiskRows(pnl: Record<string, unknown>): TreeRow[] {
 }
 
 function buildValuationRows(pnl: Record<string, unknown>): TreeRow[] {
+  const n = (k: string) => (pnl[k] as number | null | undefined) ?? null;
+  const diff = (mk: string, bk: string) => {
+    const m = n(mk), b = n(bk);
+    return m != null && b != null ? Math.round((Number(m) - Number(b)) * 100) / 100 : null;
+  };
+  const V = (mk: string, bk: string) => ({
+    Main: n(mk), Benchmark: n(bk), Active: diff(mk, bk),
+  });
   return [
-    { id: "pe",  label: "PE Ratio",            values: { Main: (pnl.pe_ratio as number) ?? null } },
-    { id: "pb",  label: "P/B Ratio",            values: { Main: (pnl.pb_ratio as number) ?? null } },
-    { id: "roe", label: "Return on Equity (%)", values: { Main: (pnl.roe_pct as number) ?? null } },
+    { id: "pe",  label: "PE Ratio",            values: V("pe_ratio",  "benchmark_pe_ratio") },
+    { id: "pb",  label: "P/B Ratio",            values: V("pb_ratio",  "benchmark_pb_ratio") },
+    { id: "roe", label: "Return on Equity (%)", values: V("roe_pct",   "benchmark_roe_pct") },
   ];
 }
 
@@ -499,7 +507,7 @@ export default function PerformanceSummaryPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <AnalyticsTreeTable title="Profit & Loss Summary" columns={treeCols}   rows={buildPnLRows(pnl)}      defaultExpanded={new Set(["total_return"])} />
         <AnalyticsTreeTable title="Risk Summary"          columns={treeCols}   rows={buildRiskRows(pnl)} />
-        <AnalyticsTreeTable title="Valuation Summary"     columns={singleCol}  rows={buildValuationRows(pnl)} />
+        <AnalyticsTreeTable title="Valuation Summary"     columns={treeCols}   rows={buildValuationRows(pnl)} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

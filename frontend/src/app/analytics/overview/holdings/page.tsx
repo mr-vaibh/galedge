@@ -212,7 +212,7 @@ export default function HoldingsSummaryPage() {
               <thead className="sticky top-0 bg-card">
                 <tr className="border-b border-border/50">
                   <th className="px-2 py-1.5 w-6" />
-                  {["Symbol", "Weight (%)", "Raw Ret (%)", "Tot Ret (%)", "Risk Contrib (%)", "Idio Ret (%)"].map((h) => (
+                  {["Symbol", "Holdings (%)", "Raw Return (%)", "Total Return (%)", "Total Risk Contribution (%)", "Idiosyncratic Raw Return (%)", "Idiosyncratic Return (%)", "Idiosyncratic Risk Contribution (%)"].map((h) => (
                     <th key={h} className="px-2 py-1.5 text-left font-medium text-muted-foreground whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -229,11 +229,13 @@ export default function HoldingsSummaryPage() {
                     <td className="px-2 py-1"><ColoredCell value={fmt(h.raw_return_pct)} /></td>
                     <td className="px-2 py-1"><ColoredCell value={fmt(h.total_return_contribution_pct)} /></td>
                     <td className="px-2 py-1"><ColoredCell value={fmt(h.total_risk_contribution_pct)} /></td>
+                    <td className="px-2 py-1"><ColoredCell value={fmt((h as Record<string, unknown>).idio_raw_return_pct)} /></td>
                     <td className="px-2 py-1"><ColoredCell value={fmt(h.idio_return_pct)} /></td>
+                    <td className="px-2 py-1"><ColoredCell value={fmt((h as Record<string, unknown>).idio_risk_contribution_pct ?? (h as Record<string, unknown>).risk_contribution_pct)} /></td>
                   </tr>
                 ))}
                 {holdings.length === 0 && (
-                  <tr><td colSpan={7} className="px-2 py-4 text-center text-muted-foreground">No holdings data</td></tr>
+                  <tr><td colSpan={9} className="px-2 py-4 text-center text-muted-foreground">No holdings data</td></tr>
                 )}
               </tbody>
             </table>
@@ -260,7 +262,7 @@ export default function HoldingsSummaryPage() {
               <thead className="sticky top-0 bg-card">
                 <tr className="border-b border-border/50">
                   <th className="px-2 py-1.5 w-6" />
-                  {["Type", "Factor", "Exposure (%)", "Raw Ret (%)", "Ret Contrib (%)", "Risk Contrib (%)"].map((h) => (
+                  {["Factor Type", "Factor Name", "Factor Exposure (%)", "Factor Raw Return (%)", "Factor Return (%)", "Factor Risk Contribution (%)"].map((h) => (
                     <th key={h} className="px-2 py-1.5 text-left font-medium text-muted-foreground whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
