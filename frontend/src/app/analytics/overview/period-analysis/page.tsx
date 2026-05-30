@@ -476,7 +476,6 @@ const STAT_KPI_OPTIONS = [
   { key: "market_return_pct",   label: "Market Return (%)" },
   { key: "style_return_pct",    label: "Style Return (%)" },
   { key: "industry_return_pct", label: "Industry Return (%)" },
-  { key: "txn_cost_pct",        label: "Transaction Cost (%)" },
 ];
 
 // Chart KPI options for the chart section

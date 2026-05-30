@@ -36,9 +36,6 @@ type ValuationKpi = typeof VALUATION_KPIS[number]["value"];
 
 const DIMENSION_KPIS = [
   { value: "market_cap", label: "Market Cap" },
-  { value: "liquidity",  label: "Liquidity" },
-  { value: "total_risk", label: "Total Risk" },
-  { value: "idio_risk",  label: "Idiosyncratic Risk" },
   { value: "sector",     label: "Sector" },
   { value: "industry",   label: "Industry" },
 ] as const;
@@ -441,10 +438,57 @@ function DimensionChartCard({ analyticsData }: { analyticsData: Record<string, u
 }
 
 // ---------------------------------------------------------------------------
+// Derived metric helpers
+// ---------------------------------------------------------------------------
+
+interface FactorStats { idio: number | null; factor: number | null; market: number | null; style: number | null; industry: number | null }
+interface ConcStats { top5_weight: number | null; top10_weight: number | null; top20_weight: number | null; top5_risk: number | null; top10_risk: number | null; top20_risk: number | null }
+
+function computeConcentration(holdings: Pt[]): ConcStats | null {
+  if (!holdings.length) return null;
+  const byWeight = [...holdings].sort((a, b) => Number(b.avg_weight ?? 0) - Number(a.avg_weight ?? 0));
+  const byRisk   = [...holdings].sort((a, b) => Number(b.risk_contribution_pct ?? 0) - Number(a.risk_contribution_pct ?? 0));
+  const sum = (arr: Pt[], key: string, n: number) =>
+    Math.round(arr.slice(0, n).reduce((s, h) => s + Number(h[key] ?? 0), 0) * 100) / 100;
+  return {
+    top5_weight:  sum(byWeight, "avg_weight", 5),
+    top10_weight: sum(byWeight, "avg_weight", 10),
+    top20_weight: sum(byWeight, "avg_weight", 20),
+    top5_risk:    sum(byRisk, "risk_contribution_pct", 5),
+    top10_risk:   sum(byRisk, "risk_contribution_pct", 10),
+    top20_risk:   sum(byRisk, "risk_contribution_pct", 20),
+  };
+}
+
+function computeFactorSharpe(fdt: Pt[]): FactorStats | null {
+  if (fdt.length < 30) return null;
+  const sharpe = (key: string): number | null => {
+    const vals = fdt.map(p => Number(p[key] ?? 0));
+    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const std = Math.sqrt(vals.reduce((a, b) => a + (b - mean) ** 2, 0) / (vals.length - 1));
+    return std > 1e-9 ? Math.round(mean / std * Math.sqrt(252) * 100) / 100 : null;
+  };
+  return { idio: sharpe("idio"), factor: sharpe("factor_total"), market: sharpe("market"), style: sharpe("style"), industry: sharpe("industry") };
+}
+
+function computeFactorSortino(fdt: Pt[]): FactorStats | null {
+  if (fdt.length < 30) return null;
+  const sortino = (key: string): number | null => {
+    const vals = fdt.map(p => Number(p[key] ?? 0));
+    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const negVals = vals.filter(v => v < 0);
+    if (!negVals.length) return null;
+    const downStd = Math.sqrt(negVals.reduce((a, b) => a + b * b, 0) / negVals.length);
+    return downStd > 1e-9 ? Math.round(mean / downStd * Math.sqrt(252) * 100) / 100 : null;
+  };
+  return { idio: sortino("idio"), factor: sortino("factor_total"), market: sortino("market"), style: sortino("style"), industry: sortino("industry") };
+}
+
+// ---------------------------------------------------------------------------
 // Tree builders
 // ---------------------------------------------------------------------------
 
-function buildPnLTree(pnl: Record<string, unknown>): TreeRow[] {
+function buildPnLTree(pnl: Record<string, unknown>, fs: FactorStats | null, so: FactorStats | null): TreeRow[] {
   const n = (k: string): number | null => (pnl[k] as number | null | undefined) ?? null;
   const diff = (mk: string, bk: string): number | null => {
     const m = n(mk), b = n(bk);
@@ -505,13 +549,13 @@ function buildPnLTree(pnl: Record<string, unknown>): TreeRow[] {
     {
       id: "sharpe", label: "Sharpe Ratio", values: V("sharpe", "benchmark_sharpe"),
       children: [
-        { id: "idio_sharpe", label: "Idiosyncratic Sharpe Ratio", values: N() },
+        { id: "idio_sharpe", label: "Idiosyncratic Sharpe Ratio", values: { Main: fs?.idio    ?? null, Benchmark: null, Active: null } },
         {
-          id: "fac_sharpe", label: "Factor Sharpe Ratio", values: N(),
+          id: "fac_sharpe", label: "Factor Sharpe Ratio", values: { Main: fs?.factor  ?? null, Benchmark: null, Active: null },
           children: [
-            { id: "mkt_sharpe", label: "Market Sharpe Ratio",   values: N() },
-            { id: "sty_sharpe", label: "Style Sharpe Ratio",    values: N() },
-            { id: "ind_sharpe", label: "Industry Sharpe Ratio", values: N() },
+            { id: "mkt_sharpe", label: "Market Sharpe Ratio",   values: { Main: fs?.market   ?? null, Benchmark: null, Active: null } },
+            { id: "sty_sharpe", label: "Style Sharpe Ratio",    values: { Main: fs?.style    ?? null, Benchmark: null, Active: null } },
+            { id: "ind_sharpe", label: "Industry Sharpe Ratio", values: { Main: fs?.industry ?? null, Benchmark: null, Active: null } },
           ],
         },
       ],
@@ -519,13 +563,13 @@ function buildPnLTree(pnl: Record<string, unknown>): TreeRow[] {
     {
       id: "sortino", label: "Sortino Ratio", values: V("sortino", "benchmark_sortino"),
       children: [
-        { id: "idio_sortino", label: "Idiosyncratic Sortino Ratio", values: N() },
+        { id: "idio_sortino", label: "Idiosyncratic Sortino Ratio", values: { Main: so?.idio    ?? null, Benchmark: null, Active: null } },
         {
-          id: "fac_sortino", label: "Factor Sortino Ratio", values: N(),
+          id: "fac_sortino", label: "Factor Sortino Ratio", values: { Main: so?.factor  ?? null, Benchmark: null, Active: null },
           children: [
-            { id: "mkt_sortino", label: "Market Sortino Ratio",   values: N() },
-            { id: "sty_sortino", label: "Style Sortino Ratio",    values: N() },
-            { id: "ind_sortino", label: "Industry Sortino Ratio", values: N() },
+            { id: "mkt_sortino", label: "Market Sortino Ratio",   values: { Main: so?.market   ?? null, Benchmark: null, Active: null } },
+            { id: "sty_sortino", label: "Style Sortino Ratio",    values: { Main: so?.style    ?? null, Benchmark: null, Active: null } },
+            { id: "ind_sortino", label: "Industry Sortino Ratio", values: { Main: so?.industry ?? null, Benchmark: null, Active: null } },
           ],
         },
       ],
@@ -558,7 +602,7 @@ function buildPnLTree(pnl: Record<string, unknown>): TreeRow[] {
   ];
 }
 
-function buildRiskTree(pnl: Record<string, unknown>): TreeRow[] {
+function buildRiskTree(pnl: Record<string, unknown>, conc: ConcStats | null): TreeRow[] {
   const n = (k: string): number | null => (pnl[k] as number | null | undefined) ?? null;
   const diff = (mk: string, bk: string): number | null => {
     const m = n(mk), b = n(bk);
@@ -621,17 +665,17 @@ function buildRiskTree(pnl: Record<string, unknown>): TreeRow[] {
         {
           id: "top_h", label: "Top Holdings (%)", values: N(),
           children: [
-            { id: "top5_h",  label: "Top 5 Holdings (%)",  values: N() },
-            { id: "top10_h", label: "Top 10 Holdings (%)", values: N() },
-            { id: "top20_h", label: "Top 20 Holdings (%)", values: N() },
+            { id: "top5_h",  label: "Top 5 Holdings (%)",  values: { Main: conc?.top5_weight  ?? null, Benchmark: null, Active: null } },
+            { id: "top10_h", label: "Top 10 Holdings (%)", values: { Main: conc?.top10_weight ?? null, Benchmark: null, Active: null } },
+            { id: "top20_h", label: "Top 20 Holdings (%)", values: { Main: conc?.top20_weight ?? null, Benchmark: null, Active: null } },
           ],
         },
         {
           id: "top_tr", label: "Top Total Risk Contribution (%)", values: N(),
           children: [
-            { id: "top5_tr",  label: "Top 5 Total Risk Contribution (%)",  values: N() },
-            { id: "top10_tr", label: "Top 10 Total Risk Contribution (%)", values: N() },
-            { id: "top20_tr", label: "Top 20 Total Risk Contribution (%)", values: N() },
+            { id: "top5_tr",  label: "Top 5 Total Risk Contribution (%)",  values: { Main: conc?.top5_risk  ?? null, Benchmark: null, Active: null } },
+            { id: "top10_tr", label: "Top 10 Total Risk Contribution (%)", values: { Main: conc?.top10_risk ?? null, Benchmark: null, Active: null } },
+            { id: "top20_tr", label: "Top 20 Total Risk Contribution (%)", values: { Main: conc?.top20_risk ?? null, Benchmark: null, Active: null } },
           ],
         },
         {
@@ -747,6 +791,10 @@ export default function ReturnsAndRiskPage() {
   const holdings = (analyticsData.holdings_detail as Pt[] | undefined) ?? [];
   const factors = (analyticsData.factor_detail as Pt[] | undefined) ?? [];
   const brinsonObj = (analyticsData.brinson as Record<string, unknown> | undefined) ?? {};
+  const fdt = (analyticsData.factor_decomp_ts as Pt[] | undefined) ?? [];
+  const conc          = computeConcentration(holdings);
+  const factorSharpe  = computeFactorSharpe(fdt);
+  const factorSortino = computeFactorSortino(fdt);
   const brinsonByMcap   = (brinsonObj.by_mcap   as Pt[] | undefined) ?? [];
   const brinsonBySector = (brinsonObj.by_sector  as Pt[] | undefined) ?? [];
 
@@ -791,8 +839,8 @@ export default function ReturnsAndRiskPage() {
     "return_contribution_pct";
   const nameKey = contributorTab === "factor" ? "factor_name" : "symbol";
 
-  const pnlTree  = buildPnLTree(pnl);
-  const riskTree = buildRiskTree(pnl);
+  const pnlTree  = buildPnLTree(pnl, factorSharpe, factorSortino);
+  const riskTree = buildRiskTree(pnl, conc);
   const valTree  = buildValuationTree(pnl);
 
   const treeCols: TreeColumn[] = [
