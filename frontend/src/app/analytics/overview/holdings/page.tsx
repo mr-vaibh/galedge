@@ -29,7 +29,6 @@ interface HoldingDetail {
   avg_weight?: number;
   raw_return_pct?: number;
   total_return_contribution_pct?: number;
-  total_risk_contribution_pct?: number;
   idio_raw_return_pct?: number;
   idio_return_pct?: number;
   [key: string]: unknown;
@@ -95,7 +94,7 @@ function getHoldingField(kpi: string, h: HoldingDetail): number {
     case "holdings_pct":          return Number(h.avg_weight ?? h.holdings_pct ?? 0);
     case "raw_return_pct":        return Number(h.raw_return_pct ?? 0);
     case "total_return_pct":      return Number(h.total_return_contribution_pct ?? 0);
-    case "total_risk_contrib_pct":return Number(h.total_risk_contribution_pct ?? 0);
+    case "total_risk_contrib_pct":return Number((h as Record<string, unknown>).risk_contribution_pct ?? 0);
     case "idio_raw_return_pct":   return Number(h.idio_raw_return_pct ?? 0);
     case "idio_return_pct":       return Number(h.idio_return_pct ?? 0);
     case "idio_risk_contrib_pct": return Number((h as Record<string, unknown>).risk_contribution_pct ?? 0);
@@ -225,7 +224,7 @@ export default function HoldingsSummaryPage() {
                     <td className="px-2 py-1"><ColoredCell value={fmt(Number(h.avg_weight ?? h.holdings_pct ?? 0))} /></td>
                     <td className="px-2 py-1"><ColoredCell value={fmt(h.raw_return_pct)} /></td>
                     <td className="px-2 py-1"><ColoredCell value={fmt(h.total_return_contribution_pct)} /></td>
-                    <td className="px-2 py-1"><ColoredCell value={fmt(h.total_risk_contribution_pct)} /></td>
+                    <td className="px-2 py-1"><ColoredCell value={fmt((h as Record<string, unknown>).risk_contribution_pct)} /></td>
                     <td className="px-2 py-1"><ColoredCell value={fmt((h as Record<string, unknown>).idio_raw_return_pct)} /></td>
                     <td className="px-2 py-1"><ColoredCell value={fmt(h.idio_return_pct)} /></td>
                     <td className="px-2 py-1"><ColoredCell value={fmt((h as Record<string, unknown>).idio_risk_contribution_pct ?? (h as Record<string, unknown>).risk_contribution_pct)} /></td>

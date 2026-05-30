@@ -21,6 +21,7 @@ interface EventReturn {
   portfolio_return?: number;
   benchmark_return_pct?: number;
   benchmark_return?: number;
+  excess_pct?: number;
   excess_return_pct?: number;
   excess?: number;
   [key: string]: unknown;
@@ -53,7 +54,7 @@ function getBmRet(e: EventReturn): number {
   return Number(e.benchmark_return_pct ?? e.benchmark_return ?? 0);
 }
 function getExcess(e: EventReturn): number {
-  return Number(e.excess_return_pct ?? e.excess ?? (getPortRet(e) - getBmRet(e)));
+  return Number(e.excess_pct ?? e.excess_return_pct ?? e.excess ?? (getPortRet(e) - getBmRet(e)));
 }
 function getStart(e: EventReturn): string {
   return String(e.start ?? e.start_date ?? "—");

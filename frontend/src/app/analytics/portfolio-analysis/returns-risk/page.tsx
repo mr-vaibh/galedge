@@ -402,11 +402,19 @@ function ValuationChartCard({
 function DimensionChartCard({ analyticsData }: { analyticsData: Record<string, unknown> }) {
   const [kpi, setKpi] = useState<DimensionKpi>("market_cap");
 
-  const ms = (analyticsData.mcap_slicing as Pt[] | undefined) ?? [];
+  const mcapSlicing    = (analyticsData.mcap_slicing     as Pt[] | undefined) ?? [];
+  const sectorSlicing  = (analyticsData.sector_slicing   as Pt[] | undefined) ?? [];
+  const industrySlicing = (analyticsData.industry_slicing as Pt[] | undefined) ?? [];
+
+  const slicingData: Pt[] =
+    kpi === "sector"   ? sectorSlicing :
+    kpi === "industry" ? industrySlicing :
+    kpi === "market_cap" ? mcapSlicing :
+    [];
 
   const label = DIMENSION_KPIS.find((k) => k.value === kpi)?.label ?? kpi;
 
-  const barData: SvgBarDatum[] = ms.map((r) => ({
+  const barData: SvgBarDatum[] = slicingData.map((r) => ({
     name: String(r.bucket ?? r.name ?? ""),
     alloc: Number(r.allocation_effect ?? r.allocation_pct ?? r.allocation ?? 0),
     select: Number(r.selection_effect ?? r.selection_pct ?? r.selection ?? 0),
@@ -420,15 +428,11 @@ function DimensionChartCard({ analyticsData }: { analyticsData: Record<string, u
         <CardControls />
       </CardHeader>
       <CardContent className="p-2">
-        {kpi !== "market_cap" ? (
-          <div className="h-44 flex items-center justify-center text-[10px] text-muted-foreground">
-            No data for {label}
-          </div>
-        ) : barData.length > 0 ? (
+        {barData.length > 0 ? (
           <SvgBarChart data={barData} height={180} />
         ) : (
           <div className="h-44 flex items-center justify-center text-[10px] text-muted-foreground">
-            No data
+            No data for {label}
           </div>
         )}
       </CardContent>
