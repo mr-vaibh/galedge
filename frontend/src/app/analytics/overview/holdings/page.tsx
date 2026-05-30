@@ -165,13 +165,18 @@ export default function HoldingsSummaryPage() {
     });
   }
 
-  // Horizontal bar data sorted by KPI value (absolute), top 20
+  // Horizontal bar data — respect selection, sorted by KPI value (absolute), top 20
   const holdingBarData = [...holdings]
+    .filter(h => selectedHoldings.size === 0 || selectedHoldings.has(h.symbol))
     .sort((a, b) => Math.abs(getHoldingField(holdingKpi, b)) - Math.abs(getHoldingField(holdingKpi, a)))
     .slice(0, 20)
     .map(h => ({ name: String(h.symbol ?? "").replace(".NS", ""), value: getHoldingField(holdingKpi, h) }));
 
   const factorBarData = [...factors]
+    .filter(f => {
+      const fname = String(f.factor_name ?? f.factor ?? "");
+      return selectedFactors.size === 0 || selectedFactors.has(fname);
+    })
     .sort((a, b) => Math.abs(getFactorField(factorKpi, b)) - Math.abs(getFactorField(factorKpi, a)))
     .slice(0, 20)
     .map(f => ({ name: String(f.factor_name ?? f.factor ?? ""), value: getFactorField(factorKpi, f) }));

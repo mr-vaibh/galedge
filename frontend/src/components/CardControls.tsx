@@ -105,30 +105,26 @@ export function CardControls({ data, filename = "export", info, title, expandCon
     <>
       <div ref={containerRef} className="flex items-center gap-0.5 relative">
         {/* Filter */}
-        {canFilter ? (
-          <Tooltip>
-            <TooltipTrigger>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`h-6 w-6 relative ${hasFilters ? "text-emerald-400" : ""}`}
-                onClick={() => setShowFilter(!showFilter)}
-              >
-                <Filter className="h-3 w-3" />
-                {hasFilters && (
-                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full text-[7px] text-white flex items-center justify-center font-bold">
-                    {filters.length + (sort ? 1 : 0)}
-                  </span>
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom"><p className="text-[10px]">{hasFilters ? `${filters.length} filter(s) active` : "Filter & Sort"}</p></TooltipContent>
-          </Tooltip>
-        ) : (
-          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-20 cursor-default">
-            <Filter className="h-3 w-3" />
-          </Button>
-        )}
+        <Tooltip>
+          <TooltipTrigger>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-6 w-6 relative ${hasFilters ? "text-emerald-400" : ""}`}
+              onClick={canFilter ? () => setShowFilter(!showFilter) : undefined}
+            >
+              <Filter className="h-3 w-3" />
+              {hasFilters && (
+                <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full text-[7px] text-white flex items-center justify-center font-bold">
+                  {filters.length + (sort ? 1 : 0)}
+                </span>
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p className="text-[10px]">{!canFilter ? "No data to filter" : hasFilters ? `${filters.length} filter(s) active` : "Filter & Sort"}</p>
+          </TooltipContent>
+        </Tooltip>
 
         {/* Info */}
         <Tooltip>
@@ -143,20 +139,21 @@ export function CardControls({ data, filename = "export", info, title, expandCon
         </Tooltip>
 
         {/* Expand */}
-        {canExpand ? (
-          <Tooltip>
-            <TooltipTrigger>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleExpand}>
-                <Maximize2 className="h-3 w-3" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom"><p className="text-[10px]">Expand</p></TooltipContent>
-          </Tooltip>
-        ) : (
-          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-20 cursor-default">
-            <Maximize2 className="h-3 w-3" />
-          </Button>
-        )}
+        <Tooltip>
+          <TooltipTrigger>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={canExpand ? handleExpand : undefined}
+            >
+              <Maximize2 className="h-3 w-3" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p className="text-[10px]">{canExpand ? "Expand" : "No expandable view"}</p>
+          </TooltipContent>
+        </Tooltip>
 
         {/* Download */}
         <Tooltip>
