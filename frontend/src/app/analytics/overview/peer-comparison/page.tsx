@@ -443,6 +443,7 @@ export default function PeerComparisonPage() {
   const [error, setError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [view, setView] = useState<"Main" | "Active">("Main");
 
   // Per-chart KPI state
   const [returnKpi, setReturnKpi] = useState<ReturnKpi>("total_return");
@@ -686,6 +687,25 @@ export default function PeerComparisonPage() {
 
   const anyLoading = loading || loadingPerf.size > 0;
 
+  // ── Active/Main value resolver ────────────────────────────────────────────
+  function getPortVal(p: PerfMetrics, key: string): number | undefined {
+    const rawVal = (p as unknown as Record<string, number | undefined>)[key];
+    if (view !== "Active") return rawVal;
+    const bmMap: Partial<Record<string, keyof NonNullable<PerfMetrics["benchmark_metrics"]>>> = {
+      total_return: "total_return",
+      annualised_return: "annualised_return",
+      sharpe_ratio: "sharpe_ratio",
+      volatility: "volatility",
+      max_drawdown: "max_drawdown",
+    };
+    const bKey = bmMap[key];
+    if (bKey && p.benchmark_metrics) {
+      const bm = p.benchmark_metrics[bKey];
+      if (rawVal != null && bm != null) return Math.round((rawVal - bm) * 10000) / 10000;
+    }
+    return rawVal;
+  }
+
   // ── Table rendering helper ────────────────────────────────────────────────
   function renderRowTree(rows: TableRow[], showBenchmark: boolean, depth = 0): React.ReactNode[] {
     const paddingLeft = depth === 0 ? "px-3" : depth === 1 ? "pl-9 pr-3" : `pl-${9 + (depth - 1) * 4} pr-3`;
@@ -698,7 +718,7 @@ export default function PeerComparisonPage() {
       const hasChildren = row.children && row.children.length > 0;
       const isExpanded = expandedRows.has(row.key);
       const vals = comparedPerf
-        .map((p) => (p as unknown as Record<string, number | undefined>)[row.key])
+        .map((p) => getPortVal(p, row.key))
         .filter((v): v is number => v != null);
       const isHigherBetter = row.key !== "volatility" && row.key !== "max_drawdown";
       const bestVal = vals.length > 0 && comparedPerf.length > 1 ? (isHigherBetter ? Math.max(...vals) : Math.min(...vals)) : null;
@@ -717,7 +737,7 @@ export default function PeerComparisonPage() {
             </span>
           </td>
           {comparedPerf.map((p) => {
-            const val = (p as unknown as Record<string, number | undefined>)[row.key];
+            const val = getPortVal(p, row.key);
             const formatted = row.format(val ?? null);
             const isNeg = typeof formatted === "string" && formatted.startsWith("-");
             const isBest = val != null && bestVal != null && val === bestVal;
@@ -767,12 +787,25 @@ export default function PeerComparisonPage() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">Peer Comparison</h1>
-          <p className="text-xs text-muted-foreground">
-            Comparing <span className="font-medium text-foreground">{comparedPerf.length}</span> portfolio{comparedPerf.length !== 1 ? "s" : ""}
-            {includeBenchmark && benchmarkName ? ` + ${benchmarkName}` : ""}
-          </p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-xl font-bold">Peer Comparison</h1>
+            <p className="text-xs text-muted-foreground">
+              Comparing <span className="font-medium text-foreground">{comparedPerf.length}</span> portfolio{comparedPerf.length !== 1 ? "s" : ""}
+              {includeBenchmark && benchmarkName ? ` + ${benchmarkName}` : ""}
+            </p>
+          </div>
+          <div className="flex items-center gap-0.5 bg-muted/30 rounded-lg p-0.5 border border-border/40">
+            {(["Active", "Main"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`px-2 py-1 text-[10px] font-medium rounded-md transition-all ${view === v ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex items-center gap-1 bg-card border rounded-lg p-0.5">
           {overviewTabs.map((tab) => (
@@ -900,105 +933,42 @@ export default function PeerComparisonPage() {
         </Card>
       ) : (
         <>
-          {/* ── Comparison Table (3 sections) ─────────────────────── */}
-          <Card>
-            <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
-              <CardTitle className="text-[11px]">Side-by-Side Comparison</CardTitle>
-              <CardControls
-                title="Side-by-Side Comparison"
-                info="Compare metrics across multiple portfolios and benchmark. Green highlight = best in class. Click the chevron to expand a row's sub-metrics."
-                expandContent={
-                  <div className="overflow-auto">
+          {/* ── Comparison Tables (3 separate cards) ──────────────── */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            {TABLE_SECTIONS.map((section) => (
+              <Card key={section.title}>
+                <CardHeader className="pb-1 py-2 px-3 flex-row items-center justify-between">
+                  <CardTitle className="text-[11px]">{section.title}</CardTitle>
+                  <CardControls
+                    title={section.title}
+                    info={`${view === "Active" ? "Active (portfolio minus benchmark)" : "Absolute portfolio"} metrics. Green = best in class. Click chevron to expand sub-metrics.`}
+                  />
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
                     <table className="w-full text-[10px]">
                       <thead>
                         <tr className="border-b border-border/50">
-                          <th className="px-3 py-2 text-left text-muted-foreground font-medium sticky left-0 bg-card z-10">Metric</th>
+                          <th className="px-3 py-2 text-left text-muted-foreground font-medium sticky left-0 bg-card z-10 min-w-[130px]">Metric</th>
                           {comparedPerf.map((p, i) => (
                             <th key={p.portfolio_id} className="px-3 py-2 text-right font-medium" style={{ color: COLORS[i % COLORS.length] }}>
                               <div className="flex items-center justify-end gap-1">
                                 <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                                {p.fund_name}
+                                {p.fund_name.length > 12 ? p.fund_name.slice(0, 12) + "…" : p.fund_name}
                               </div>
                             </th>
                           ))}
-                          {includeBenchmark && benchmarkMetrics && (
-                            <th className="px-3 py-2 text-right font-medium text-blue-400">
-                              <div className="flex items-center justify-end gap-1">
-                                <span className="w-2 h-2 rounded-full bg-blue-500" />
-                                {benchmarkName}
-                              </div>
-                            </th>
-                          )}
                         </tr>
                       </thead>
                       <tbody>
-                        {/* Legacy flat metrics in expand view */}
-                        {METRICS_CONFIG.map(({ label, key, format }) => {
-                          const vals = comparedPerf.map((p) => p[key as keyof PerfMetrics] as number | undefined).filter((v): v is number => v != null);
-                          const isHigherBetter = key !== "volatility" && key !== "max_drawdown";
-                          const bestVal = vals.length > 0 ? (isHigherBetter ? Math.max(...vals) : Math.min(...vals)) : null;
-                          return (
-                            <tr key={label} className="border-b border-border/30 hover:bg-muted/10">
-                              <td className="px-3 py-1.5 text-muted-foreground sticky left-0 bg-card z-10">{label}</td>
-                              {comparedPerf.map((p) => {
-                                const val = p[key as keyof PerfMetrics] as number | undefined;
-                                const formatted = format(val ?? null);
-                                const isNeg = typeof formatted === "string" && formatted.startsWith("-");
-                                const isBest = val != null && bestVal != null && val === bestVal && comparedPerf.length > 1;
-                                return (
-                                  <td key={p.portfolio_id} className={`px-3 py-1.5 text-right tabular-nums font-medium ${isNeg ? "text-red-400" : ""} ${isBest ? "bg-emerald-500/10" : ""}`}>
-                                    {formatted}
-                                    {isBest && <span className="text-[7px] text-emerald-400 ml-1">best</span>}
-                                  </td>
-                                );
-                              })}
-                              {includeBenchmark && benchmarkMetrics && (
-                                <td className="px-3 py-1.5 text-right tabular-nums text-blue-400/80">
-                                  {key === "num_holdings" || key === "total_aum_cr" || key === "trading_days"
-                                    ? "—"
-                                    : format((benchmarkMetrics as Record<string, number>)[key] ?? null)}
-                                </td>
-                              )}
-                            </tr>
-                          );
-                        })}
+                        {renderRowTree(section.rows, false)}
                       </tbody>
                     </table>
                   </div>
-                }
-              />
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-[10px]">
-                  <thead>
-                    <tr className="border-b border-border/50">
-                      <th className="px-3 py-2 text-left text-muted-foreground font-medium sticky left-0 bg-card z-10">Metric</th>
-                      {comparedPerf.map((p, i) => (
-                        <th key={p.portfolio_id} className="px-3 py-2 text-right font-medium" style={{ color: COLORS[i % COLORS.length] }}>
-                          <div className="flex items-center justify-end gap-1">
-                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                            {p.fund_name}
-                          </div>
-                        </th>
-                      ))}
-                      {includeBenchmark && benchmarkMetrics && (
-                        <th className="px-3 py-2 text-right font-medium text-blue-400">
-                          <div className="flex items-center justify-end gap-1">
-                            <span className="w-2 h-2 rounded-full bg-blue-500" />
-                            {benchmarkName}
-                          </div>
-                        </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {renderTableRows(includeBenchmark)}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
           {/* ── Charts (3 independent KPI dropdowns) ──────────────── */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
